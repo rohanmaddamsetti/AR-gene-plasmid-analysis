@@ -6,6 +6,8 @@
 ## TODO: weigh hits by the number of genes on the chromosome or the plasmids.
 ## TODO: expand analysis to additional query sets of antibiotic resistance genes:
 ## 1) Resfams 2) CARD 3) Carolyn's annotated resistance genes.
+## See the methods used w.r.t. Resfams and CARD in the Genetic Dominance
+## paper from Alvaro San Millan's lab.
 
 ## CRITICAL TODO: re-annotate manually-curated-gbk-annotation-table.csv
 ## using the updated gbk-annotation table. This will add ~300 extra genomes
@@ -93,14 +95,14 @@ Conlan.strains %in% protein.db.metadata$Strain
 IS.keywords <- "IS|transposon|Transposase|transposase|hypothetical protein|Phage|phage|integrase|Integrase|tail|intron|Mobile|mobile|antitoxin|toxin"
 
 ## now look at a few antibiotic-specific annotations.
-antibiotic.keywords <- "lactamase|chloramphenicol|quinolone"
+antibiotic.keywords <- "lactamase|chloramphenicol|quinolone|antibiotic resistance|tetracycline|VanZ"
 
 ## IMPORTANT TODO: Use the same regular expressions used by Zeevi et al. (2019).
 ## Transposon: ‘transpos\S*|insertion|Tra[A-Z]|Tra[0-9]|IS[0-9]|conjugate transposon’
 ## plasmid: ‘relax\S*|conjug\S*|mob\S*|plasmid|type IV|chromosome partitioning|chromosome segregation’
 ## phage: ‘capsid|phage|tail|head|tape measure|antiterminatio’
 ## other HGT mechanisms: ‘integrase|excision\S*|exo- nuclease|recomb|toxin|restrict\S*|resolv\S*|topoisomerase|reverse transcrip’
-## antibiotic resistance: ‘azole resistance|antibiotic resistance|TetR|tetracycline resist- ance|VanZ|betalactam\S*|beta-lactam|antimicrob\S*|lantibio\S*’.
+## antibiotic resistance: ‘azole resistance|antibiotic resistance|TetR|tetracycline resistance|VanZ|betalactam\S*|beta-lactam|antimicrob\S*|lantibio\S*’.
 
 naive.HGT.data <- read.csv("../results/naive-HGT.csv") %>%
     ## now merge with good gbk annotation.
@@ -197,14 +199,20 @@ length(unique(good.AR.naive.HGT.data$Annotation_Accession))
 ## 311 isolates with duplicate AR genes in the well-annotated set.
 
 ###############
-## calculate number of isolates in each category.
-category.counts <- good.naive.HGT.data %>%
+## count the number of isolates in each category, with or without duplications.
+tally.of.isolates <- good.gbk.annotation %>%
+    group_by(Manual_Annotation) %>%
+    summarize(category_count = n()) %>%
+    arrange(desc(category_count))
+
+## calculate number of isolates with duplications in each category.
+tally.of.isolates.with.dups <- good.naive.HGT.data %>%
     ## next two lines is to count isolates rather than genes
     select(-count,-chromosome_count,-plasmid_count,-product,-sequence) %>%
     distinct() %>%
     group_by(Manual_Annotation) %>%
-    summarize(category_count = n()) %>%
-    arrange(desc(category_count))
+    summarize(isolates.with.dups.count = n()) %>%
+    arrange(desc(isolates.with.dups.count))
 
 ## calculate number of isolates in each category, with AR genes
 AR.category.counts <- good.AR.naive.HGT.data %>%
@@ -322,82 +330,109 @@ Fig1.panels <- plot_grid(Fig1A,Fig1B,Fig1C,Fig1D,
 Fig1 <- plot_grid(Fig1.panels,Fig1.legend,ncol=2)
 ggsave("../results/Fig1.pdf",Fig1)
 
-## Fig2A. Average copy number of duplicated genes
+## Fig2A. number of duplicated genes in each category,
+## normalized by number of isolates in each category.
+
+## IMPORTANT: we want to normalize by number of isolates in each category,
+## so left_join with tally.of.isolates.
 
 Fig2A.data <- good.naive.HGT.data %>%
-    group_by(Manual_Annotation) %>%
-    summarize(average.copy.num =  mean(count),
-              average.chromosome.copies = mean(chromosome_count),
-              average.plasmid.copies = mean(plasmid_count))
+    left_join(tally.of.isolates) %>%
+    group_by(Manual_Annotation, category_count) %>%
+    summarize(average.duplicate.genes =  sum(count)/unique(category_count),
+              average.chromosomal.duplicates = sum(chromosome_count)/unique(category_count),
+              average.plasmid.duplicates = sum(plasmid_count)/unique(category_count))
+
 ## Fig2B. Average copy number of duplicated ARG genes
-
 Fig2B.data <- good.AR.naive.HGT.data %>%
-    group_by(Manual_Annotation) %>%
-    summarize(average.AR.copy.num =  mean(count),
-              average.AR.chromosome.copies = mean(chromosome_count),
-              average.AR.plasmid.copies = mean(plasmid_count))
+    left_join(tally.of.isolates) %>%
+    group_by(Manual_Annotation, category_count) %>%
+    summarize(average.duplicate.genes =  sum(count)/unique(category_count),
+              average.chromosomal.duplicates = sum(chromosome_count)/unique(category_count),
+              average.plasmid.duplicates = sum(plasmid_count)/unique(category_count))
 
-## Fig3. Show average number of genes on just chromosome, just plasmid, or on both,
+
+## Fig3. Show average number of duplicate genes on just chromosome, just plasmid, or on both,
 ## per category (normalize by number of genomes in each category).
 
 Fig3A.data <- just.chromosome.cases %>%
-    group_by(Manual_Annotation) %>%
-    summarize(average.just.chromosome.copy.num =  mean(count))
+    left_join(tally.of.isolates) %>%
+    group_by(Manual_Annotation, category_count) %>%
+    summarize(average.just.chromosome.copy.num =  sum(count)/unique(category_count))
 
 Fig3B.data <- just.plasmid.cases %>%
-    group_by(Manual_Annotation) %>%
-    summarize(average.just.plasmid.copy.num =  mean(count))
+    left_join(tally.of.isolates) %>%
+    group_by(Manual_Annotation, category_count) %>%
+    summarize(average.just.plasmid.copy.num =  sum(count)/unique(category_count))
 
 Fig3C.data <- both.chr.and.plasmid.cases %>%
-    group_by(Manual_Annotation) %>%
-    summarize(average.on.both.chromosome.and.plasmid.copy.num =  mean(count),
-              average.chromosome.copies = mean(chromosome_count),
-              average.plasmid.copies = mean(plasmid_count))
+    left_join(tally.of.isolates) %>%
+    group_by(Manual_Annotation, category_count) %>%
+    summarize(average.on.both.chromosome.and.plasmid.copy.num =  sum(count)/unique(category_count))
+
+Fig3.data <- Fig3A.data %>%
+    full_join(Fig3B.data) %>%
+    full_join(Fig3C.data) %>%
+    ## missing values are zeros.
+    mutate_all(~replace(., is.na(.), 0)) %>%
+    select(-category_count)
+
 
 ## Fig4. Show average number of genes on just chromosome, just plasmid, or on both,
 ## per category (normalize by number of genomes in each category).
 ## Exclude MGEs.
 
 Fig4A.data <- just.chromosome.cases %>%
+    left_join(tally.of.isolates) %>%
     filter(!str_detect(.$product,IS.keywords)) %>%
-    group_by(Manual_Annotation) %>%
-    summarize(average.just.chromosome.copy.num =  mean(count))
+    group_by(Manual_Annotation, category_count) %>%
+    summarize(average.just.chromosome.copy.num =  sum(count)/unique(category_count))
 
 Fig4B.data <- just.plasmid.cases %>%
+    left_join(tally.of.isolates) %>%
     filter(!str_detect(.$product,IS.keywords)) %>%
-    group_by(Manual_Annotation) %>%
-    summarize(average.just.plasmid.copy.num =  mean(count))
+    group_by(Manual_Annotation, category_count) %>%
+    summarize(average.just.plasmid.copy.num =  sum(count)/unique(category_count))
 
 Fig4C.data <- both.chr.and.plasmid.cases %>%
+    left_join(tally.of.isolates) %>%
     filter(!str_detect(.$product,IS.keywords)) %>%
-    group_by(Manual_Annotation) %>%
-    summarize(average.on.both.chromosome.and.plasmid.copy.num =  mean(count),
-              average.chromosome.copies = mean(chromosome_count),
-              average.plasmid.copies = mean(plasmid_count))
+    group_by(Manual_Annotation, category_count) %>%
+    summarize(average.on.both.chromosome.and.plasmid.copy.num =  sum(count)/unique(category_count))
 
+Fig4.data <- Fig4A.data %>%
+    full_join(Fig4B.data) %>%
+    full_join(Fig4C.data) %>%
+    ## missing values are zeros.
+    mutate_all(~replace(., is.na(.), 0)) %>%
+    select(-category_count)
 
 ## Fig5. Show average number of AR genes on just chromosome, just plasmid, or on both,
 ## per category (normalize by number of genomes in each category).
 
 Fig5A.data <- just.chromosome.cases %>%
+    left_join(tally.of.isolates) %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
-    group_by(Manual_Annotation) %>%
-    summarize(average.just.chromosome.copy.num =  mean(count))
+    group_by(Manual_Annotation, category_count) %>%
+    summarize(average.just.chromosome.copy.num =  sum(count)/unique(category_count))
 
 Fig5B.data <- just.plasmid.cases %>%
+    left_join(tally.of.isolates) %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
-    group_by(Manual_Annotation) %>%
-    summarize(average.just.plasmid.copy.num =  mean(count))
+    group_by(Manual_Annotation, category_count) %>%
+    summarize(average.just.plasmid.copy.num =  sum(count)/unique(category_count))
 
 Fig5C.data <- both.chr.and.plasmid.cases %>%
+    left_join(tally.of.isolates) %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
-    group_by(Manual_Annotation) %>%
-    summarize(average.on.both.chromosome.and.plasmid.copy.num =  mean(count),
-              average.chromosome.copies = mean(chromosome_count),
-              average.plasmid.copies = mean(plasmid_count))
+    group_by(Manual_Annotation, category_count) %>%
+    summarize(average.on.both.chromosome.and.plasmid.copy.num =  sum(count)/unique(category_count))
 
-
-
+Fig5.data <- Fig5A.data %>%
+    full_join(Fig5B.data) %>%
+    full_join(Fig5C.data) %>%
+    ## missing values are zeros.
+    mutate_all(~replace(., is.na(.), 0))
 
 #########################################################################################
 ## older plots.
