@@ -339,18 +339,41 @@ ggsave("../results/Fig1.pdf",Fig1)
 Fig2A.data <- good.naive.HGT.data %>%
     left_join(tally.of.isolates) %>%
     group_by(Manual_Annotation, category_count) %>%
-    summarize(average.duplicate.genes =  sum(count)/unique(category_count),
-              average.chromosomal.duplicates = sum(chromosome_count)/unique(category_count),
-              average.plasmid.duplicates = sum(plasmid_count)/unique(category_count))
+    summarize(all.duplicates =  sum(count)/unique(category_count),
+              on.chromosome = sum(chromosome_count)/unique(category_count),
+              on.plasmid = sum(plasmid_count)/unique(category_count)) %>%
+    ## reshape the data wity tidyr to plot each category on the x-axis.
+    gather(`all.duplicates`, `on.chromosome`, `on.plasmid`,
+           key='duplicate_location',value='mean_number')
 
-## Fig2B. Average copy number of duplicated ARG genes
+Fig2A <- ggplot(data=Fig2A.data,
+                aes(x=duplicate_location,
+                    y=mean_number,
+                    fill=Manual_Annotation)) +
+    geom_bar(stat="identity") +
+    theme_classic() + ggtitle("average number of duplicates per genome")
+
+## Fig2B. Average number of duplicated ARG genes in each category.
 Fig2B.data <- good.AR.naive.HGT.data %>%
     left_join(tally.of.isolates) %>%
     group_by(Manual_Annotation, category_count) %>%
-    summarize(average.duplicate.genes =  sum(count)/unique(category_count),
-              average.chromosomal.duplicates = sum(chromosome_count)/unique(category_count),
-              average.plasmid.duplicates = sum(plasmid_count)/unique(category_count))
+    summarize(all.duplicates =  sum(count)/unique(category_count),
+              on.chromosome = sum(chromosome_count)/unique(category_count),
+              on.plasmid = sum(plasmid_count)/unique(category_count)) %>%
+    ## reshape the data wity tidyr to plot each category on the x-axis.
+    gather(`all.duplicates`,`on.chromosome`,`on.plasmid`,
+           key='AR_duplicate_location',value='mean_number')
 
+Fig2B <- ggplot(data=Fig2B.data,
+                aes(x=AR_duplicate_location,
+                    y=mean_number,
+                    fill=Manual_Annotation)) +
+    geom_bar(stat="identity") +
+    theme_classic() + ggtitle("average number of AR duplicates per genome")
+
+Fig2.panels <- plot_grid(Fig2A,Fig2B,
+                  labels=c('A','B'),ncol=1)
+ggsave("../results/Fig2.pdf",Fig2.panels)
 
 ## Fig3. Show average number of duplicate genes on just chromosome, just plasmid, or on both,
 ## per category (normalize by number of genomes in each category).
@@ -358,25 +381,35 @@ Fig2B.data <- good.AR.naive.HGT.data %>%
 Fig3A.data <- just.chromosome.cases %>%
     left_join(tally.of.isolates) %>%
     group_by(Manual_Annotation, category_count) %>%
-    summarize(average.just.chromosome.copy.num =  sum(count)/unique(category_count))
+    summarize(only.on.chromosome =  sum(count)/unique(category_count))
 
 Fig3B.data <- just.plasmid.cases %>%
     left_join(tally.of.isolates) %>%
     group_by(Manual_Annotation, category_count) %>%
-    summarize(average.just.plasmid.copy.num =  sum(count)/unique(category_count))
+    summarize(only.on.plasmid =  sum(count)/unique(category_count))
 
 Fig3C.data <- both.chr.and.plasmid.cases %>%
     left_join(tally.of.isolates) %>%
     group_by(Manual_Annotation, category_count) %>%
-    summarize(average.on.both.chromosome.and.plasmid.copy.num =  sum(count)/unique(category_count))
+    summarize(on.both =  sum(count)/unique(category_count))
 
 Fig3.data <- Fig3A.data %>%
     full_join(Fig3B.data) %>%
     full_join(Fig3C.data) %>%
     ## missing values are zeros.
     mutate_all(~replace(., is.na(.), 0)) %>%
-    select(-category_count)
+    select(-category_count) %>%
+    ## reshape the data wity tidyr to plot each category on the x-axis.
+    gather(`only.on.chromosome`,`only.on.plasmid`,`on.both`,
+           key='duplicate_location',value='mean_number')
 
+Fig3 <- ggplot(data=Fig3.data,
+                aes(x=duplicate_location,
+                    y=mean_number,
+                    fill=Manual_Annotation)) +
+    geom_bar(stat="identity") +
+    theme_classic() + ggtitle("location of duplicates in the genome")
+ggsave("../results/Fig3.pdf",Fig3)
 
 ## Fig4. Show average number of genes on just chromosome, just plasmid, or on both,
 ## per category (normalize by number of genomes in each category).
@@ -386,26 +419,39 @@ Fig4A.data <- just.chromosome.cases %>%
     left_join(tally.of.isolates) %>%
     filter(!str_detect(.$product,IS.keywords)) %>%
     group_by(Manual_Annotation, category_count) %>%
-    summarize(average.just.chromosome.copy.num =  sum(count)/unique(category_count))
+    summarize(only.on.chromosome =  sum(count)/unique(category_count))
 
 Fig4B.data <- just.plasmid.cases %>%
     left_join(tally.of.isolates) %>%
     filter(!str_detect(.$product,IS.keywords)) %>%
     group_by(Manual_Annotation, category_count) %>%
-    summarize(average.just.plasmid.copy.num =  sum(count)/unique(category_count))
+    summarize(only.on.plasmid =  sum(count)/unique(category_count))
 
 Fig4C.data <- both.chr.and.plasmid.cases %>%
     left_join(tally.of.isolates) %>%
     filter(!str_detect(.$product,IS.keywords)) %>%
     group_by(Manual_Annotation, category_count) %>%
-    summarize(average.on.both.chromosome.and.plasmid.copy.num =  sum(count)/unique(category_count))
+    summarize(on.both = sum(count)/unique(category_count))
 
 Fig4.data <- Fig4A.data %>%
     full_join(Fig4B.data) %>%
     full_join(Fig4C.data) %>%
     ## missing values are zeros.
     mutate_all(~replace(., is.na(.), 0)) %>%
-    select(-category_count)
+    select(-category_count) %>%
+    ## reshape the data wity tidyr to plot each category on the x-axis.
+    gather(`only.on.chromosome`,`only.on.plasmid`, `on.both`,
+           key='duplicate_location',value='mean_number')
+
+Fig4 <- ggplot(data=Fig4.data,
+                aes(x=duplicate_location,
+                    y=mean_number,
+                    fill=Manual_Annotation)) +
+    geom_bar(stat="identity") +
+    theme_classic() + ggtitle("location of duplicates in the genome (excluding MGEs)")
+ggsave("../results/Fig4.pdf",Fig4)
+
+
 
 ## Fig5. Show average number of AR genes on just chromosome, just plasmid, or on both,
 ## per category (normalize by number of genomes in each category).
@@ -414,25 +460,36 @@ Fig5A.data <- just.chromosome.cases %>%
     left_join(tally.of.isolates) %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
     group_by(Manual_Annotation, category_count) %>%
-    summarize(average.just.chromosome.copy.num =  sum(count)/unique(category_count))
+    summarize(only.on.chromosome =  sum(count)/unique(category_count))
 
 Fig5B.data <- just.plasmid.cases %>%
     left_join(tally.of.isolates) %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
     group_by(Manual_Annotation, category_count) %>%
-    summarize(average.just.plasmid.copy.num =  sum(count)/unique(category_count))
+    summarize(only.on.plasmid =  sum(count)/unique(category_count))
 
 Fig5C.data <- both.chr.and.plasmid.cases %>%
     left_join(tally.of.isolates) %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
     group_by(Manual_Annotation, category_count) %>%
-    summarize(average.on.both.chromosome.and.plasmid.copy.num =  sum(count)/unique(category_count))
+    summarize(on.both =  sum(count)/unique(category_count))
 
 Fig5.data <- Fig5A.data %>%
     full_join(Fig5B.data) %>%
     full_join(Fig5C.data) %>%
     ## missing values are zeros.
-    mutate_all(~replace(., is.na(.), 0))
+    mutate_all(~replace(., is.na(.), 0)) %>%
+    ## reshape the data wity tidyr to plot each category on the x-axis.
+    gather(`only.on.chromosome`,`only.on.plasmid`,`on.both`,
+           key='duplicate_location',value='mean_number')
+
+Fig5 <- ggplot(data=Fig5.data,
+                aes(x=duplicate_location,
+                    y=mean_number,
+                    fill=Manual_Annotation)) +
+    geom_bar(stat="identity") +
+    theme_classic() + ggtitle("location of AR duplicates in the genome")
+ggsave("../results/Fig5.pdf",Fig5)
 
 #########################################################################################
 ## older plots.
