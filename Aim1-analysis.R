@@ -17,6 +17,10 @@
 ## In particular look more deeply at the result that AAA+ ATPases,
 ## and ATPases in general seem to be enriched in gene duplications.
 
+## CRITICAL ANALYSIS TODO: Make sure numbers in genome.database,
+## gbk.annotation, and naive.HGT.analysis in terms of number of isolates in each
+## category are COMPLETELY consistent with each other.
+
 library(tidyverse)
 library(cowplot)
 
@@ -25,16 +29,21 @@ genome.database <- read.csv("../results/chromosome-plasmid-table.csv")
 ## This is 7046 strains.
 length(unique(genome.database$Annotation_Accession))
 
-gbk.annotation <- as_tibble(read.csv("../data/manually-curated-gbk-annotation-table.csv"))
 ##  while this is 7047 strains.
+gbk.annotation <- as_tibble(read.csv("../data/manually-curated-gbk-annotation-table.csv")) %>%
+    ## refer to NA annotations as "Unannotated".
+    mutate(Manual_Annotation = replace_na(Manual_Annotation,"Unannotated"))
 
+########################
+## TEMPORARY HACK FOR SELF-CONSISTENCY:
+gbk.annotation <- gbk.annotation %>% filter(Annotation_Accession %in% genome.database$Annotation_Accession)
+########################
 ## IMPORTANT NOTE: This should be ~7300 genomes after updating the gbk annotation.
 ## not sure if chromosome-plasmid-table will also be larger.
-
 length(unique(gbk.annotation$Annotation_Accession))
 ## there's one in gbk.annotation that is missnig from genome.database:
 ## GCA_900492195.1_T2.26MG-112.21_plasmid
-## don't worry about it: it won't affect the analysis anyway.
+## don't worry about it for now: it won't affect the analysis anyway.
 cds.counts <- read.csv("../results/protein_db_CDS_counts.csv")
 
 ## number of host and isolation_source annotations in gbk_annotation.
@@ -43,15 +52,8 @@ length(unique(gbk.annotation$host))
 ## 1763 unique isolation_source annotations.
 length(unique(gbk.annotation$isolation_source))
 
-## Filter out genomes where the Manual_Annotation field is NA.
-good.gbk.annotation <- gbk.annotation %>%
-    filter(!is.na(Manual_Annotation))
-
-length(unique(good.gbk.annotation$Annotation_Accession))
-## 5123 strains have good annotation.
-
 protein.db.metadata <- genome.database %>%
-    left_join(good.gbk.annotation) %>%
+    left_join(gbk.annotation) %>%
     left_join(cds.counts)    
 
 ## We have 7046 isolates in the AR.results dataframe.
@@ -108,33 +110,29 @@ naive.HGT.data <- read.csv("../results/naive-HGT.csv") %>%
     ## now merge with good gbk annotation.
     ## I am doing a left_join here, because I want the NA Manual_Accessions
     ## in order to predict where these unannotated strains come from.
-    left_join(good.gbk.annotation)
+    left_join(gbk.annotation) %>%
+    ## refer to NA annotations as "Unannotated".
+    mutate(Manual_Annotation = replace_na(Manual_Annotation,"Unannotated"))
 
-
-## for current analysis, remove any strains with no manual annotation.
-## in future work, consider using the NA set to see whether I can predict
-## what environment they come from, based on which genes are duplicated.
-good.naive.HGT.data <- naive.HGT.data %>%
-    filter(!is.na(Manual_Annotation))
+#################
+## TEMPORARY HACK FOR SELF-CONSISTENCY:
+naive.HGT.data <- naive.HGT.data %>%
+    filter(Annotation_Accession %in% genome.database$Annotation_Accession) %>%
+    filter(Annotation_Accession %in% gbk.annotation$Annotation_Accession)
+##################    
 
 ## TODO: examine data with and without IS.
 IS.removed.from.naive.HGT.data <- naive.HGT.data %>%
     filter(!str_detect(.$product,IS.keywords))
-## TODO: examine correlations between IS count and other genes
+## POTENTIAL TODO: examine correlations between IS count and other genes
 ## within each genome to find genes embedded in transposons.
-
-good.IS.removed.from.naive.HGT.data <- IS.removed.from.naive.HGT.data %>%
-    filter(!is.na(Manual_Annotation))
 
 AR.naive.HGT.data <- naive.HGT.data %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
     arrange(desc(count))
 
-good.AR.naive.HGT.data <- AR.naive.HGT.data %>%
-    filter(!is.na(Manual_Annotation))
-
 ## let's look at cases of identical sequences on chromosomes and plasmids.
-both.chr.and.plasmid.cases <- good.naive.HGT.data %>%
+both.chr.and.plasmid.cases <- naive.HGT.data %>%
     filter(chromosome_count >= 1 & plasmid_count >= 1) %>%
     arrange(desc(count))
 
@@ -144,27 +142,16 @@ transposable.groups <- both.chr.and.plasmid.cases %>%
     filter(!is.na(Manual_Annotation)) %>%
     group_by(Annotation_Accession) %>% nest()
 
-just.chromosome.cases <- good.naive.HGT.data %>%
+just.chromosome.cases <- naive.HGT.data %>%
     filter(chromosome_count >= 1 & plasmid_count == 0) %>%
     arrange(desc(count))
 
-just.plasmid.cases <- good.naive.HGT.data %>%
+just.plasmid.cases <- naive.HGT.data %>%
     filter(chromosome_count == 0 & plasmid_count >= 1) %>%
     arrange(desc(count))
 
 ##########################################
 ## Important basic statistics on the data.
-
-## 198,641 duplicated genes, including IS elements and hypothetical proteins.
-length(naive.HGT.data$Annotation_Accession)
-## 76,974 duplicated genes, excluding IS elements and hypothetical proteins.
-length(IS.removed.from.naive.HGT.data$Annotation_Accession)
-
-## calculate the number of isolates in the naive.HGT.data
-length(unique(naive.HGT.data$Annotation_Accession))
-## 7,369 isolates in the native.HGT.data. This includes strains with
-## no good gbk annotation (i.e Manual_Annotation == NA)
-
 
 ## CRITICAL BUG TO FIX:
 ## there are 7,369 isolates which is more than the annotated genomes.
@@ -172,6 +159,9 @@ length(unique(naive.HGT.data$Annotation_Accession))
 ## constructed on an older version of the gbk_annotation.csv, which was
 ## missing some strains. There are probably other bugs here to fix as well.
 ## DEBUG THESE ERRORS AND MAKE THESE NUMBERS CONSISTENT!!!
+## for now, I have restricted these data by filtering on Annotation_Accession--
+## see the temporary fixes in the code above.
+
 problem.data <- naive.HGT.data %>%
     filter(!(Annotation_Accession %in% genome.database$Annotation_Accession)) %>%
     select(-sequence,-count,-chromosome_count,-plasmid_count,-product) %>%
@@ -179,51 +169,158 @@ problem.data <- naive.HGT.data %>%
 ## there are 871 isolates with Annotation_Accession, but no metadata at all? Why?
 length(unique(problem.data$Annotation_Accession))
 
-length(unique(good.naive.HGT.data$Annotation_Accession))
-
 length(unique(IS.removed.from.naive.HGT.data$Annotation_Accession))
-## 6,578 isolate after filtered out IS. This includes strains with
-## no good gbk annotation (i.e Manual_Annotation == NA)
+## 5,772 isolate after filtered out IS. This includes Unannotated isolates.
 
-
-## 123,539 duplicated genes, including IS elements and hypothetical proteins.
-length(good.naive.HGT.data$Annotation_Accession)
-## 44,434 duplicated genes, excluding IS elements and hypothetical proteins.
-length(good.IS.removed.from.naive.HGT.data$Annotation_Accession)
+## 166,007 duplicated genes, including IS elements and hypothetical proteins.
+length(naive.HGT.data$Annotation_Accession)
+## 60,288 duplicated genes, excluding IS elements and hypothetical proteins.
+length(IS.removed.from.naive.HGT.data$Annotation_Accession)
 
 
 ## calculate the number of isolates in the AR.naive.HGT.data
 length(unique(AR.naive.HGT.data$Annotation_Accession))
-## 585 isolates with duplicate AR genes.
-length(unique(good.AR.naive.HGT.data$Annotation_Accession))
-## 311 isolates with duplicate AR genes in the well-annotated set.
+## 450 isolates with duplicate AR genes.
 
-###############
-## count the number of isolates in each category, with or without duplications.
-tally.of.isolates <- good.gbk.annotation %>%
+length(unique(filter(AR.naive.HGT.data,Manual_Annotation!="Unannotated")$Annotation_Accession))
+## 341 isolates with duplicate AR genes in the well-annotated set.
+
+###########################################################################
+## Table 1. Isolates with antibiotic resistance genes.
+
+## First column: count the number of isolates in each category.
+isolate.totals <- gbk.annotation %>%
     group_by(Manual_Annotation) %>%
-    summarize(category_count = n()) %>%
-    arrange(desc(category_count))
+    summarize(total_isolates = n()) %>%
+    arrange(desc(total_isolates))
 
-## calculate number of isolates with duplications in each category.
-tally.of.isolates.with.dups <- good.naive.HGT.data %>%
+## Second column: count the number of isolates with duplications in each category.
+isolates.with.duplicate.genes <- naive.HGT.data %>%
     ## next two lines is to count isolates rather than genes
     select(-count,-chromosome_count,-plasmid_count,-product,-sequence) %>%
     distinct() %>%
     group_by(Manual_Annotation) %>%
-    summarize(isolates.with.dups.count = n()) %>%
-    arrange(desc(isolates.with.dups.count))
+    summarize(isolates_with_duplicate_genes = n()) %>%
+    arrange(desc(isolates_with_duplicate_genes))
 
-## calculate number of isolates in each category, with AR genes
-AR.category.counts <- good.AR.naive.HGT.data %>%
+## Third column: count the number of isolates with duplicated AR genes in each category.
+AR.category.counts <- AR.naive.HGT.data %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
     ## next two lines is to count isolates rather than genes
     select(-count,-chromosome_count,-plasmid_count,-product,-sequence) %>%
     distinct() %>%
     group_by(Manual_Annotation) %>%
-    summarize(category_count = n()) %>%
-    arrange(desc(category_count))
+    summarize(isolates_with_duplicated_AR_genes = n()) %>%
+    arrange(desc(isolates_with_duplicated_AR_genes))
 
+## join columns to make Table 1 with raw data.
+raw.Table1 <- isolate.totals %>% left_join(isolates.with.duplicate.genes) %>%
+    left_join(AR.category.counts) %>%
+    mutate(isolates_with_duplicated_AR_genes = replace_na(isolates_with_duplicated_AR_genes,0)) %>%
+    arrange(desc(isolates_with_duplicated_AR_genes))
+
+calc.expected.isolates.with.AR.genes <- function(raw.Table1) {
+    total.isolates.with.duplicated.genes <- sum(raw.Table1$isolates_with_duplicate_genes)
+    total.isolates.with.duplicated.AR.genes <- sum(raw.Table1$isolates_with_duplicated_AR_genes)
+    Table <- raw.Table1 %>%
+        mutate(expected_isolates_with_duplicated_AR_genes = total.isolates.with.duplicated.AR.genes * isolates_with_duplicate_genes/total.isolates.with.duplicated.genes)
+    return(Table)
+}
+
+calc.isolate.AR.gene.enrichment.pvals <- function(raw.Table1) {
+
+    total.isolates.with.duplicated.genes <- sum(raw.Table1$isolates_with_duplicate_genes)
+    total.isolates.with.duplicated.AR.genes <- sum(raw.Table1$isolates_with_duplicated_AR_genes)
+
+    Table <- raw.Table1 %>%
+        rowwise() %>%
+        mutate(binom.test.pval = binom.test(
+                   x = isolates_with_duplicated_AR_genes,
+                   n = total.isolates.with.duplicated.AR.genes,
+                   p = isolates_with_duplicate_genes/total.isolates.with.duplicated.genes
+               )$p.value) %>%
+        mutate(corrected.pval = p.adjust(binom.test.pval,"BH")) %>%
+        ## use Benjamini-Hochberg p-value correction.
+        select(-binom.test.pval) ## drop original p-value after the correction.
+    
+    return(Table)
+}
+
+## Add a fourth column: expected number of isolates with duplicated AR genes,
+## based on the percentage of isolates with duplicated genes.
+Table1 <- calc.expected.isolates.with.AR.genes(raw.Table1) %>%
+    ## Add a fifth column: p-values for deviation from
+    ## expected number of duplicated AR genes, using binomial test,
+    ## correcting for multiple tests.
+    calc.isolate.AR.gene.enrichment.pvals()
+
+## write Table 1 to file.
+write.csv(x=Table1,file="../results/AR-gene-duplication/Table1.csv")
+####################################################################
+## Table 2. Enrichment/deletion analysis of AR genes using duplicated genes,
+## rather than number of isolates as in Table 1.
+
+## First column: the number of duplicated genes in each category.
+duplicate.genes.count <- naive.HGT.data %>%
+    group_by(Manual_Annotation) %>%
+    summarize(duplicate_genes = sum(count)) %>%
+    arrange(desc(duplicate_genes))
+
+## Second column: the number of duplicated MGE genes.
+duplicate.MGE.genes.count <- naive.HGT.data %>%
+    filter(str_detect(.$product,IS.keywords)) %>%
+    group_by(Manual_Annotation) %>%
+    summarize(MGE_duplicates = sum(count)) %>%
+    arrange(desc(MGE_duplicates))
+
+## Third column: the number of duplicated AR genes.
+duplicate.AR.genes.count <- naive.HGT.data %>%
+    filter(str_detect(.$product,antibiotic.keywords)) %>%
+    group_by(Manual_Annotation) %>%
+    summarize(AR_duplicates = sum(count)) %>%
+    arrange(desc(AR_duplicates))
+
+## Fourth column: the expected number of duplicated AR genes in each category.
+calc.expected.AR.duplicates <- function(raw.Table2) {
+    total.duplicated.genes <- sum(raw.Table2$duplicate_genes)
+    total.AR.duplicates <- sum(raw.Table2$AR_duplicates)
+    Table <- raw.Table2 %>%
+        mutate(expected_AR_duplicates = total.AR.duplicates * duplicate_genes/total.duplicated.genes)
+    return(Table)
+}
+
+## Fifth column: p-value for enrichment/depletion of duplicated AR genes in each category.
+calc.AR.duplicate.enrichment.pvals <- function(raw.Table2) {
+
+    total.duplicated.genes <- sum(raw.Table2$duplicate_genes)
+    total.AR.duplicates <- sum(raw.Table2$AR_duplicates)
+
+    Table <- raw.Table2 %>%
+        rowwise() %>%
+        mutate(binom.test.pval = binom.test(
+                   x = AR_duplicates,
+                   n = total.AR.duplicates,
+                   p = duplicate_genes/total.duplicated.genes
+               )$p.value) %>%
+        mutate(corrected.pval = p.adjust(binom.test.pval,"BH")) %>%
+        ## use Benjamini-Hochberg p-value correction.
+        select(-binom.test.pval) ## drop original p-value after the correction.
+    
+    return(Table)
+}
+
+Table2 <- duplicate.genes.count %>% ## first column
+    left_join(duplicate.MGE.genes.count) %>% ## second column
+    left_join(duplicate.AR.genes.count) %>% ## third column
+    mutate(AR_duplicates = replace_na(AR_duplicates, 0)) %>%
+    arrange(desc(AR_duplicates)) %>%
+    calc.expected.AR.duplicates() %>% ## fourth column
+    calc.AR.duplicate.enrichment.pvals() ## fifth column
+
+## write Table 2 to file.
+write.csv(x=Table2,file="../results/AR-gene-duplication/Table2.csv")
+
+########################################
 ## Of these, what percentages of ARGs are in the chromosome, plasmid, or both? 
 AR.chr.category.counts <- just.chromosome.cases %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
@@ -265,70 +362,7 @@ AR.plasmid.cases <- just.plasmid.cases %>%
     filter(str_detect(.$product,antibiotic.keywords))
 
 #########################################################################################
-## Figures that Lingchong asked me to make.
-
-## 1A. Stacked bar(or pie chart) of all isolates regardless of duplication
-## I think a table is a better way of showing these data.
-## make a table in addition.
-
-Fig1A.data <- good.gbk.annotation %>%
-    ## adding a dummy column to make a single stacked bar.
-    mutate(Isolate="isolate")
-
-Fig1A.with.legend <- ggplot(data=Fig1A.data,
-                aes(x=Isolate, fill=Manual_Annotation)) +
-    geom_bar() +
-    theme_classic() +
-    ggtitle("All isolates")
-
-Fig1A <- Fig1A.with.legend +
-    guides(fill=FALSE)
-
-## 1B. Stacked bar for isolates with some sort of duplication
-
-Fig1B.data <- Fig1A.data %>%
-    filter(Annotation_Accession %in% good.naive.HGT.data$Annotation_Accession)
-
-Fig1B <- ggplot(data=Fig1B.data,
-                aes(x=Isolate, fill=Manual_Annotation)) +
-    geom_bar() +
-    theme_classic() +
-    ggtitle("Isolates with duplications") +
-    guides(fill=FALSE)
-
-## 1C. Stacked bar for isolates with duplications, excluding mobile elements
-Fig1C.data <- Fig1A.data %>%
-    filter(Annotation_Accession %in% good.IS.removed.from.naive.HGT.data$Annotation_Accession)
-
-Fig1C <- ggplot(data=Fig1C.data,
-                aes(x=Isolate, fill=Manual_Annotation)) +
-    geom_bar() +
-    theme_classic() +
-    ggtitle("Isolates with duplications, excluding MGEs") +
-    guides(fill=FALSE)
-
-## 1D. Stacked bar for isolates with duplication of ARGs
-Fig1D.data <- Fig1A.data %>%
-    filter(Annotation_Accession %in% good.AR.naive.HGT.data$Annotation_Accession)
-
-Fig1D <- ggplot(data=Fig1D.data,
-                aes(x=Isolate, fill=Manual_Annotation)) +
-    geom_bar() +
-    theme_classic() +
-    ggtitle("Isolates with duplicated ARGs") +
-    guides(fill=FALSE)
-
-Fig1.legend <- cowplot::get_legend(Fig1A.with.legend)
-Fig1.panels <- plot_grid(Fig1A,Fig1B,Fig1C,Fig1D,
-                  labels=c('A','B','C','D'),ncol=1)
-
-## By changing the y-axis scale for each plot while maintaining its height,
-## Fig. 1 also shows the following information: 
-## Bar charts for percentage of duplication of any gene
-## Bar charts for percentage of duplication of any gene, excluding MGE.
-## Bar charts for percentage of duplication for ARGs
-Fig1 <- plot_grid(Fig1.panels,Fig1.legend,ncol=2)
-ggsave("../results/Fig1.pdf",Fig1)
+## Figures.
 
 ## Fig2A. number of duplicated genes in each category,
 ## normalized by number of isolates in each category.
