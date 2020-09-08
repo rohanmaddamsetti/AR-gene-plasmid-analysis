@@ -120,39 +120,7 @@ naive.HGT.data <- naive.HGT.data %>%
     filter(Annotation_Accession %in% genome.database$Annotation_Accession) %>%
     filter(Annotation_Accession %in% gbk.annotation$Annotation_Accession)
 ##################    
-
-## TODO: examine data with and without IS.
-IS.removed.from.naive.HGT.data <- naive.HGT.data %>%
-    filter(!str_detect(.$product,IS.keywords))
-## POTENTIAL TODO: examine correlations between IS count and other genes
-## within each genome to find genes embedded in transposons.
-
-AR.naive.HGT.data <- naive.HGT.data %>%
-    filter(str_detect(.$product,antibiotic.keywords)) %>%
-    arrange(desc(count))
-
-## let's look at cases of identical sequences on chromosomes and plasmids.
-both.chr.and.plasmid.cases <- naive.HGT.data %>%
-    filter(chromosome_count >= 1 & plasmid_count >= 1) %>%
-    arrange(desc(count))
-
-## make a nested tibble to explore correlations between IS
-## and other genes in those genomes.
-transposable.groups <- both.chr.and.plasmid.cases %>%
-    filter(!is.na(Manual_Annotation)) %>%
-    group_by(Annotation_Accession) %>% nest()
-
-just.chromosome.cases <- naive.HGT.data %>%
-    filter(chromosome_count >= 1 & plasmid_count == 0) %>%
-    arrange(desc(count))
-
-just.plasmid.cases <- naive.HGT.data %>%
-    filter(chromosome_count == 0 & plasmid_count >= 1) %>%
-    arrange(desc(count))
-
 ##########################################
-## Important basic statistics on the data.
-
 ## CRITICAL BUG TO FIX:
 ## there are 7,369 isolates which is more than the annotated genomes.
 ## in part, this discrepancy has to do with the manual annotation having been
@@ -172,18 +140,6 @@ length(unique(problem.data$Annotation_Accession))
 length(unique(IS.removed.from.naive.HGT.data$Annotation_Accession))
 ## 5,772 isolate after filtered out IS. This includes Unannotated isolates.
 
-## 166,007 duplicated genes, including IS elements and hypothetical proteins.
-length(naive.HGT.data$Annotation_Accession)
-## 60,288 duplicated genes, excluding IS elements and hypothetical proteins.
-length(IS.removed.from.naive.HGT.data$Annotation_Accession)
-
-
-## calculate the number of isolates in the AR.naive.HGT.data
-length(unique(AR.naive.HGT.data$Annotation_Accession))
-## 450 isolates with duplicate AR genes.
-
-length(unique(filter(AR.naive.HGT.data,Manual_Annotation!="Unannotated")$Annotation_Accession))
-## 341 isolates with duplicate AR genes in the well-annotated set.
 
 ###########################################################################
 ## Table 1. Isolates with antibiotic resistance genes.
@@ -320,7 +276,140 @@ Table2 <- duplicate.genes.count %>% ## first column
 ## write Table 2 to file.
 write.csv(x=Table2,file="../results/AR-gene-duplication/Table2.csv")
 
-########################################
+################################################################################
+
+## Table 3. Show number of duplicated genes on chromosomes, and number of
+## duplicate genes on plasmids, for each category, for duplicated genes
+## and duplicated AR genes. This table of raw data goes into the text. Then,
+## sum over all categories for a 2x2 contingency table and report the result of a
+## Fisher's exact test for asssociation between duplicated AR genes and plasmids.
+
+## Column 1
+duplicate.chromosome.genes.count <- naive.HGT.data %>%
+    group_by(Manual_Annotation) %>%
+    summarize(chromosomal_duplicate_genes = sum(chromosome_count))
+
+## Column 2
+duplicate.plasmid.genes.count <- naive.HGT.data %>%
+    group_by(Manual_Annotation) %>%
+    summarize(plasmid_duplicate_genes = sum(plasmid_count))
+
+## Column 3
+duplicate.AR.chromosome.genes.count <- naive.HGT.data %>%
+    filter(str_detect(.$product,antibiotic.keywords)) %>%
+    group_by(Manual_Annotation) %>%
+    summarize(chromosomal_AR_duplicate_genes = sum(chromosome_count))
+
+## Column 4
+duplicate.AR.plasmid.genes.count <- naive.HGT.data %>%
+    filter(str_detect(.$product,antibiotic.keywords)) %>%
+    group_by(Manual_Annotation) %>%
+    summarize(plasmid_AR_duplicate_genes = sum(plasmid_count))
+
+Table3 <- duplicate.chromosome.genes.count %>%
+    left_join(duplicate.plasmid.genes.count) %>%
+    left_join(duplicate.AR.chromosome.genes.count) %>%
+    mutate(chromosomal_AR_duplicate_genes=replace_na(chromosomal_AR_duplicate_genes, 0)) %>%
+    left_join(duplicate.AR.plasmid.genes.count) %>%
+    mutate(plasmid_AR_duplicate_genes = replace_na(plasmid_AR_duplicate_genes, 0)) %>%
+    arrange(desc(plasmid_AR_duplicate_genes))
+
+## write Table 3 to file.
+write.csv(x=Table3,file="../results/AR-gene-duplication/Table3.csv")
+
+
+## get values for Fisher's exact test.
+total.chr.AR.duplicates <- sum(Table3$chromosomal_AR_duplicate_genes)
+total.plasmid.AR.duplicates <- sum(Table3$plasmid_AR_duplicate_genes)
+
+total.chr.duplicates <- sum(Table3$chromosomal_duplicate_genes)
+total.plasmid.duplicates <- sum(Table3$plasmid_duplicate_genes)
+
+total.nonAR.chr.duplicates <- total.chr.duplicates - total.chr.AR.duplicates
+total.nonAR.plasmid.duplicates <- total.plasmid.duplicates - total.plasmid.AR.duplicates
+
+Table4.contingency.table <- matrix(c(total.chr.AR.duplicates,
+                                     total.plasmid.AR.duplicates,
+                                     total.nonAR.chr.duplicates,
+                                     total.nonAR.plasmid.duplicates),nrow=2)
+## label the rows and columns of the contingency table.
+rownames(Table4.contingency.table) <- c("chromosome","plasmid")
+colnames(Table4.contingency.table) <- c("AR duplicate genes","non-AR duplicate genes")
+
+## write Table 4 contingency table to file.
+write.csv(x=Table4.contingency.table,file="../results/AR-gene-duplication/Table4.csv")
+
+## p < 1e-150
+fisher.test(Table4.contingency.table)
+fisher.test(Table4.contingency.table)$p.value
+
+################################################################################
+## Figures.
+
+## Fig2A. number of duplicated genes in each category,
+## normalized by number of isolates in each category.
+
+## IMPORTANT: we want to normalize by number of isolates in each category,
+## so left_join with tally.of.isolates.
+
+Fig2A.data <- naive.HGT.data %>%
+    left_join(tally.of.isolates) %>%
+    group_by(Manual_Annotation, category_count) %>%
+    summarize(all.duplicates =  sum(count)/unique(category_count),
+              on.chromosome = sum(chromosome_count)/unique(category_count),
+              on.plasmid = sum(plasmid_count)/unique(category_count)) %>%
+    ## reshape the data wity tidyr to plot each category on the x-axis.
+    gather(`all.duplicates`, `on.chromosome`, `on.plasmid`,
+           key='duplicate_location',value='mean_number')
+
+Fig2A <- ggplot(data=Fig2A.data,
+                aes(x=duplicate_location,
+                    y=mean_number,
+                    fill=Manual_Annotation)) +
+    geom_bar(stat="identity") +
+    theme_classic() + ggtitle("average number of duplicates per genome")
+
+## Fig2B. Average number of duplicated ARG genes in each category.
+Fig2B.data <- naive.HGT.data %>%
+    filter(str_detect(.$product,antibiotic.keywords)) %>%
+    left_join(tally.of.isolates) %>%
+    group_by(Manual_Annotation, category_count) %>%
+    summarize(all.duplicates =  sum(count)/unique(category_count),
+              on.chromosome = sum(chromosome_count)/unique(category_count),
+              on.plasmid = sum(plasmid_count)/unique(category_count)) %>%
+    ## reshape the data wity tidyr to plot each category on the x-axis.
+    gather(`all.duplicates`,`on.chromosome`,`on.plasmid`,
+           key='AR_duplicate_location',value='mean_number')
+
+Fig2B <- ggplot(data=Fig2B.data,
+                aes(x=AR_duplicate_location,
+                    y=mean_number,
+                    fill=Manual_Annotation)) +
+    geom_bar(stat="identity") +
+    theme_classic() + ggtitle("average number of AR duplicates per genome")
+
+Fig2.panels <- plot_grid(Fig2A,Fig2B,
+                  labels=c('A','B'),ncol=1)
+ggsave("../results/Fig2.pdf",Fig2.panels)
+
+
+#################################################################################
+## Analysis of duplicate pairs found just on chromosome, just on plasmid, or
+## on both chromosomes and plasmids.
+
+## let's look at cases of identical sequences on chromosomes and plasmids.
+both.chr.and.plasmid.cases <- naive.HGT.data %>%
+    filter(chromosome_count >= 1 & plasmid_count >= 1) %>%
+    arrange(desc(count))
+
+just.chromosome.cases <- naive.HGT.data %>%
+    filter(chromosome_count >= 1 & plasmid_count == 0) %>%
+    arrange(desc(count))
+
+just.plasmid.cases <- naive.HGT.data %>%
+    filter(chromosome_count == 0 & plasmid_count >= 1) %>%
+    arrange(desc(count))
+
 ## Of these, what percentages of ARGs are in the chromosome, plasmid, or both? 
 AR.chr.category.counts <- just.chromosome.cases %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
@@ -360,54 +449,6 @@ AR.chr.cases <- just.chromosome.cases %>%
 
 AR.plasmid.cases <- just.plasmid.cases %>%
     filter(str_detect(.$product,antibiotic.keywords))
-
-#########################################################################################
-## Figures.
-
-## Fig2A. number of duplicated genes in each category,
-## normalized by number of isolates in each category.
-
-## IMPORTANT: we want to normalize by number of isolates in each category,
-## so left_join with tally.of.isolates.
-
-Fig2A.data <- good.naive.HGT.data %>%
-    left_join(tally.of.isolates) %>%
-    group_by(Manual_Annotation, category_count) %>%
-    summarize(all.duplicates =  sum(count)/unique(category_count),
-              on.chromosome = sum(chromosome_count)/unique(category_count),
-              on.plasmid = sum(plasmid_count)/unique(category_count)) %>%
-    ## reshape the data wity tidyr to plot each category on the x-axis.
-    gather(`all.duplicates`, `on.chromosome`, `on.plasmid`,
-           key='duplicate_location',value='mean_number')
-
-Fig2A <- ggplot(data=Fig2A.data,
-                aes(x=duplicate_location,
-                    y=mean_number,
-                    fill=Manual_Annotation)) +
-    geom_bar(stat="identity") +
-    theme_classic() + ggtitle("average number of duplicates per genome")
-
-## Fig2B. Average number of duplicated ARG genes in each category.
-Fig2B.data <- good.AR.naive.HGT.data %>%
-    left_join(tally.of.isolates) %>%
-    group_by(Manual_Annotation, category_count) %>%
-    summarize(all.duplicates =  sum(count)/unique(category_count),
-              on.chromosome = sum(chromosome_count)/unique(category_count),
-              on.plasmid = sum(plasmid_count)/unique(category_count)) %>%
-    ## reshape the data wity tidyr to plot each category on the x-axis.
-    gather(`all.duplicates`,`on.chromosome`,`on.plasmid`,
-           key='AR_duplicate_location',value='mean_number')
-
-Fig2B <- ggplot(data=Fig2B.data,
-                aes(x=AR_duplicate_location,
-                    y=mean_number,
-                    fill=Manual_Annotation)) +
-    geom_bar(stat="identity") +
-    theme_classic() + ggtitle("average number of AR duplicates per genome")
-
-Fig2.panels <- plot_grid(Fig2A,Fig2B,
-                  labels=c('A','B'),ncol=1)
-ggsave("../results/Fig2.pdf",Fig2.panels)
 
 ## Fig3. Show average number of duplicate genes on just chromosome, just plasmid, or on both,
 ## per category (normalize by number of genomes in each category).
