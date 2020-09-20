@@ -3,12 +3,6 @@
 ## analyse the distribution of AR genes on chromosomes versus plasmids in
 ## fully-sequenced genomes and plasmids in the NCBI Nucleotide database.
 
-## TODO: weigh hits by the number of genes on the chromosome or the plasmids.
-## TODO: expand analysis to additional query sets of antibiotic resistance genes:
-## 1) Resfams 2) CARD 3) Carolyn's annotated resistance genes.
-## See the methods used w.r.t. Resfams and CARD in the Genetic Dominance
-## paper from Alvaro San Millan's lab.
-
 ## CRITICAL TODO: re-annotate manually-curated-gbk-annotation-table.csv
 ## using the updated gbk-annotation table. This will add ~300 extra genomes
 ## to the analysis.
@@ -18,11 +12,19 @@
 ## and ATPases in general seem to be enriched in gene duplications.
 
 ## CRITICAL ANALYSIS TODO: Make sure numbers in genome.database,
-## gbk.annotation, and naive.HGT.analysis in terms of number of isolates in each
-## category are COMPLETELY consistent with each other.
+## gbk.annotation, and all.proteins, duplicate.proteins, and
+## singleton.proteins, in terms of number of isolates in each
+## category, are COMPLETELY consistent with each other.
+
+## Potential TODO if reviewers or colleagues think necessary:
+## annotate resistance genes using the CARD RGI tool
+## https://github.com/arpcard/rgi
+## and look at singleton and duplicate RGs identified by this workflow.
+
 
 library(tidyverse)
 library(cowplot)
+library(data.table)
 
 ## annotate source sequence as plasmid or chromosome.
 genome.database <- read.csv("../results/chromosome-plasmid-table.csv")
@@ -106,19 +108,37 @@ antibiotic.keywords <- "lactamase|chloramphenicol|quinolone|antibiotic resistanc
 ## other HGT mechanisms: ‘integrase|excision\S*|exo- nuclease|recomb|toxin|restrict\S*|resolv\S*|topoisomerase|reverse transcrip’
 ## antibiotic resistance: ‘azole resistance|antibiotic resistance|TetR|tetracycline resistance|VanZ|betalactam\S*|beta-lactam|antimicrob\S*|lantibio\S*’.
 
-naive.HGT.data <- read.csv("../results/naive-HGT.csv") %>%
-    ## now merge with good gbk annotation.
+
+## import the 12GB file containing singletons.
+## I can save a ton of memory if I don't import the sequence column,
+## and by using the data.table package for import.
+all.proteins <- data.table::fread("../results/duplicate-proteins.csv",
+                                  drop="sequence") %>%
+    ## now merge with gbk annotation.
     ## I am doing a left_join here, because I want the NA Manual_Accessions
     ## in order to predict where these unannotated strains come from.
     left_join(gbk.annotation) %>%
     ## refer to NA annotations as "Unannotated".
     mutate(Manual_Annotation = replace_na(Manual_Annotation,"Unannotated"))
 
+duplicate.proteins <- all.proteins %>% filter(count > 1)
+singleton.proteins <- all.proteins %>% filter(count == 1)
+
+## free up memory by deallocating all.proteins,
+rm(all.proteins)
+## and running garbage collection.
+gc()
+
 #################
 ## TEMPORARY HACK FOR SELF-CONSISTENCY:
-naive.HGT.data <- naive.HGT.data %>%
+duplicate.proteins <- duplicate.proteins %>%
     filter(Annotation_Accession %in% genome.database$Annotation_Accession) %>%
     filter(Annotation_Accession %in% gbk.annotation$Annotation_Accession)
+
+singleton.proteins <- singleton.proteins %>%
+    filter(Annotation_Accession %in% genome.database$Annotation_Accession) %>%
+    filter(Annotation_Accession %in% gbk.annotation$Annotation_Accession)
+
 ##################    
 ##########################################
 ## CRITICAL BUG TO FIX:
@@ -130,16 +150,15 @@ naive.HGT.data <- naive.HGT.data %>%
 ## for now, I have restricted these data by filtering on Annotation_Accession--
 ## see the temporary fixes in the code above.
 
-problem.data <- naive.HGT.data %>%
+problem.data <- duplicate.proteins %>%
     filter(!(Annotation_Accession %in% genome.database$Annotation_Accession)) %>%
-    select(-sequence,-count,-chromosome_count,-plasmid_count,-product) %>%
+    select(-count,-chromosome_count,-plasmid_count,-product) %>%
     distinct()
 ## there are 871 isolates with Annotation_Accession, but no metadata at all? Why?
 length(unique(problem.data$Annotation_Accession))
 
-length(unique(IS.removed.from.naive.HGT.data$Annotation_Accession))
+length(unique(IS.removed.from.duplicate.proteins$Annotation_Accession))
 ## 5,772 isolate after filtered out IS. This includes Unannotated isolates.
-
 
 ###########################################################################
 ## Table 1. Isolates with antibiotic resistance genes.
@@ -151,19 +170,19 @@ isolate.totals <- gbk.annotation %>%
     arrange(desc(total_isolates))
 
 ## Second column: count the number of isolates with duplications in each category.
-isolates.with.duplicate.genes <- naive.HGT.data %>%
+isolates.with.duplicate.genes <- duplicate.proteins %>%
     ## next two lines is to count isolates rather than genes
-    select(-count,-chromosome_count,-plasmid_count,-product,-sequence) %>%
+    select(-count,-chromosome_count,-plasmid_count,-product) %>%
     distinct() %>%
     group_by(Manual_Annotation) %>%
     summarize(isolates_with_duplicate_genes = n()) %>%
     arrange(desc(isolates_with_duplicate_genes))
 
-## Third column: count the number of isolates with duplicated AR genes in each category.
-AR.category.counts <- AR.naive.HGT.data %>%
+## Third col: count the number of isolates with duplicated AR genes in each category.
+AR.category.counts <- duplicate.proteins %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
     ## next two lines is to count isolates rather than genes
-    select(-count,-chromosome_count,-plasmid_count,-product,-sequence) %>%
+    select(-count,-chromosome_count,-plasmid_count,-product) %>%
     distinct() %>%
     group_by(Manual_Annotation) %>%
     summarize(isolates_with_duplicated_AR_genes = n()) %>%
@@ -184,7 +203,7 @@ calc.expected.isolates.with.AR.genes <- function(raw.Table1) {
 }
 
 calc.isolate.AR.gene.enrichment.pvals <- function(raw.Table1) {
-
+    
     total.isolates.with.duplicated.genes <- sum(raw.Table1$isolates_with_duplicate_genes)
     total.isolates.with.duplicated.AR.genes <- sum(raw.Table1$isolates_with_duplicated_AR_genes)
 
@@ -212,25 +231,82 @@ Table1 <- calc.expected.isolates.with.AR.genes(raw.Table1) %>%
 
 ## write Table 1 to file.
 write.csv(x=Table1,file="../results/AR-gene-duplication/Table1.csv")
+
+###########################################################################
+## Positive control 1: Make a version of Table 1, examining the distribution
+## of AR genes that have NOT duplicated.
+
+## Second column:
+## count the number of isolates with singleton AR genes in each category.
+
+AR.singleton.category.counts <- singleton.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords)) %>%
+    ## next two lines is to count isolates rather than genes
+    select(-count,-chromosome_count,-plasmid_count,-product) %>%
+    distinct() %>%
+    group_by(Manual_Annotation) %>%
+    summarize(isolates_with_singleton_AR_genes = n()) %>%
+    arrange(desc(isolates_with_singleton_AR_genes))
+
+calc.expected.isolates.with.singleton.AR.genes <- function(raw.ControlTable1) {
+    summed.isolates <- sum(raw.ControlTable1$total_isolates)
+    total.isolates.with.singleton.AR.genes <- sum(raw.ControlTable1$isolates_with_singleton_AR_genes)
+    ControlTable <- raw.ControlTable1 %>%
+        mutate(expected_isolates_with_singleton_AR_genes = total.isolates.with.singleton.AR.genes * total_isolates/summed.isolates)
+    return(ControlTable)
+}
+
+calc.isolate.singleton.AR.gene.enrichment.pvals <- function(raw.ControlTable1) {
+    
+    summed.isolates <- sum(raw.ControlTable1$total_isolates)
+    total.isolates.with.singleton.AR.genes <- sum(raw.ControlTable1$isolates_with_singleton_AR_genes)
+
+    ControlTable <- raw.ControlTable1 %>%
+        rowwise() %>%
+        mutate(binom.test.pval = binom.test(
+                   x = isolates_with_singleton_AR_genes,
+                   n = total.isolates.with.singleton.AR.genes,
+                   p = total_isolates/summed.isolates
+               )$p.value) %>%
+        mutate(corrected.pval = p.adjust(binom.test.pval,"BH")) %>%
+        ## use Benjamini-Hochberg p-value correction.
+        select(-binom.test.pval) ## drop original p-value after the correction.
+    
+    return(ControlTable)
+}
+
+## join columns to make Control Table 1 with raw data.
+raw.ControlTable1 <- isolate.totals %>%
+    left_join(AR.singleton.category.counts) %>%
+    mutate(isolates_with_singleton_AR_genes = replace_na(isolates_with_singleton_AR_genes,0)) %>%
+    arrange(desc(isolates_with_singleton_AR_genes))
+
+
+## Nice result! No categories are enriched with singleton AR genes,
+## as most isolates have a gene that matches an antibiotic keyword.
+## Animal-host isolates are depleted (perhaps due to aphid bacteria isolates?)
+ControlTable1 <- calc.expected.isolates.with.singleton.AR.genes(raw.ControlTable1) %>%
+    calc.isolate.singleton.AR.gene.enrichment.pvals()
+
 ####################################################################
 ## Table 2. Enrichment/deletion analysis of AR genes using duplicated genes,
 ## rather than number of isolates as in Table 1.
 
 ## First column: the number of duplicated genes in each category.
-duplicate.genes.count <- naive.HGT.data %>%
+duplicate.genes.count <- duplicate.proteins %>%
     group_by(Manual_Annotation) %>%
     summarize(duplicate_genes = sum(count)) %>%
     arrange(desc(duplicate_genes))
 
 ## Second column: the number of duplicated MGE genes.
-duplicate.MGE.genes.count <- naive.HGT.data %>%
+duplicate.MGE.genes.count <- duplicate.proteins %>%
     filter(str_detect(.$product,IS.keywords)) %>%
     group_by(Manual_Annotation) %>%
     summarize(MGE_duplicates = sum(count)) %>%
     arrange(desc(MGE_duplicates))
 
 ## Third column: the number of duplicated AR genes.
-duplicate.AR.genes.count <- naive.HGT.data %>%
+duplicate.AR.genes.count <- duplicate.proteins %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
     group_by(Manual_Annotation) %>%
     summarize(AR_duplicates = sum(count)) %>%
@@ -278,6 +354,94 @@ write.csv(x=Table2,file="../results/AR-gene-duplication/Table2.csv")
 
 ################################################################################
 
+## Positive control 2: Make a version of Table 2, examining the distribution
+## of AR genes that have NOT duplicated.
+
+## First column: the number of singleton genes in each category.
+singleton.genes.count <- singleton.proteins %>%
+    group_by(Manual_Annotation) %>%
+    summarize(singleton_genes = sum(count)) %>%
+    arrange(desc(singleton_genes))
+
+## Second column: the number of singleton MGE genes.
+singleton.MGE.genes.count <- singleton.proteins %>%
+    filter(str_detect(.$product,IS.keywords)) %>%
+    group_by(Manual_Annotation) %>%
+    summarize(MGE_singletons = sum(count)) %>%
+    arrange(desc(MGE_singletons))
+
+## Third column: the number of singleton AR genes.
+singleton.AR.genes.count <- singleton.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords)) %>%
+    group_by(Manual_Annotation) %>%
+    summarize(AR_singletons = sum(count)) %>%
+    arrange(desc(AR_singletons))
+
+## Fourth column: the expected number of singleton AR genes in each category.
+calc.expected.AR.singletons <- function(raw.ControlTable2) {
+    total.singleton.genes <- sum(raw.ControlTable2$singleton_genes)
+    total.AR.singletons <- sum(raw.ControlTable2$AR_singletons)
+    ControlTable <- raw.ControlTable2 %>%
+        mutate(expected_AR_singletons = total.AR.singletons * singleton_genes/total.singleton.genes)
+    return(ControlTable)
+}
+
+## Fifth column: p-value for enrichment/depletion of singleton AR genes
+## in each category.
+calc.AR.singleton.enrichment.pvals <- function(raw.ControlTable2) {
+
+    total.singleton.genes <- sum(raw.ControlTable2$singleton_genes)
+    total.AR.singletons <- sum(raw.ControlTable2$AR_singletons)
+
+    ControlTable <- raw.ControlTable2 %>%
+        rowwise() %>%
+        mutate(binom.test.pval = binom.test(
+                   x = AR_singletons,
+                   n = total.AR.singletons,
+                   p = singleton_genes/total.singleton.genes
+               )$p.value) %>%
+        mutate(corrected.pval = p.adjust(binom.test.pval,"BH")) %>%
+        ## use Benjamini-Hochberg p-value correction.
+        select(-binom.test.pval) ## drop original p-value after the correction.
+    
+    return(ControlTable)
+}
+
+
+## IMPORTANT: Unannotated strains are ridiculously enriched in singleton AR genes.
+## the null distribution changes significantly depending on whether
+## Unannotated strains are included in this table, or not.
+
+## when including Unannotated strains, human isolates are highly depleted in
+## singleton AR genes; when removing them, human isolates are significantly
+## enriched in AR genes.
+
+## In both cases, however, soil is significantly enriched in AR singletons.
+## This shows that soil has more singleton AR genes than human isolates, no matter
+## how this analysis is done.
+
+## It is likely that I will put both of these tables into the Supplement
+## for greatest transparency.
+
+raw.ControlTable2 <- singleton.genes.count %>% ## first column
+    left_join(singleton.MGE.genes.count) %>% ## second column
+    left_join(singleton.AR.genes.count) %>% ## third column
+    mutate(AR_singletons = replace_na(AR_singletons, 0)) %>%
+    arrange(desc(AR_singletons))
+
+## CRITICAL STEP: keep Unannotated strains.
+ControlTable2A <- raw.ControlTable2 %>%
+    calc.expected.AR.singletons() %>% ## fourth column
+    calc.AR.singleton.enrichment.pvals() ## fifth column
+
+## CRITICAL STEP: remove Unannotated strains.
+ControlTable2A <- raw.ControlTable2 %>%
+    filter(Manual_Annotation != "Unannotated") %>%
+    calc.expected.AR.singletons() %>% ## fourth column
+    calc.AR.singleton.enrichment.pvals() ## fifth column
+
+################################################################################
+
 ## Table 3. Show number of duplicated genes on chromosomes, and number of
 ## duplicate genes on plasmids, for each category, for duplicated genes
 ## and duplicated AR genes. This table of raw data goes into the text. Then,
@@ -285,23 +449,23 @@ write.csv(x=Table2,file="../results/AR-gene-duplication/Table2.csv")
 ## Fisher's exact test for asssociation between duplicated AR genes and plasmids.
 
 ## Column 1
-duplicate.chromosome.genes.count <- naive.HGT.data %>%
+duplicate.chromosome.genes.count <- duplicate.proteins %>%
     group_by(Manual_Annotation) %>%
     summarize(chromosomal_duplicate_genes = sum(chromosome_count))
 
 ## Column 2
-duplicate.plasmid.genes.count <- naive.HGT.data %>%
+duplicate.plasmid.genes.count <- duplicate.proteins %>%
     group_by(Manual_Annotation) %>%
     summarize(plasmid_duplicate_genes = sum(plasmid_count))
 
 ## Column 3
-duplicate.AR.chromosome.genes.count <- naive.HGT.data %>%
+duplicate.AR.chromosome.genes.count <- duplicate.proteins %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
     group_by(Manual_Annotation) %>%
     summarize(chromosomal_AR_duplicate_genes = sum(chromosome_count))
 
 ## Column 4
-duplicate.AR.plasmid.genes.count <- naive.HGT.data %>%
+duplicate.AR.plasmid.genes.count <- duplicate.proteins %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
     group_by(Manual_Annotation) %>%
     summarize(plasmid_AR_duplicate_genes = sum(plasmid_count))
@@ -344,382 +508,86 @@ fisher.test(Table4.contingency.table)
 fisher.test(Table4.contingency.table)$p.value
 
 ################################################################################
-## Figures.
+## Positive control 3: look at distribution of singleton AR genes on
+## chromosomes and plasmids, to compare with Tables 3 and 4.
 
-## Fig2A. number of duplicated genes in each category,
-## normalized by number of isolates in each category.
+## Column 1
+singleton.chromosome.genes.count <- singleton.proteins %>%
+    group_by(Manual_Annotation) %>%
+    summarize(chromosomal_singleton_genes = sum(chromosome_count))
 
-## IMPORTANT: we want to normalize by number of isolates in each category,
-## so left_join with tally.of.isolates.
+## Column 2
+singleton.plasmid.genes.count <- singleton.proteins %>%
+    group_by(Manual_Annotation) %>%
+    summarize(plasmid_singleton_genes = sum(plasmid_count))
 
-Fig2A.data <- naive.HGT.data %>%
-    left_join(tally.of.isolates) %>%
-    group_by(Manual_Annotation, category_count) %>%
-    summarize(all.duplicates =  sum(count)/unique(category_count),
-              on.chromosome = sum(chromosome_count)/unique(category_count),
-              on.plasmid = sum(plasmid_count)/unique(category_count)) %>%
-    ## reshape the data wity tidyr to plot each category on the x-axis.
-    gather(`all.duplicates`, `on.chromosome`, `on.plasmid`,
-           key='duplicate_location',value='mean_number')
-
-Fig2A <- ggplot(data=Fig2A.data,
-                aes(x=duplicate_location,
-                    y=mean_number,
-                    fill=Manual_Annotation)) +
-    geom_bar(stat="identity") +
-    theme_classic() + ggtitle("average number of duplicates per genome")
-
-## Fig2B. Average number of duplicated ARG genes in each category.
-Fig2B.data <- naive.HGT.data %>%
+## Column 3
+singleton.AR.chromosome.genes.count <- singleton.proteins %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
-    left_join(tally.of.isolates) %>%
-    group_by(Manual_Annotation, category_count) %>%
-    summarize(all.duplicates =  sum(count)/unique(category_count),
-              on.chromosome = sum(chromosome_count)/unique(category_count),
-              on.plasmid = sum(plasmid_count)/unique(category_count)) %>%
-    ## reshape the data wity tidyr to plot each category on the x-axis.
-    gather(`all.duplicates`,`on.chromosome`,`on.plasmid`,
-           key='AR_duplicate_location',value='mean_number')
+    group_by(Manual_Annotation) %>%
+    summarize(chromosomal_AR_singleton_genes = sum(chromosome_count))
 
-Fig2B <- ggplot(data=Fig2B.data,
-                aes(x=AR_duplicate_location,
-                    y=mean_number,
-                    fill=Manual_Annotation)) +
-    geom_bar(stat="identity") +
-    theme_classic() + ggtitle("average number of AR duplicates per genome")
+## Column 4
+singleton.AR.plasmid.genes.count <- singleton.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords)) %>%
+    group_by(Manual_Annotation) %>%
+    summarize(plasmid_AR_singleton_genes = sum(plasmid_count))
 
-Fig2.panels <- plot_grid(Fig2A,Fig2B,
-                  labels=c('A','B'),ncol=1)
-ggsave("../results/Fig2.pdf",Fig2.panels)
+ControlTable3 <- singleton.chromosome.genes.count %>%
+    left_join(singleton.plasmid.genes.count) %>%
+    left_join(singleton.AR.chromosome.genes.count) %>%
+    mutate(chromosomal_AR_singleton_genes=replace_na(chromosomal_AR_singleton_genes, 0)) %>%
+    left_join(singleton.AR.plasmid.genes.count) %>%
+    mutate(plasmid_AR_singleton_genes = replace_na(plasmid_AR_singleton_genes, 0)) %>%
+    arrange(desc(plasmid_AR_singleton_genes))
 
+## get values for Fisher's exact test.
+total.chr.AR.singletons <- sum(ControlTable3$chromosomal_AR_singleton_genes)
+total.plasmid.AR.singletons <- sum(ControlTable3$plasmid_AR_singleton_genes)
 
-#################################################################################
+total.chr.singletons <- sum(ControlTable3$chromosomal_singleton_genes)
+total.plasmid.singletons <- sum(ControlTable3$plasmid_singleton_genes)
+
+total.nonAR.chr.singletons <- total.chr.singletons - total.chr.AR.singletons
+total.nonAR.plasmid.singletons <- total.plasmid.singletons - total.plasmid.AR.singletons
+
+ControlTable4.contingency.table <- matrix(c(total.chr.AR.singletons,
+                                     total.plasmid.AR.singletons,
+                                     total.nonAR.chr.singletons,
+                                     total.nonAR.plasmid.singletons),nrow=2)
+## label the rows and columns of the contingency table.
+rownames(ControlTable4.contingency.table) <- c("chromosome","plasmid")
+colnames(ControlTable4.contingency.table) <- c("AR singleton genes","non-AR singleton genes")
+
+## This positive control shows singleton AR genes are highly enriched on plasmids,
+## based on a comparison with the distribution of singleton genes overall.
+## Therefore AR genes are generally associated with plasmids, regardless of
+## status of being a duplication or not.
+
+## This does NOT invalidate the main result of this analysis, that duplicate AR
+## genes are more enriched on plasmids in comparison to the distribution of
+## duplicate genes overall.
+
+fisher.test(ControlTable4.contingency.table)
+fisher.test(ControlTable4.contingency.table)$p.value
+
+################################################################################
 ## Analysis of duplicate pairs found just on chromosome, just on plasmid, or
 ## on both chromosomes and plasmids.
 
 ## let's look at cases of identical sequences on chromosomes and plasmids.
-both.chr.and.plasmid.cases <- naive.HGT.data %>%
+
+both.chr.and.plasmid.cases <- duplicate.proteins %>%
     filter(chromosome_count >= 1 & plasmid_count >= 1) %>%
     arrange(desc(count))
 
-just.chromosome.cases <- naive.HGT.data %>%
+just.chromosome.cases <- duplicate.proteins %>%
     filter(chromosome_count >= 1 & plasmid_count == 0) %>%
     arrange(desc(count))
 
-just.plasmid.cases <- naive.HGT.data %>%
+just.plasmid.cases <- duplicate.proteins %>%
     filter(chromosome_count == 0 & plasmid_count >= 1) %>%
     arrange(desc(count))
-
-## Of these, what percentages of ARGs are in the chromosome, plasmid, or both? 
-AR.chr.category.counts <- just.chromosome.cases %>%
-    filter(str_detect(.$product,antibiotic.keywords)) %>%
-    ## next two lines is to count isolates rather than genes
-    select(-count,-chromosome_count,-plasmid_count,-product,-sequence) %>%
-    distinct() %>%
-    group_by(Manual_Annotation) %>%
-    summarize(category_count = n()) %>%
-    arrange(desc(category_count))
-
-AR.plasmid.category.counts <- just.plasmid.cases %>%
-    filter(str_detect(.$product,antibiotic.keywords)) %>%
-    ## next two lines is to count isolates rather than genes
-    select(-count,-chromosome_count,-plasmid_count,-product,-sequence) %>%
-    distinct() %>%
-    group_by(Manual_Annotation) %>%
-    summarize(category_count = n()) %>%
-    arrange(desc(category_count))
-
-AR.chr.and.plasmid.category.counts <- both.chr.and.plasmid.cases %>%
-    filter(str_detect(.$product,antibiotic.keywords)) %>%
-    ## next two lines is to count isolates rather than genes
-    select(-count,-chromosome_count,-plasmid_count,-product,-sequence) %>%
-    distinct() %>%
-    group_by(Manual_Annotation) %>%
-    summarize(category_count = n()) %>%
-    arrange(desc(category_count))
-
-## What's the copy number of each ARG (in the chromosome or in the plasmid)
-## in these isolates?
-
-AR.both.chr.and.plasmid.cases <- both.chr.and.plasmid.cases %>%
-    filter(str_detect(.$product,antibiotic.keywords))
-
-AR.chr.cases <- just.chromosome.cases %>%
-    filter(str_detect(.$product,antibiotic.keywords))
-
-AR.plasmid.cases <- just.plasmid.cases %>%
-    filter(str_detect(.$product,antibiotic.keywords))
-
-## Fig3. Show average number of duplicate genes on just chromosome, just plasmid, or on both,
-## per category (normalize by number of genomes in each category).
-
-Fig3A.data <- just.chromosome.cases %>%
-    left_join(tally.of.isolates) %>%
-    group_by(Manual_Annotation, category_count) %>%
-    summarize(only.on.chromosome =  sum(count)/unique(category_count))
-
-Fig3B.data <- just.plasmid.cases %>%
-    left_join(tally.of.isolates) %>%
-    group_by(Manual_Annotation, category_count) %>%
-    summarize(only.on.plasmid =  sum(count)/unique(category_count))
-
-Fig3C.data <- both.chr.and.plasmid.cases %>%
-    left_join(tally.of.isolates) %>%
-    group_by(Manual_Annotation, category_count) %>%
-    summarize(on.both =  sum(count)/unique(category_count))
-
-Fig3.data <- Fig3A.data %>%
-    full_join(Fig3B.data) %>%
-    full_join(Fig3C.data) %>%
-    ## missing values are zeros.
-    mutate_all(~replace(., is.na(.), 0)) %>%
-    select(-category_count) %>%
-    ## reshape the data wity tidyr to plot each category on the x-axis.
-    gather(`only.on.chromosome`,`only.on.plasmid`,`on.both`,
-           key='duplicate_location',value='mean_number')
-
-Fig3 <- ggplot(data=Fig3.data,
-                aes(x=duplicate_location,
-                    y=mean_number,
-                    fill=Manual_Annotation)) +
-    geom_bar(stat="identity") +
-    theme_classic() + ggtitle("location of duplicates in the genome")
-ggsave("../results/Fig3.pdf",Fig3)
-
-## Fig4. Show average number of genes on just chromosome, just plasmid, or on both,
-## per category (normalize by number of genomes in each category).
-## Exclude MGEs.
-
-Fig4A.data <- just.chromosome.cases %>%
-    left_join(tally.of.isolates) %>%
-    filter(!str_detect(.$product,IS.keywords)) %>%
-    group_by(Manual_Annotation, category_count) %>%
-    summarize(only.on.chromosome =  sum(count)/unique(category_count))
-
-Fig4B.data <- just.plasmid.cases %>%
-    left_join(tally.of.isolates) %>%
-    filter(!str_detect(.$product,IS.keywords)) %>%
-    group_by(Manual_Annotation, category_count) %>%
-    summarize(only.on.plasmid =  sum(count)/unique(category_count))
-
-Fig4C.data <- both.chr.and.plasmid.cases %>%
-    left_join(tally.of.isolates) %>%
-    filter(!str_detect(.$product,IS.keywords)) %>%
-    group_by(Manual_Annotation, category_count) %>%
-    summarize(on.both = sum(count)/unique(category_count))
-
-Fig4.data <- Fig4A.data %>%
-    full_join(Fig4B.data) %>%
-    full_join(Fig4C.data) %>%
-    ## missing values are zeros.
-    mutate_all(~replace(., is.na(.), 0)) %>%
-    select(-category_count) %>%
-    ## reshape the data wity tidyr to plot each category on the x-axis.
-    gather(`only.on.chromosome`,`only.on.plasmid`, `on.both`,
-           key='duplicate_location',value='mean_number')
-
-Fig4 <- ggplot(data=Fig4.data,
-                aes(x=duplicate_location,
-                    y=mean_number,
-                    fill=Manual_Annotation)) +
-    geom_bar(stat="identity") +
-    theme_classic() + ggtitle("location of duplicates in the genome (excluding MGEs)")
-ggsave("../results/Fig4.pdf",Fig4)
-
-
-
-## Fig5. Show average number of AR genes on just chromosome, just plasmid, or on both,
-## per category (normalize by number of genomes in each category).
-
-Fig5A.data <- just.chromosome.cases %>%
-    left_join(tally.of.isolates) %>%
-    filter(str_detect(.$product,antibiotic.keywords)) %>%
-    group_by(Manual_Annotation, category_count) %>%
-    summarize(only.on.chromosome =  sum(count)/unique(category_count))
-
-Fig5B.data <- just.plasmid.cases %>%
-    left_join(tally.of.isolates) %>%
-    filter(str_detect(.$product,antibiotic.keywords)) %>%
-    group_by(Manual_Annotation, category_count) %>%
-    summarize(only.on.plasmid =  sum(count)/unique(category_count))
-
-Fig5C.data <- both.chr.and.plasmid.cases %>%
-    left_join(tally.of.isolates) %>%
-    filter(str_detect(.$product,antibiotic.keywords)) %>%
-    group_by(Manual_Annotation, category_count) %>%
-    summarize(on.both =  sum(count)/unique(category_count))
-
-Fig5.data <- Fig5A.data %>%
-    full_join(Fig5B.data) %>%
-    full_join(Fig5C.data) %>%
-    ## missing values are zeros.
-    mutate_all(~replace(., is.na(.), 0)) %>%
-    ## reshape the data wity tidyr to plot each category on the x-axis.
-    gather(`only.on.chromosome`,`only.on.plasmid`,`on.both`,
-           key='duplicate_location',value='mean_number')
-
-Fig5 <- ggplot(data=Fig5.data,
-                aes(x=duplicate_location,
-                    y=mean_number,
-                    fill=Manual_Annotation)) +
-    geom_bar(stat="identity") +
-    theme_classic() + ggtitle("location of AR duplicates in the genome")
-ggsave("../results/Fig5.pdf",Fig5)
-
-#########################################################################################
-## older plots.
-
-## TODO: make count a column, and add a row for chromosome and plasmid.
-## Then facet on this.
-## THIS IS COOL! Some genomes have very high-copy number duplications.
-both.chr.plasmid.distribution.plot <- ggplot(both.chr.and.plasmid.cases,
-                                             aes(x=chromosome_count,y=plasmid_count,
-                                                 color=Manual_Annotation)) +
-    geom_jitter() +
-    geom_rug() +
-    facet_wrap(.~Manual_Annotation) +
-    theme_classic() +
-    ggtitle("both chromosome and plasmid")
-
-AR.both.chr.plasmid.distribution.plot <- ggplot(AR.both.chr.and.plasmid.cases,
-                                                aes(x=chromosome_count,y=plasmid_count,
-                                                    color=Manual_Annotation)) +
-    geom_jitter() +
-    geom_rug() +
-    facet_wrap(.~Manual_Annotation) +
-    theme_classic() +
-    ggtitle("both chromosome and plasmid")
-
-AR.chr.distribution.plot <- ggplot(AR.chr.cases,
-                                   aes(x=chromosome_count,
-                                       fill=Manual_Annotation)) +
-    geom_histogram() +
-    theme_classic() +
-    ggtitle("just chromosome")
-
-AR.plasmid.distribution.plot <- ggplot(AR.plasmid.cases,
-                                       aes(x=plasmid_count,
-                                           fill=Manual_Annotation)) +
-    geom_histogram() +
-    theme_classic() +
-    ggtitle("just plasmid")
-
-############################################
-
-both.chr.plasmid.metadata.plot <- ggplot(both.chr.and.plasmid.cases,
-                                            aes(x=Manual_Annotation)) +
-    geom_bar() +
-    theme_classic() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-    guides(fill=FALSE) +
-    ggtitle("both chromosome and plasmid")
-
-just.chromosome.metadata.plot <- ggplot(just.chromosome.cases,
-                                            aes(x=Manual_Annotation)) +
-    geom_bar() +
-    theme_classic() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-    guides(fill=FALSE) +
-    ggtitle("just on chromosome")
-
-just.plasmid.metadata.plot <- ggplot(just.plasmid.cases,
-                                            aes(x=Manual_Annotation)) +
-    geom_bar() +
-    theme_classic() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-    guides(fill=FALSE) +
-    ggtitle("just on plasmid")
-
-full.metadata.panels <- plot_grid(just.chromosome.metadata.plot,
-                                   just.plasmid.metadata.plot,
-                                   both.chr.plasmid.metadata.plot,
-                                   labels=c('A','B','C'),
-                                   ncol=1)
-
-full.metadata.title <- ggdraw() + 
-  draw_label(
-    "location of recently duplicated genes",
-    fontface = 'bold',
-    x = 0,
-    hjust = 0
-  ) +
-  theme(
-    # add margin on the left of the drawing canvas,
-    # so title is aligned with left edge of first plot
-    plot.margin = margin(0, 0, 0, 7)
-  )
-
-full.metadata.plot <- plot_grid(full.metadata.title,
-                                full.metadata.panels,
-                                ncol=1,
-                                ## rel_heights values control vertical title margins
-                                rel_heights = c(0.1, 1))
-
-ggsave("../results/all-recent-duplicates-metadata.pdf",full.metadata.plot,height=12,width=7)
-##############
-## now just examine genes with the antibiotic keywords that I chose above.
-both.chr.and.plasmid.antibiotic.cases <- both.chr.and.plasmid.cases %>%
-    filter(str_detect(.$product,antibiotic.keywords))
-
-just.chromosome.antibiotic.cases <- just.chromosome.cases %>%
-    filter(str_detect(.$product,antibiotic.keywords))
-
-just.plasmid.antibiotic.cases <- just.plasmid.cases %>%
-    filter(str_detect(.$product,antibiotic.keywords))
-
-
-AR.both.chr.plasmid.metadata.plot <- ggplot(both.chr.and.plasmid.antibiotic.cases,
-                                            aes(x=Manual_Annotation)) +
-    geom_bar() +
-    theme_classic() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-    guides(fill=FALSE) +
-    ylim(0,120) +
-    ggtitle("both chromosome and plasmid")
-
-AR.just.chromosome.metadata.plot <- ggplot(just.chromosome.antibiotic.cases,
-                                            aes(x=Manual_Annotation)) +
-    geom_bar() +
-    theme_classic() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-    guides(fill=FALSE) +
-    ylim(0,120) +
-    ggtitle("just on chromosome")
-
-AR.just.plasmid.metadata.plot <- ggplot(just.plasmid.antibiotic.cases,
-                                            aes(x=Manual_Annotation)) +
-    geom_bar() +
-    theme_classic() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-    guides(fill=FALSE) +
-    ggtitle("just on plasmid")
-
-full.AR.metadata.panels <- plot_grid(AR.just.chromosome.metadata.plot,
-                                   AR.just.plasmid.metadata.plot,
-                                   AR.both.chr.plasmid.metadata.plot,
-                                   labels=c('A','B','C'),
-                                   nrow=1)
-
-full.AR.metadata.title <- ggdraw() + 
-  draw_label(
-    "location of recently duplicated antibiotic resistance genes",
-    fontface = 'bold',
-    x = 0,
-    hjust = 0
-  ) +
-  theme(
-    # add margin on the left of the drawing canvas,
-    # so title is aligned with left edge of first plot
-    plot.margin = margin(0, 0, 0, 7)
-  )
-
-full.AR.metadata.plot <- plot_grid(full.AR.metadata.title,
-                                   full.AR.metadata.panels,
-                                   ncol=1,
-                                   ## rel_heights values control vertical title margins
-                                   rel_heights = c(0.1, 1))
-
-ggsave("../results/AR-recent-duplicates-metadata.pdf",full.AR.metadata.plot,height=7,width=12)
 
 ################################################################################
 ## 4 Analyses based on 4 sets of query sequences:
@@ -847,29 +715,6 @@ do.aim1.analysis <- function(AR.hits, outf.prefix,  protein.db.metadata) {
     percentFig.name = paste0("../results/",outf.prefix,"-percentFig.pdf")
     ggsave(percentFig.name, percentFig, width=4, height=4)
 
-
-    ## TODO: FIGURE OUT AN APPROPRIATE NORMALIZATION BY NUMBER
-    ## OF GENES ON PLASMIDS VERSUS THE CHROMOSOME.
-    
-    ## now weight by fraction of genes on plasmids.
-    ##print("Weighted mean fraction of AR genes on plasmids, in human host isolates:")
-    ##print(mean(human.host.combined.df$weighted.percent.on.plasmid))
-    ##print("Mean fraction of AR genes on plasmids, in isolates without a host:")
-    ##print(mean(no.host.combined.df$weighted.percent.on.plasmid))
-
-    ## the difference in percentage on plasmid is NOT significantly different:
-    ## Mann-Whitney U-test: p = 0.06082
-    ##print("Mann-Whitney U-test 2: do isolates from human hosts have a larger fraction of AR genes on plasmids, weighted by number of CDS of plasmids?")
-    ##test.result2 <- wilcox.test(human.host.combined.df$weighted.percent.on.plasmid,
-    ##                            no.host.combined.df$weighted.percent.on.plasmid,
-   ##                             alternative="greater")
-    ##print(test.result2)
-
-   ##     print("Mann-Whitney U-test 3: do isolates from human hosts have a larger fraction of AR genes on chromosomes")
-   ## test.result2 <- wilcox.test(human.host.combined.df$weighted.percent.on.plasmid,
-  ##                              no.host.combined.df$weighted.percent.on.plasmid,
- ##                               alternative="less")
-    ##   print(test.result3)
     print("analysis finished.")
     return(resistant.combined.df)
 }
