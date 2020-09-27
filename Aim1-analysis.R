@@ -21,17 +21,18 @@
 ## https://github.com/arpcard/rgi
 ## and look at singleton and duplicate RGs identified by this workflow.
 
-
 library(tidyverse)
 library(cowplot)
 library(data.table)
 
 ## annotate source sequence as plasmid or chromosome.
-genome.database <- read.csv("../results/chromosome-plasmid-table.csv")
-## This is 7046 strains.
-length(unique(genome.database$Annotation_Accession))
+genome.database <- read.csv("../results/AR-gene-duplication/chromosome-plasmid-table.csv")
 
-##  while this is 7047 strains.
+raw.gbk.annotation <- as_tibble(read.csv("../results/AR-gene-duplication/gbk-annotation-table.csv"))
+
+## This uses the manually-annotated data that I have so far.
+## IMPORTANT TODO: update manual annotation version,
+## with a script that generates this file.
 gbk.annotation <- as_tibble(read.csv("../data/manually-curated-gbk-annotation-table.csv")) %>%
     ## refer to NA annotations as "Unannotated".
     mutate(Manual_Annotation = replace_na(Manual_Annotation,"Unannotated"))
@@ -40,27 +41,17 @@ gbk.annotation <- as_tibble(read.csv("../data/manually-curated-gbk-annotation-ta
 ## TEMPORARY HACK FOR SELF-CONSISTENCY:
 gbk.annotation <- gbk.annotation %>% filter(Annotation_Accession %in% genome.database$Annotation_Accession)
 ########################
-## IMPORTANT NOTE: This should be ~7300 genomes after updating the gbk annotation.
-## not sure if chromosome-plasmid-table will also be larger.
-length(unique(gbk.annotation$Annotation_Accession))
-## there's one in gbk.annotation that is missnig from genome.database:
-## GCA_900492195.1_T2.26MG-112.21_plasmid
-## don't worry about it for now: it won't affect the analysis anyway.
+
+## IMPORTANT NOTE: CHECK FOR CONSISTENCY IN protein_db_CDS_counts.csv!!!
+## most importantly, examine replicons which are neither annotated as
+## chromosomes or plasmids.
 cds.counts <- read.csv("../results/protein_db_CDS_counts.csv")
 
-## number of host and isolation_source annotations in gbk_annotation.
-## 647 unique host annotations.
-length(unique(gbk.annotation$host))
-## 1763 unique isolation_source annotations.
-length(unique(gbk.annotation$isolation_source))
 
 protein.db.metadata <- genome.database %>%
     left_join(gbk.annotation) %>%
     left_join(cds.counts)    
 
-## We have 7046 isolates in the AR.results dataframe.
-## This is an invariant that will help with debugging.
-length(unique(protein.db.metadata$Annotation_Accession))
 
 ## check out the different host and isolation source annotations.
 chromosome.annotation <- protein.db.metadata %>%
@@ -109,11 +100,34 @@ antibiotic.keywords <- "lactamase|chloramphenicol|quinolone|antibiotic resistanc
 ## antibiotic resistance: ‘azole resistance|antibiotic resistance|TetR|tetracycline resistance|VanZ|betalactam\S*|beta-lactam|antimicrob\S*|lantibio\S*’.
 
 
+## IMPORTANT TODO: I want the sequence column for the duplicate genes,
+## but I don't want the sequence column for the singletons,
+## for memory reasons.
+
+## so import two different files: one for duplicates, and one for singletons,
+## rather than one big file with everything.
+
 ## import the 12GB file containing singletons.
 ## I can save a ton of memory if I don't import the sequence column,
 ## and by using the data.table package for import.
-all.proteins <- data.table::fread("../results/duplicate-proteins.csv",
+all.proteins <- data.table::fread("../results/all-proteins.csv",
                                   drop="sequence") %>%
+    ## now merge with gbk annotation.
+    ## I am doing a left_join here, because I want the NA Manual_Accessions
+    ## in order to predict where these unannotated strains come from.
+    left_join(gbk.annotation) ##%>%
+    ## refer to NA annotations as "Unannotated".
+    ##mutate(Manual_Annotation = replace_na(Manual_Annotation,"Unannotated"))
+
+singleton.proteins <- all.proteins %>% filter(count == 1)
+
+## free up memory by deallocating all.proteins,
+rm(all.proteins)
+## and running garbage collection.
+gc()
+
+## read in duplicate proteins with sequences, using a separate file.
+duplicate.proteins <- read.csv("../results/duplicate-proteins.csv") %>%
     ## now merge with gbk annotation.
     ## I am doing a left_join here, because I want the NA Manual_Accessions
     ## in order to predict where these unannotated strains come from.
@@ -121,13 +135,17 @@ all.proteins <- data.table::fread("../results/duplicate-proteins.csv",
     ## refer to NA annotations as "Unannotated".
     mutate(Manual_Annotation = replace_na(Manual_Annotation,"Unannotated"))
 
-duplicate.proteins <- all.proteins %>% filter(count > 1)
-singleton.proteins <- all.proteins %>% filter(count == 1)
+## check for self-consistency:
+## 7369 strains have duplications
+length(unique(duplicate.proteins$Annotation_Accession))
+## 7962 strains have singletons-- THIS MEANS THAT
+## 811 strains are missing from the dataset of all proteins!
+## Why is this the case?
+length(unique(singleton.proteins$Annotation_Accession))
 
-## free up memory by deallocating all.proteins,
-rm(all.proteins)
-## and running garbage collection.
-gc()
+## list the strains missing from the singletons data.
+missing.ones <- gbk.annotation %>%
+    filter(!(Annotation_Accession %in% singleton.proteins$Annotation_Accession))
 
 #################
 ## TEMPORARY HACK FOR SELF-CONSISTENCY:
@@ -142,16 +160,21 @@ singleton.proteins <- singleton.proteins %>%
 ##################    
 ##########################################
 ## CRITICAL BUG TO FIX:
-## there are 7,369 isolates which is more than the annotated genomes.
+## there are 7,369 isolates that have annotated proteins in their Genbank
+## annotation.
 ## in part, this discrepancy has to do with the manual annotation having been
 ## constructed on an older version of the gbk_annotation.csv, which was
 ## missing some strains. There are probably other bugs here to fix as well.
 ## DEBUG THESE ERRORS AND MAKE THESE NUMBERS CONSISTENT!!!
 ## for now, I have restricted these data by filtering on Annotation_Accession--
 ## see the temporary fixes in the code above.
+#################
+## THIS CODE BLOCK IS FOR DEBUGGING: FIXING SAMPLE NUMBER CONSISTENCY ERRORS.
+
+test.genome.database <- read.csv("../results/chromosome-plasmid-table.csv")
 
 problem.data <- duplicate.proteins %>%
-    filter(!(Annotation_Accession %in% genome.database$Annotation_Accession)) %>%
+    filter(!(Annotation_Accession %in% test.genome.database$Annotation_Accession)) %>%
     select(-count,-chromosome_count,-plasmid_count,-product) %>%
     distinct()
 ## there are 871 isolates with Annotation_Accession, but no metadata at all? Why?
@@ -172,7 +195,7 @@ isolate.totals <- gbk.annotation %>%
 ## Second column: count the number of isolates with duplications in each category.
 isolates.with.duplicate.genes <- duplicate.proteins %>%
     ## next two lines is to count isolates rather than genes
-    select(-count,-chromosome_count,-plasmid_count,-product) %>%
+    select(Annotation_Accession, Manual_Annotation) %>%
     distinct() %>%
     group_by(Manual_Annotation) %>%
     summarize(isolates_with_duplicate_genes = n()) %>%
@@ -182,7 +205,7 @@ isolates.with.duplicate.genes <- duplicate.proteins %>%
 AR.category.counts <- duplicate.proteins %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
     ## next two lines is to count isolates rather than genes
-    select(-count,-chromosome_count,-plasmid_count,-product) %>%
+    select(Annotation_Accession, Manual_Annotation) %>%
     distinct() %>%
     group_by(Manual_Annotation) %>%
     summarize(isolates_with_duplicated_AR_genes = n()) %>%
@@ -242,7 +265,7 @@ write.csv(x=Table1,file="../results/AR-gene-duplication/Table1.csv")
 AR.singleton.category.counts <- singleton.proteins %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
     ## next two lines is to count isolates rather than genes
-    select(-count,-chromosome_count,-plasmid_count,-product) %>%
+    select(Annotation_Accession, Manual_Annotation) %>%
     distinct() %>%
     group_by(Manual_Annotation) %>%
     summarize(isolates_with_singleton_AR_genes = n()) %>%
@@ -287,6 +310,10 @@ raw.ControlTable1 <- isolate.totals %>%
 ## Animal-host isolates are depleted (perhaps due to aphid bacteria isolates?)
 ControlTable1 <- calc.expected.isolates.with.singleton.AR.genes(raw.ControlTable1) %>%
     calc.isolate.singleton.AR.gene.enrichment.pvals()
+
+## write ControlTable 1 to file.
+write.csv(x=ControlTable1,file="../results/AR-gene-duplication/ControlTable1.csv")
+
 
 ####################################################################
 ## Table 2. Enrichment/deletion analysis of AR genes using duplicated genes,
@@ -351,6 +378,50 @@ Table2 <- duplicate.genes.count %>% ## first column
 
 ## write Table 2 to file.
 write.csv(x=Table2,file="../results/AR-gene-duplication/Table2.csv")
+
+############
+
+## Table 2B: the number of types of duplicate genes in each category,
+## and the average num.
+
+## Columns 1 and 2:
+duplicated.gene.type.count <- duplicate.proteins %>%
+    group_by(Manual_Annotation) %>%
+    ## each row corresponds to a type of duplicated gene.
+    summarize(duplicate_gene_types = n(),
+              mean.duplicate.num = sum(count)/n()) %>%
+    arrange(desc(duplicate_gene_types))
+
+
+## Cols 3 & 4: the number of duplicated MGE gene types
+duplicated.MGE.type.count <- duplicate.proteins %>%
+    filter(str_detect(.$product,IS.keywords)) %>%
+    group_by(Manual_Annotation) %>%
+    ## each row corresponds to a type of duplicated MGE.
+    summarize(duplicate_MGE_types = n(),
+              mean.MGE.duplicate.num = sum(count)/n()) %>%
+    arrange(desc(duplicate_MGE_types))
+
+## Cols 5 & 6: the number of duplicated AR genes.
+duplicated.ARG.type.count <- duplicate.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords)) %>%
+    group_by(Manual_Annotation) %>%
+    ## each row corresponds to a type of duplicated ARG.
+    summarize(duplicate_ARG_types = n(),
+              mean.ARG.duplicate.num = sum(count)/n()) %>%
+    arrange(desc(duplicate_ARG_types))
+
+
+Table2B <- duplicated.gene.type.count %>% 
+    left_join(duplicated.MGE.type.count) %>%
+    left_join(duplicated.ARG.type.count) %>%
+    mutate(duplicate_ARG_types = replace_na(duplicate_ARG_types, 0)) %>%
+    mutate(mean.ARG.duplicate.num = replace_na(mean.ARG.duplicate.num, 0)) %>%
+    arrange(desc(duplicate_ARG_types))
+
+## write Table 2B to file.
+write.csv(x=Table2B, file="../results/AR-gene-duplication/Table2B.csv")
+
 
 ################################################################################
 
@@ -435,10 +506,13 @@ ControlTable2A <- raw.ControlTable2 %>%
     calc.AR.singleton.enrichment.pvals() ## fifth column
 
 ## CRITICAL STEP: remove Unannotated strains.
-ControlTable2A <- raw.ControlTable2 %>%
+ControlTable2B <- raw.ControlTable2 %>%
     filter(Manual_Annotation != "Unannotated") %>%
     calc.expected.AR.singletons() %>% ## fourth column
     calc.AR.singleton.enrichment.pvals() ## fifth column
+
+write.csv(x=ControlTable2A, file="../results/AR-gene-duplication/ControlTable2A.csv")
+write.csv(x=ControlTable2B, file="../results/AR-gene-duplication/ControlTable2B.csv")
 
 ################################################################################
 
@@ -588,3 +662,55 @@ just.chromosome.cases <- duplicate.proteins %>%
 just.plasmid.cases <- duplicate.proteins %>%
     filter(chromosome_count == 0 & plasmid_count >= 1) %>%
     arrange(desc(count))
+
+################################################################################
+
+## simple HGT analysis.
+
+## get the match between sequences and product annotations.
+duplicate.protein.annotations <- duplicate.proteins %>%
+    select(product, sequence) %>%
+    distinct()
+
+HGT.candidates <- duplicate.proteins %>%
+    group_by(sequence) %>%
+    summarize(number.of.genomes = n()) %>%
+    filter(number.of.genomes > 1) %>%
+    arrange(desc(number.of.genomes)) %>%
+    left_join(duplicate.protein.annotations)
+
+HGT.candidate.summary <- HGT.candidates %>%
+    select(-sequence)
+
+MGE.HGT.candidates <- HGT.candidate.summary %>%
+    filter(str_detect(.$product,IS.keywords))
+
+non.MGE.HGT.candidates <- HGT.candidate.summary %>%
+    filter(!str_detect(.$product,IS.keywords))
+
+AR.HGT.candidates <- HGT.candidate.summary %>%
+    filter(str_detect(.$product,antibiotic.keywords))
+################################################################################
+## make circos style plots for tabular data.
+## use this book for the circlize R package.
+## https://jokergoo.github.io/circlize_book/book/
+
+##library(circlize)
+
+## Plot for Table 1:
+## 1) outer ring shows total isolates.
+## 2) middle ring shows isolates with duplicate genes.
+## 3) this inner ring shows isolates with singleton AR genes.
+## 4) innermost ring shows isolates with duplicate AR genes.
+
+##circos.par("track.height" = 0.1)
+##circos.initialize(factors = Table1$Manual_Annotation, xlim = c(0,1))
+
+##circos.track(ylim = c(-1, 1), panel.fun = function(x, y) {
+    ## example code:
+    ##value = runif(10, min = -1, max = 1)
+    ##circos.barplot(value, 1:10 - 0.5, col = ifelse(value > 0, 2, 3))
+##    circos.barplot(log(Table1$total_isolates), 1:length(Table1$total_isolates))
+##})
+
+##circos.clear()

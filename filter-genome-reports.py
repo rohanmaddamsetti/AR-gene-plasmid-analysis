@@ -16,5 +16,5 @@ with open("../data/prokaryotes.txt","r") as g_report:
         if i == 0: ## print the header.
             print(line)
         else:
-            if 'plasmid' in line:
+            if ('plasmid' in line) and ('chromosome' in line):
                 print(line)

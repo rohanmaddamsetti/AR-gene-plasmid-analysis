@@ -23,12 +23,16 @@ with open("../results/chromosome-plasmid-table.csv",'w') as out_fh:
             replicons = fields[8]
             ftp_path = fields[20]
             GBAnnotation = os.path.basename(ftp_path)
-            my_annotation_file = "../results/gbk_annotation/" + GBAnnotation + "_truncated.gbff"
+            my_annotation_file = "../results/gbk-annotation/" + GBAnnotation + "_genomic.gbff.gz"
             ''' make sure that this file exists in the annotation directory--
             skip if this was not the case.
             this is important; we don't want to include genomes that were
             not in the search database in the first place. '''
             if not os.path.exists(my_annotation_file):
+                print("ERROR:")
+                print(GBAnnotation + " NOT FOUND:")
+                print("searched for: " + my_annotation_file)
+                print()
                 continue
             replicon_list = replicons.split(';')
             for s in replicon_list:
@@ -41,8 +45,16 @@ with open("../results/chromosome-plasmid-table.csv",'w') as out_fh:
                 elif s.startswith("plasmid"):
                     seq_type = "plasmid"
                 else: ## only allow chromosomes and plasmids.
-                    print('WEIRD CASE:')
-                    print(s)
-                    continue
-                row_string = ','.join([organism, strain, seq_id, seq_type, GBAnnotation]) + '\n'
+                    known_phage_seqs = ['CP003186.1','CP013974.1','CP019719.1',
+                                        'GQ866233.1','CP018841.1','CP002495.1',
+                                        'CP011970.1']
+                    if seq_id in known_phage_seqs:
+                        continue ## pass silently.
+                    else:
+                        print("WEIRD CASE:")
+                        print(s)
+                        continue
+                row_data = [organism, strain, seq_id, seq_type, GBAnnotation]
+                ## replace all commas with semicolon to respect the csv output format.
+                row_string = ','.join([x.replace(',',';') for x in row_data]) + '\n'
                 out_fh.write(row_string)
