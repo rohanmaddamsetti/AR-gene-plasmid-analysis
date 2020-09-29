@@ -30,6 +30,8 @@ genome.database <- read.csv("../results/AR-gene-duplication/chromosome-plasmid-t
 
 raw.gbk.annotation <- as_tibble(read.csv("../results/AR-gene-duplication/gbk-annotation-table.csv"))
 
+length(unique(genome.database$Annotation_Accession))
+
 ## This uses the manually-annotated data that I have so far.
 ## IMPORTANT TODO: update manual annotation version,
 ## with a script that generates this file.
@@ -41,17 +43,14 @@ gbk.annotation <- as_tibble(read.csv("../data/manually-curated-gbk-annotation-ta
 ## TEMPORARY HACK FOR SELF-CONSISTENCY:
 gbk.annotation <- gbk.annotation %>% filter(Annotation_Accession %in% genome.database$Annotation_Accession)
 ########################
-
 ## IMPORTANT NOTE: CHECK FOR CONSISTENCY IN protein_db_CDS_counts.csv!!!
 ## most importantly, examine replicons which are neither annotated as
 ## chromosomes or plasmids.
-cds.counts <- read.csv("../results/protein_db_CDS_counts.csv")
-
+cds.counts <- read.csv("../results/AR-gene-duplication/protein_db_CDS_counts.csv")
 
 protein.db.metadata <- genome.database %>%
     left_join(gbk.annotation) %>%
     left_join(cds.counts)    
-
 
 ## check out the different host and isolation source annotations.
 chromosome.annotation <- protein.db.metadata %>%
@@ -100,17 +99,13 @@ antibiotic.keywords <- "lactamase|chloramphenicol|quinolone|antibiotic resistanc
 ## antibiotic resistance: ‘azole resistance|antibiotic resistance|TetR|tetracycline resistance|VanZ|betalactam\S*|beta-lactam|antimicrob\S*|lantibio\S*’.
 
 
-## IMPORTANT TODO: I want the sequence column for the duplicate genes,
-## but I don't want the sequence column for the singletons,
-## for memory reasons.
+## I want the sequence column for the duplicate genes,
+## but not for the singletons, to save memory.
 
-## so import two different files: one for duplicates, and one for singletons,
-## rather than one big file with everything.
-
-## import the 12GB file containing singletons.
+## import the 12GB file containing all proteins, including singletons.
 ## I can save a ton of memory if I don't import the sequence column,
 ## and by using the data.table package for import.
-all.proteins <- data.table::fread("../results/all-proteins.csv",
+all.proteins <- data.table::fread("../results/AR-gene-duplication/all-proteins.csv",
                                   drop="sequence") %>%
     ## now merge with gbk annotation.
     ## I am doing a left_join here, because I want the NA Manual_Accessions
@@ -127,7 +122,7 @@ rm(all.proteins)
 gc()
 
 ## read in duplicate proteins with sequences, using a separate file.
-duplicate.proteins <- read.csv("../results/duplicate-proteins.csv") %>%
+duplicate.proteins <- read.csv("../results/AR-gene-duplication/duplicate-proteins.csv") %>%
     ## now merge with gbk annotation.
     ## I am doing a left_join here, because I want the NA Manual_Accessions
     ## in order to predict where these unannotated strains come from.
@@ -135,54 +130,34 @@ duplicate.proteins <- read.csv("../results/duplicate-proteins.csv") %>%
     ## refer to NA annotations as "Unannotated".
     mutate(Manual_Annotation = replace_na(Manual_Annotation,"Unannotated"))
 
-## check for self-consistency:
-## 7369 strains have duplications
-length(unique(duplicate.proteins$Annotation_Accession))
-## 7962 strains have singletons-- THIS MEANS THAT
-## 811 strains are missing from the dataset of all proteins!
-## Why is this the case?
-length(unique(singleton.proteins$Annotation_Accession))
-
-## list the strains missing from the singletons data.
-missing.ones <- gbk.annotation %>%
+## Some strains in chromosome-and-plasmid-table.csv and
+## gbk-annotation-table.csv are missing from
+## all-proteins.csv and duplicate-proteins.csv.
+## These should be the genomes that do not have
+## CDS annotated in their GFF annotation.
+## list the 634 strains missing from the singletons data.
+missing.ones <- raw.gbk.annotation %>%
     filter(!(Annotation_Accession %in% singleton.proteins$Annotation_Accession))
 
 #################
 ## TEMPORARY HACK FOR SELF-CONSISTENCY:
+## I shouldn't have to do this, after updating the manual annotation.
 duplicate.proteins <- duplicate.proteins %>%
-    filter(Annotation_Accession %in% genome.database$Annotation_Accession) %>%
     filter(Annotation_Accession %in% gbk.annotation$Annotation_Accession)
 
 singleton.proteins <- singleton.proteins %>%
-    filter(Annotation_Accession %in% genome.database$Annotation_Accession) %>%
     filter(Annotation_Accession %in% gbk.annotation$Annotation_Accession)
-
-##################    
+    
 ##########################################
 ## CRITICAL BUG TO FIX:
-## there are 7,369 isolates that have annotated proteins in their Genbank
-## annotation.
-## in part, this discrepancy has to do with the manual annotation having been
+## there are 7,910 isolates that have annotated proteins in their Genbank
+## annotation. 634 are missing protein (CDS) annotation in their genome.
+## This difference is acceptable, but I need to fix the discrepancy in counts
+## caused by the manual annotation having been
 ## constructed on an older version of the gbk_annotation.csv, which was
-## missing some strains. There are probably other bugs here to fix as well.
-## DEBUG THESE ERRORS AND MAKE THESE NUMBERS CONSISTENT!!!
+## missing some strains.
 ## for now, I have restricted these data by filtering on Annotation_Accession--
 ## see the temporary fixes in the code above.
-#################
-## THIS CODE BLOCK IS FOR DEBUGGING: FIXING SAMPLE NUMBER CONSISTENCY ERRORS.
-
-test.genome.database <- read.csv("../results/chromosome-plasmid-table.csv")
-
-problem.data <- duplicate.proteins %>%
-    filter(!(Annotation_Accession %in% test.genome.database$Annotation_Accession)) %>%
-    select(-count,-chromosome_count,-plasmid_count,-product) %>%
-    distinct()
-## there are 871 isolates with Annotation_Accession, but no metadata at all? Why?
-length(unique(problem.data$Annotation_Accession))
-
-length(unique(IS.removed.from.duplicate.proteins$Annotation_Accession))
-## 5,772 isolate after filtered out IS. This includes Unannotated isolates.
-
 ###########################################################################
 ## Table 1. Isolates with antibiotic resistance genes.
 
@@ -254,7 +229,39 @@ Table1 <- calc.expected.isolates.with.AR.genes(raw.Table1) %>%
 
 ## write Table 1 to file.
 write.csv(x=Table1,file="../results/AR-gene-duplication/Table1.csv")
+#############
+## Figure 1: visual representation of the result in Table 1.
 
+## remove Unannotated data.
+Fig1.data <- Table1 %>%
+    filter(Manual_Annotation != "Unannotated") %>%
+    mutate(Manual_Annotation = factor(
+               Manual_Annotation,
+               levels = rev(c("Human-host","Livestock","Animal-host",
+                          "Anthropogenic-environment", "Food", "Freshwater",
+                          "Agriculture", "Sediment", "Soil", "Plant-host",
+                          "Marine","Terrestrial", "Fungal-host"))))
+
+Fig1A <- ggplot(Fig1.data, aes(x=Manual_Annotation,y=isolates_with_duplicate_genes)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation") + ylim(0,1800) +
+    ggtitle("Isolates with duplicated genes")
+
+Fig1B <- ggplot(Fig1.data, aes(x=Manual_Annotation,y=expected_isolates_with_duplicated_AR_genes)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation") + ylim(0,1800) +
+    ggtitle("Expected distribution of isolates with duplicated ARGs")
+
+Fig1C <- ggplot(Fig1.data, aes(x=Manual_Annotation,y=isolates_with_duplicated_AR_genes)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation") + ylim(0,1800) +
+    ggtitle("Observed distribution of isolates with duplicated ARGs")
+
+Fig1 <- plot_grid(Fig1A,Fig1B,Fig1C,labels=c('A','B','C'),ncol=1)
+ggsave("../results/AR-gene-duplication/Fig1.pdf",Fig1)
 ###########################################################################
 ## Positive control 1: Make a version of Table 1, examining the distribution
 ## of AR genes that have NOT duplicated.
@@ -314,7 +321,39 @@ ControlTable1 <- calc.expected.isolates.with.singleton.AR.genes(raw.ControlTable
 ## write ControlTable 1 to file.
 write.csv(x=ControlTable1,file="../results/AR-gene-duplication/ControlTable1.csv")
 
+######################################################################################
+## Figure 2: visual representation of the result in Control Table 1.
 
+## remove Unannotated data.
+Fig2.data <- ControlTable1 %>%
+    filter(Manual_Annotation != "Unannotated") %>%
+    mutate(Manual_Annotation = factor(
+               Manual_Annotation,
+               levels = rev(c("Human-host","Livestock","Animal-host",
+                          "Anthropogenic-environment", "Food", "Freshwater",
+                          "Agriculture", "Sediment", "Soil", "Plant-host",
+                          "Marine","Terrestrial", "Fungal-host"))))
+
+Fig2A <- ggplot(Fig2.data, aes(x=Manual_Annotation,y=total_isolates)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation") + ylim(0,1900) +
+    ggtitle("Total isolates")
+
+Fig2B <- ggplot(Fig2.data, aes(x=Manual_Annotation,y=expected_isolates_with_singleton_AR_genes)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation") + ylim(0,1900) +
+    ggtitle("Expected distribution of isolates with singleton ARGs")
+
+Fig2C <- ggplot(Fig2.data, aes(x=Manual_Annotation,y=isolates_with_singleton_AR_genes)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation") + ylim(0,1900) +
+    ggtitle("Observed distribution of isolates with singleton ARGs")
+
+Fig2 <- plot_grid(Fig2A,Fig2B,Fig2C,labels=c('A','B','C'),ncol=1)
+ggsave("../results/AR-gene-duplication/Fig2.pdf",Fig2)
 ####################################################################
 ## Table 2. Enrichment/deletion analysis of AR genes using duplicated genes,
 ## rather than number of isolates as in Table 1.
@@ -379,6 +418,48 @@ Table2 <- duplicate.genes.count %>% ## first column
 ## write Table 2 to file.
 write.csv(x=Table2,file="../results/AR-gene-duplication/Table2.csv")
 
+############################################################
+## Figures 3 and 4: visualization of Table 2 results.
+
+## remove Unannotated data.
+Fig3and4.data <- Table2 %>%
+    filter(Manual_Annotation != "Unannotated") %>%
+    mutate(Manual_Annotation = factor(
+               Manual_Annotation,
+               levels = rev(c("Human-host","Livestock","Animal-host",
+                          "Anthropogenic-environment", "Food", "Freshwater",
+                          "Agriculture", "Sediment", "Soil", "Plant-host",
+                          "Marine","Terrestrial", "Fungal-host"))))
+
+Fig3A <- ggplot(Fig3and4.data, aes(x=Manual_Annotation,y=duplicate_genes)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation") + ylim(0,120000) +
+    ggtitle("Total duplicate genes")
+
+Fig3B <- ggplot(Fig3and4.data, aes(x=Manual_Annotation,y=MGE_duplicates)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation") + ylim(0,120000) +
+    ggtitle("Total MGE duplicate genes")
+
+Fig4A <- ggplot(Fig3and4.data, aes(x=Manual_Annotation,y=expected_AR_duplicates)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation") + ylim(0,700) +
+    ggtitle("Expected distribution of duplicate ARGs")
+
+Fig4B <- ggplot(Fig3and4.data, aes(x=Manual_Annotation,y=AR_duplicates)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation") + ylim(0,700) +
+    ggtitle("Observed distribution of duplicate ARGs")
+
+Fig3 <- plot_grid(Fig3A,Fig3B,labels=c('A','B'),ncol=1)
+ggsave("../results/AR-gene-duplication/Fig3.pdf",Fig3)
+Fig4 <- plot_grid(Fig4A,Fig4B,labels=c('A','B'),ncol=1)
+ggsave("../results/AR-gene-duplication/Fig4.pdf",Fig4)
+
 ############
 
 ## Table 2B: the number of types of duplicate genes in each category,
@@ -421,7 +502,6 @@ Table2B <- duplicated.gene.type.count %>%
 
 ## write Table 2B to file.
 write.csv(x=Table2B, file="../results/AR-gene-duplication/Table2B.csv")
-
 
 ################################################################################
 
@@ -478,7 +558,6 @@ calc.AR.singleton.enrichment.pvals <- function(raw.ControlTable2) {
     return(ControlTable)
 }
 
-
 ## IMPORTANT: Unannotated strains are ridiculously enriched in singleton AR genes.
 ## the null distribution changes significantly depending on whether
 ## Unannotated strains are included in this table, or not.
@@ -491,8 +570,8 @@ calc.AR.singleton.enrichment.pvals <- function(raw.ControlTable2) {
 ## This shows that soil has more singleton AR genes than human isolates, no matter
 ## how this analysis is done.
 
-## It is likely that I will put both of these tables into the Supplement
-## for greatest transparency.
+## I will present the table that exclude the Unannotated strains, and I may
+## put the table with the Unannotated strains included in the supplement.
 
 raw.ControlTable2 <- singleton.genes.count %>% ## first column
     left_join(singleton.MGE.genes.count) %>% ## second column
@@ -514,6 +593,45 @@ ControlTable2B <- raw.ControlTable2 %>%
 write.csv(x=ControlTable2A, file="../results/AR-gene-duplication/ControlTable2A.csv")
 write.csv(x=ControlTable2B, file="../results/AR-gene-duplication/ControlTable2B.csv")
 
+################################################################################
+## Figures 5 and 6: visualization of control table 2B.
+
+Fig5and6.data <- ControlTable2B %>%
+    mutate(Manual_Annotation = factor(
+               Manual_Annotation,
+               levels = rev(c("Human-host","Livestock","Animal-host",
+                          "Anthropogenic-environment", "Food", "Freshwater",
+                          "Agriculture", "Sediment", "Soil", "Plant-host",
+                          "Marine","Terrestrial", "Fungal-host"))))
+
+Fig5A <- ggplot(Fig5and6.data, aes(x=Manual_Annotation,y=singleton_genes)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation") + ylim(0,7500000) +
+    ggtitle("Total singleton genes")
+
+Fig5B <- ggplot(Fig5and6.data, aes(x=Manual_Annotation,y=MGE_singletons)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation") + ylim(0,7500000) +
+    ggtitle("Total MGE singleton genes")
+
+Fig6A <- ggplot(Fig5and6.data, aes(x=Manual_Annotation,y=expected_AR_singletons)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation")  +
+    ggtitle("Expected distribution of singleton ARGs")
+
+Fig6B <- ggplot(Fig5and6.data, aes(x=Manual_Annotation,y=AR_singletons)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation")  +
+    ggtitle("Observed distribution of singleton ARGs")
+
+Fig5 <- plot_grid(Fig5A,Fig5B,labels=c('A','B'),ncol=1)
+ggsave("../results/AR-gene-duplication/Fig5.pdf",Fig5)
+Fig6 <- plot_grid(Fig6A,Fig6B,labels=c('A','B'),ncol=1)
+ggsave("../results/AR-gene-duplication/Fig6.pdf",Fig6)
 ################################################################################
 
 ## Table 3. Show number of duplicated genes on chromosomes, and number of
@@ -577,10 +695,48 @@ colnames(Table4.contingency.table) <- c("AR duplicate genes","non-AR duplicate g
 ## write Table 4 contingency table to file.
 write.csv(x=Table4.contingency.table,file="../results/AR-gene-duplication/Table4.csv")
 
-## p < 1e-150
+## p < 1e-197
 fisher.test(Table4.contingency.table)
 fisher.test(Table4.contingency.table)$p.value
+################################################################################
+## Figure 7. Visualization of the data in Table 3.
 
+Fig7.data <- Table3 %>%
+    ## remove Unannotated isolates.
+    filter(Manual_Annotation != "Unannotated") %>%
+    mutate(Manual_Annotation = factor(
+               Manual_Annotation,
+               levels = rev(c("Human-host","Livestock","Animal-host",
+                          "Anthropogenic-environment", "Food", "Freshwater",
+                          "Agriculture", "Sediment", "Soil", "Plant-host",
+                          "Marine","Terrestrial", "Fungal-host"))))
+
+Fig7A <- ggplot(Fig7.data, aes(x=Manual_Annotation,y=chromosomal_duplicate_genes)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation") + ylim(0,90000) +
+    ggtitle("Chromosomal duplicate genes")
+
+Fig7B <- ggplot(Fig7.data, aes(x=Manual_Annotation,y=plasmid_duplicate_genes)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation") + ylim(0,90000) +
+    ggtitle("Plasmid duplicate genes")
+
+Fig7C <- ggplot(Fig7.data, aes(x=Manual_Annotation,y=chromosomal_AR_duplicate_genes)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation")  + ylim(0,500) +
+    ggtitle("Chromosomal duplicate ARGs")
+
+Fig7D <- ggplot(Fig7.data, aes(x=Manual_Annotation,y=plasmid_AR_duplicate_genes)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation")  + ylim(0,500) +
+    ggtitle("Plasmid duplicate ARGs")
+
+Fig7 <- plot_grid(Fig7A, Fig7B, Fig7C, Fig7D,labels=c('A','B','C','D'),ncol=2)
+ggsave("../results/AR-gene-duplication/Fig7.pdf",Fig7)
 ################################################################################
 ## Positive control 3: look at distribution of singleton AR genes on
 ## chromosomes and plasmids, to compare with Tables 3 and 4.
@@ -646,6 +802,127 @@ fisher.test(ControlTable4.contingency.table)
 fisher.test(ControlTable4.contingency.table)$p.value
 
 ################################################################################
+## Figure 8: visualization of result in ControlTable3
+
+Fig8.data <- ControlTable3 %>%
+    ## remove Unannotated isolates.
+    filter(Manual_Annotation != "Unannotated") %>%
+    mutate(Manual_Annotation = factor(
+               Manual_Annotation,
+               levels = rev(c("Human-host","Livestock","Animal-host",
+                          "Anthropogenic-environment", "Food", "Freshwater",
+                          "Agriculture", "Sediment", "Soil", "Plant-host",
+                          "Marine","Terrestrial", "Fungal-host"))))
+
+Fig8A <- ggplot(Fig8.data, aes(x=Manual_Annotation,y=chromosomal_singleton_genes)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation") + ylim(0,7000000) +
+    ggtitle("Chromosomal singleton genes")
+
+Fig8B <- ggplot(Fig8.data, aes(x=Manual_Annotation,y=plasmid_singleton_genes)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation") + ylim(0,7000000) +
+    ggtitle("Plasmid singleton genes")
+
+Fig8C <- ggplot(Fig8.data, aes(x=Manual_Annotation,y=chromosomal_AR_singleton_genes)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation")  + ylim(0,9000) +
+    ggtitle("Chromosomal singleton ARGs")
+
+Fig8D <- ggplot(Fig8.data, aes(x=Manual_Annotation,y=plasmid_AR_singleton_genes)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation")  + ylim(0,9000) +
+    ggtitle("Plasmid singleton ARGs")
+
+Fig8 <- plot_grid(Fig8A, Fig8B, Fig8C, Fig8D,labels=c('A','B','C','D'),ncol=2)
+ggsave("../results/AR-gene-duplication/Fig8.pdf",Fig8)
+
+#######################################################################
+## Make a figure for grant with Yi.
+## Combine and reshape the data in Table 3 and Control Table 3.
+grant.df <- Table3 %>%
+    full_join(ControlTable3) %>%
+    mutate(chromosomal_genes=chromosomal_duplicate_genes+chromosomal_singleton_genes) %>%
+    select(-chromosomal_duplicate_genes,-chromosomal_singleton_genes) %>%
+    mutate(plasmid_genes=plasmid_duplicate_genes+plasmid_singleton_genes) %>%
+    select(-plasmid_duplicate_genes,-plasmid_singleton_genes) %>%
+    mutate(chromosomal_AR_genes=chromosomal_AR_duplicate_genes+chromosomal_AR_singleton_genes) %>%
+    select(-chromosomal_AR_duplicate_genes,-chromosomal_AR_singleton_genes) %>%
+    mutate(plasmid_AR_genes=plasmid_AR_duplicate_genes+plasmid_AR_singleton_genes) %>%
+    select(-plasmid_AR_duplicate_genes,-plasmid_AR_singleton_genes) %>%
+    ## remove Unannotated isolates.
+    filter(Manual_Annotation != "Unannotated") %>%
+    mutate(Manual_Annotation = factor(
+               Manual_Annotation,
+               levels = rev(c("Human-host","Livestock","Animal-host",
+                              "Anthropogenic-environment", "Food", "Freshwater",
+                              "Agriculture", "Sediment", "Soil", "Plant-host",
+                              "Marine","Terrestrial", "Fungal-host"))))
+
+grantFigA <- ggplot(grant.df, aes(x=Manual_Annotation,y=chromosomal_genes)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation") +
+    ggtitle("Chromosomal genes")
+
+grantFigB <- ggplot(grant.df, aes(x=Manual_Annotation,y=plasmid_genes)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation") + ylim(0,7000000) +
+    ggtitle("Plasmid genes")
+
+grantFigC <- ggplot(grant.df, aes(x=Manual_Annotation,y=chromosomal_AR_genes)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation")  + ylim(0,9000) +
+    ggtitle("Chromosomal AR genes")
+
+grantFigD <- ggplot(grant.df, aes(x=Manual_Annotation,y=plasmid_AR_genes)) +
+    geom_bar(stat="identity") +
+    theme_classic() + coord_flip() + ylab("Count") +
+    xlab("Isolate annotation")  + ylim(0,9000) +
+    ggtitle("Plasmid AR genes")
+
+grantFig <- plot_grid(grantFigA, grantFigB, grantFigC, grantFigD,labels=c('A','B','C','D'),ncol=2)
+ggsave("../results/AR-gene-duplication/grantFig.pdf",grantFig)
+
+
+## get values for Fisher's exact test.
+total.chr.ARGs <- sum(grant.df$chromosomal_AR_genes)
+total.plasmid.ARGs <- sum(grant.df$plasmid_AR_genes)
+
+total.chr.genes <- sum(grant.df$chromosomal_genes)
+total.plasmid.genes <- sum(grant.df$plasmid_genes)
+
+total.nonAR.chr.genes <- total.chr.genes - total.chr.ARGs
+total.nonAR.plasmid.genes <- total.plasmid.genes - total.plasmid.ARGs
+
+grant.contingency.table <- matrix(c(total.chr.ARGs,
+                                     total.plasmid.ARGs,
+                                     total.nonAR.chr.genes,
+                                     total.nonAR.plasmid.genes),nrow=2)
+## label the rows and columns of the contingency table.
+rownames(grant.contingency.table) <- c("chromosome","plasmid")
+colnames(grant.contingency.table) <- c("AR genes","non-AR genes")
+
+## This positive control shows singleton AR genes are highly enriched on plasmids,
+## based on a comparison with the distribution of singleton genes overall.
+## Therefore AR genes are generally associated with plasmids, regardless of
+## status of being a duplication or not.
+
+## This does NOT invalidate the main result of this analysis, that duplicate AR
+## genes are more enriched on plasmids in comparison to the distribution of
+## duplicate genes overall.
+
+fisher.test(grant.contingency.table)
+fisher.test(grant.contingency.table)$p.value
+
+
+################################################################################
 ## Analysis of duplicate pairs found just on chromosome, just on plasmid, or
 ## on both chromosomes and plasmids.
 
@@ -690,27 +967,3 @@ non.MGE.HGT.candidates <- HGT.candidate.summary %>%
 
 AR.HGT.candidates <- HGT.candidate.summary %>%
     filter(str_detect(.$product,antibiotic.keywords))
-################################################################################
-## make circos style plots for tabular data.
-## use this book for the circlize R package.
-## https://jokergoo.github.io/circlize_book/book/
-
-##library(circlize)
-
-## Plot for Table 1:
-## 1) outer ring shows total isolates.
-## 2) middle ring shows isolates with duplicate genes.
-## 3) this inner ring shows isolates with singleton AR genes.
-## 4) innermost ring shows isolates with duplicate AR genes.
-
-##circos.par("track.height" = 0.1)
-##circos.initialize(factors = Table1$Manual_Annotation, xlim = c(0,1))
-
-##circos.track(ylim = c(-1, 1), panel.fun = function(x, y) {
-    ## example code:
-    ##value = runif(10, min = -1, max = 1)
-    ##circos.barplot(value, 1:10 - 0.5, col = ifelse(value > 0, 2, 3))
-##    circos.barplot(log(Table1$total_isolates), 1:length(Table1$total_isolates))
-##})
-
-##circos.clear()
