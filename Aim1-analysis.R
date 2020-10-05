@@ -28,7 +28,8 @@ library(data.table)
 ## annotate source sequence as plasmid or chromosome.
 genome.database <- read.csv("../results/AR-gene-duplication/chromosome-plasmid-table.csv")
 
-raw.gbk.annotation <- as_tibble(read.csv("../results/AR-gene-duplication/gbk-annotation-table.csv"))
+raw.gbk.annotation <- as_tibble(read.csv("../results/AR-gene-duplication/gbk-annotation-table.csv")) %>% ## get species name annotation from genome.database.
+    left_join(genome.database)
 
 length(unique(genome.database$Annotation_Accession))
 
@@ -37,7 +38,9 @@ length(unique(genome.database$Annotation_Accession))
 ## with a script that generates this file.
 gbk.annotation <- as_tibble(read.csv("../data/manually-curated-gbk-annotation-table.csv")) %>%
     ## refer to NA annotations as "Unannotated".
-    mutate(Manual_Annotation = replace_na(Manual_Annotation,"Unannotated"))
+    mutate(Manual_Annotation = replace_na(Manual_Annotation,"Unannotated")) %>%
+    ## get species name annotation from genome.database
+    left_join(genome.database)
 
 ########################
 ## TEMPORARY HACK FOR SELF-CONSISTENCY:
@@ -86,7 +89,7 @@ Conlan.strains %in% protein.db.metadata$Strain
 
 ## remove all genes with the following keywords in the "product" annotation
 ## TODO: plot distribution of JUST genes with these annotations.
-IS.keywords <- "IS|transposon|Transposase|transposase|hypothetical protein|Phage|phage|integrase|Integrase|tail|intron|Mobile|mobile|antitoxin|toxin"
+IS.keywords <- "IS|transposon|Transposase|transposase|hypothetical protein|Phage|phage|integrase|Integrase|tail|intron|Mobile|mobile|antitoxin|toxin|capsid|plasmid"
 
 ## now look at a few antibiotic-specific annotations.
 antibiotic.keywords <- "lactamase|chloramphenicol|quinolone|antibiotic resistance|tetracycline|VanZ"
@@ -147,7 +150,7 @@ duplicate.proteins <- duplicate.proteins %>%
 
 singleton.proteins <- singleton.proteins %>%
     filter(Annotation_Accession %in% gbk.annotation$Annotation_Accession)
-    
+
 ##########################################
 ## CRITICAL BUG TO FIX:
 ## there are 7,910 isolates that have annotated proteins in their Genbank
@@ -975,3 +978,209 @@ non.MGE.HGT.candidates <- HGT.candidate.summary %>%
 
 AR.HGT.candidates <- HGT.candidate.summary %>%
     filter(str_detect(.$product,antibiotic.keywords))
+
+################################################################################
+
+## do a simple analysis of the frequency of different annotations overall,
+## and in different ecological annotation categories.
+
+total.annotation.freq.table <- duplicate.proteins %>%
+    group_by(product) %>%
+    summarize(annotation.count = n()) %>%
+    filter(annotation.count > 1) %>%
+    arrange(desc(annotation.count))
+
+## remove MGE associations.
+no.MGE.annotation.freq.table <- duplicate.proteins %>%
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    group_by(product) %>%
+    summarize(annotation.count = n()) %>%
+    filter(annotation.count > 1) %>%
+    arrange(desc(annotation.count))
+
+## do similar analyses based on sequence identity.
+
+total.seq.freq.table <- duplicate.proteins %>%
+    group_by(sequence, product) %>%
+    summarize(seq.count = n()) %>%
+    filter(seq.count > 1) %>%
+    arrange(desc(seq.count))
+
+## remove MGE associations.
+no.MGE.seq.freq.table <- duplicate.proteins %>%
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    group_by(sequence, product) %>%
+    summarize(seq.count = n()) %>%
+    filter(seq.count > 1) %>%
+    arrange(desc(seq.count))
+
+## let's look at the annotations and sequences of high frequency duplicated
+## proteins in each environment, after removing MGEs.
+
+## this function filters duplicate proteins by manual annotation category,
+## supplied as an argument, and summarizes by count of product annotation strings.
+make.annotation.freq.table <- function(manual.annot.string) {
+    duplicate.proteins %>%
+    filter(Manual_Annotation == manual.annot.string) %>%
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    group_by(product) %>%
+    summarize(annotation.count = n()) %>%
+    filter(annotation.count > 1) %>%
+    arrange(desc(annotation.count))
+}
+
+animal.host.annotation.freq.table <- make.annotation.freq.table("Animal-host")
+anthropogenic.annotation.freq.table <- make.annotation.freq.table("Anthropogenic-environment")
+human.host.annotation.freq.table <- make.annotation.freq.table("Human-host")
+food.annotation.freq.table <- make.annotation.freq.table("Food")
+agriculture.annotation.freq.table <- make.annotation.freq.table("Agriculture")
+unannotated.annotation.freq.table <- make.annotation.freq.table("Unannotated")
+marine.annotation.freq.table <- make.annotation.freq.table("Marine")
+sediment.annotation.freq.table <- make.annotation.freq.table("Sediment")
+livestock.annotation.freq.table <- make.annotation.freq.table("Livestock")
+soil.annotation.freq.table <- make.annotation.freq.table("Soil")
+freshwater.annotation.freq.table <- make.annotation.freq.table("Freshwater")
+terrestrial.annotation.freq.table <- make.annotation.freq.table("Terrestrial")
+plant.host.annotation.freq.table <- make.annotation.freq.table("Plant-host")
+fungal.host.annotation.freq.table <- make.annotation.freq.table("Fungal-host")
+
+## this function filters duplicate proteins by manual annotation category,
+## supplied as an argument, and summarizes by count of product annotation strings.
+make.seq.freq.table <- function(manual.annot.string) {
+    duplicate.proteins %>%
+    filter(Manual_Annotation == manual.annot.string) %>%
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    group_by(sequence,product) %>%
+    summarize(seq.count = n()) %>%
+    filter(seq.count > 1) %>%
+    arrange(desc(seq.count))
+}
+
+animal.host.seq.freq.table <- make.seq.freq.table("Animal-host")
+anthropogenic.seq.freq.table <- make.seq.freq.table("Anthropogenic-environment")
+human.host.seq.freq.table <- make.seq.freq.table("Human-host")
+food.seq.freq.table <- make.seq.freq.table("Food")
+agriculture.seq.freq.table <- make.seq.freq.table("Agriculture")
+unannotated.seq.freq.table <- make.seq.freq.table("Unannotated")
+marine.seq.freq.table <- make.seq.freq.table("Marine")
+sediment.seq.freq.table <- make.seq.freq.table("Sediment")
+livestock.seq.freq.table <- make.seq.freq.table("Livestock")
+soil.seq.freq.table <- make.seq.freq.table("Soil")
+freshwater.seq.freq.table <- make.seq.freq.table("Freshwater")
+terrestrial.seq.freq.table <- make.seq.freq.table("Terrestrial")
+plant.host.seq.freq.table <- make.seq.freq.table("Plant-host")
+fungal.host.seq.freq.table <- make.seq.freq.table("Fungal-host")
+
+##########################################
+
+## what happens if we restrict to annotations and sequences which are sometimes
+## found on plasmids?
+
+on.plas.annotation.freq.table <- duplicate.proteins %>%
+    filter(plasmid_count >= 1) %>%
+    group_by(product) %>%
+    summarize(annotation.count = n()) %>%
+    filter(annotation.count > 1) %>%
+    arrange(desc(annotation.count))
+
+## remove MGE associations.
+on.plas.no.MGE.annotation.freq.table <- duplicate.proteins %>%
+    filter(plasmid_count >= 1) %>%
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    group_by(product) %>%
+    summarize(annotation.count = n()) %>%
+    filter(annotation.count > 1) %>%
+    arrange(desc(annotation.count))
+
+## do similar analyses based on sequence identity.
+
+on.plas.seq.freq.table <- duplicate.proteins %>%
+    filter(plasmid_count >= 1) %>%
+    group_by(sequence, product) %>%
+    summarize(seq.count = n()) %>%
+    filter(seq.count > 1) %>%
+    arrange(desc(seq.count))
+
+## remove MGE associations.
+on.plas.no.MGE.seq.freq.table <- duplicate.proteins %>%
+    filter(plasmid_count >= 1) %>%
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    group_by(sequence, product) %>%
+    summarize(seq.count = n()) %>%
+    filter(seq.count > 1) %>%
+    arrange(desc(seq.count))
+
+####################
+
+make.plas.annotation.freq.table <- function(manual.annot.string) {
+    duplicate.proteins %>%
+        filter(plasmid_count >= 1) %>%
+        filter(Manual_Annotation == manual.annot.string) %>%
+        filter(!str_detect(.$product,IS.keywords)) %>%
+        group_by(product) %>%
+        summarize(annotation.count = n()) %>%
+        filter(annotation.count > 1) %>%
+        arrange(desc(annotation.count))
+}
+
+animal.host.plas.annotation.freq.table <- make.plas.annotation.freq.table("Animal-host")
+anthropogenic.plas.annotation.freq.table <- make.plas.annotation.freq.table("Anthropogenic-environment")
+human.host.plas.annotation.freq.table <- make.plas.annotation.freq.table("Human-host")
+food.plas.annotation.freq.table <- make.plas.annotation.freq.table("Food")
+agriculture.plas.annotation.freq.table <- make.plas.annotation.freq.table("Agriculture")
+unannotated.plas.annotation.freq.table <- make.plas.annotation.freq.table("Unannotated")
+marine.plas.annotation.freq.table <- make.plas.annotation.freq.table("Marine")
+sediment.plas.annotation.freq.table <- make.plas.annotation.freq.table("Sediment")
+livestock.plas.annotation.freq.table <- make.plas.annotation.freq.table("Livestock")
+soil.plas.annotation.freq.table <- make.plas.annotation.freq.table("Soil")
+freshwater.plas.annotation.freq.table <- make.plas.annotation.freq.table("Freshwater")
+terrestrial.plas.annotation.freq.table <- make.plas.annotation.freq.table("Terrestrial")
+plant.host.plas.annotation.freq.table <- make.plas.annotation.freq.table("Plant-host")
+fungal.host.plas.annotation.freq.table <- make.plas.annotation.freq.table("Fungal-host")
+
+## this function filters duplicate proteins by manual annotation category,
+## supplied as an argument, and summarizes by count of product annotation strings.
+make.on.plas.seq.freq.table <- function(manual.annot.string) {
+    duplicate.proteins %>%
+        filter(plasmid_count >= 1) %>%
+        filter(Manual_Annotation == manual.annot.string) %>%
+        filter(!str_detect(.$product,IS.keywords)) %>%
+        group_by(sequence,product) %>%
+        summarize(seq.count = n()) %>%
+        filter(seq.count > 1) %>%
+        arrange(desc(seq.count))
+}
+
+animal.host.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Animal-host")
+anthropogenic.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Anthropogenic-environment")
+human.host.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Human-host")
+food.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Food")
+agriculture.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Agriculture")
+unannotated.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Unannotated")
+marine.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Marine")
+sediment.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Sediment")
+livestock.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Livestock")
+soil.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Soil")
+freshwater.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Freshwater")
+terrestrial.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Terrestrial")
+plant.host.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Plant-host")
+fungal.host.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Fungal-host")
+
+
+
+##########################################
+## NOTES AND IDEAS
+## signal decomposition algorithms: non-negative matrix factorization,
+## ICA, etc.
+## represent strains by duplicated genes. Then factorize
+## those strains into non-negative combinations of sequences/annotations
+## and their counts.
+## for a classifier, weight sequences/annotations that are most informative
+## of particular environments.
+
+## if I filter out MGEs, then I probably get more insight into WHAT functions
+## are being selected.
+## BUT MGEs probably carry significant information about niches!
+## assume that gene flow networks are more tightly connected within a niche
+## in comparison to between niches (since higher probability of interaction).
+## This idea goes back at least to Smillie et al. 2011 in Nature from Eric Alm's group.
