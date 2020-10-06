@@ -23,6 +23,7 @@
 
 library(tidyverse)
 library(cowplot)
+library(ggrepel)
 library(data.table)
 
 ## annotate source sequence as plasmid or chromosome.
@@ -89,7 +90,7 @@ Conlan.strains %in% protein.db.metadata$Strain
 
 ## remove all genes with the following keywords in the "product" annotation
 ## TODO: plot distribution of JUST genes with these annotations.
-IS.keywords <- "IS|transposon|Transposase|transposase|hypothetical protein|Phage|phage|integrase|Integrase|tail|intron|Mobile|mobile|antitoxin|toxin|capsid|plasmid"
+IS.keywords <- "IS|transposon|Transposase|transposase|hypothetical protein|Phage|phage|integrase|Integrase|tail|intron|Mobile|mobile|antitoxin|toxin|capsid|plasmid|Plasmid"
 
 ## now look at a few antibiotic-specific annotations.
 antibiotic.keywords <- "lactamase|chloramphenicol|quinolone|antibiotic resistance|tetracycline|VanZ"
@@ -241,35 +242,38 @@ write.csv(x=TableS1,file="../results/AR-gene-duplication/TableS1.csv")
 #############
 ## Figure 2: visual representation of the result in Table S1.
 
-Fig2.data <- TableS1 %>%
-    ## remove Unannotated data.
-    filter(Manual_Annotation != "Unannotated") %>%
-    mutate(Manual_Annotation = factor(
-               Manual_Annotation,
-               levels = rev(c("Human-host","Livestock","Animal-host",
-                          "Anthropogenic-environment", "Food", "Freshwater",
-                          "Agriculture", "Sediment", "Soil", "Plant-host",
-                          "Marine","Terrestrial", "Fungal-host"))))
+## helper function to wrap some common code that massages data that
+## will go into making figures.
+table.df.to.figure.df <- function(table.df) {
+    table.df %>%
+        ## remove Unannotated data.
+        filter(Manual_Annotation != "Unannotated") %>%
+        mutate(Manual_Annotation = factor(
+                   Manual_Annotation,
+                   levels = rev(c("Human-host","Livestock","Animal-host",
+                                  "Anthropogenic-environment", "Food", "Freshwater",
+                                  "Agriculture", "Sediment", "Soil", "Plant-host",
+                                  "Marine","Terrestrial", "Fungal-host"))))
+}
 
-Fig2A <- ggplot(Fig2.data, aes(x=Manual_Annotation,y=isolates_with_duplicate_genes)) +
-    geom_bar(stat="identity") +
-    theme_classic() + coord_flip() + ylab("Count") +
-    xlab("Isolate annotation") + ylim(0,1800) +
-    ggtitle("Isolates with duplicated genes")
+Fig2.data <- table.df.to.figure.df(TableS1)
 
-Fig2B <- ggplot(Fig2.data, aes(x=Manual_Annotation,y=expected_isolates_with_duplicated_AR_genes)) +
-    geom_bar(stat="identity") +
-    theme_classic() + coord_flip() + ylab("Count") +
-    xlab("Isolate annotation") + ylim(0,1800) +
-    ggtitle("Expected distribution of isolates with duplicated ARGs")
+Fig2 <- ggplot(Fig2.data, aes(x=log2(isolates_with_duplicate_genes),
+                              y=log2(isolates_with_duplicated_AR_genes),
+                              label=Manual_Annotation)) +
+    theme_classic() +
+    geom_segment(aes(x = log2(isolates_with_duplicate_genes),
+                     y = log2(isolates_with_duplicated_AR_genes),
+                     xend = log2(isolates_with_duplicate_genes),
+                     yend = log2(expected_isolates_with_duplicated_AR_genes)),
+                 color="light gray",size=0.2,linetype='dashed') +
+    geom_point(color='red') +
+    geom_line(aes(y=log2(expected_isolates_with_duplicated_AR_genes)),color='yellow') +
+    geom_text_repel(size=2.5) +
+    xlab(expression(log[2](Isolates~with~duplicated~genes))) +
+    ylab(expression(log[2](Isolates~with~duplicated~ARGs)))    
 
-Fig2C <- ggplot(Fig2.data, aes(x=Manual_Annotation,y=isolates_with_duplicated_AR_genes)) +
-    geom_bar(stat="identity") +
-    theme_classic() + coord_flip() + ylab("Count") +
-    xlab("Isolate annotation") + ylim(0,1800) +
-    ggtitle("Observed distribution of isolates with duplicated ARGs")
 
-Fig2 <- plot_grid(Fig2A,Fig2B,Fig2C,labels=c('A','B','C'),ncol=1)
 ggsave("../results/AR-gene-duplication/Fig2.pdf",Fig2)
 ###########################################################################
 ## Positive control 1: Make a version of Table S1, examining the distribution
@@ -335,35 +339,23 @@ write.csv(x=ControlTable1,file="../results/AR-gene-duplication/ControlTable1.csv
 ######################################################################################
 ## S1 Figure : visual representation of the result in Control Table 1.
 
-## remove Unannotated data.
-S1Fig.data <- ControlTable1 %>%
-    filter(Manual_Annotation != "Unannotated") %>%
-    mutate(Manual_Annotation = factor(
-               Manual_Annotation,
-               levels = rev(c("Human-host","Livestock","Animal-host",
-                          "Anthropogenic-environment", "Food", "Freshwater",
-                          "Agriculture", "Sediment", "Soil", "Plant-host",
-                          "Marine","Terrestrial", "Fungal-host"))))
+S1Fig.data <- table.df.to.figure.df(ControlTable1)
 
-S1AFig <- ggplot(S1Fig.data, aes(x=Manual_Annotation,y=total_isolates)) +
-    geom_bar(stat="identity") +
-    theme_classic() + coord_flip() + ylab("Count") +
-    xlab("Isolate annotation") + ylim(0,1900) +
-    ggtitle("Total isolates")
+S1Fig <- ggplot(S1Fig.data, aes(x=log2(total_isolates),
+                              y=log2(isolates_with_singleton_AR_genes),
+                              label=Manual_Annotation)) +
+    theme_classic() +
+    geom_segment(aes(x = log2(total_isolates),
+                     y = log2(isolates_with_singleton_AR_genes),
+                     xend = log2(total_isolates),
+                     yend = log2(expected_isolates_with_singleton_AR_genes)),
+                 color="light gray",size=0.2,linetype='dashed') +
+    geom_point(color='red') +
+    geom_line(aes(y=log2(expected_isolates_with_singleton_AR_genes)),color='yellow') +
+    geom_text_repel(size=2.5) +
+    xlab(expression(log[2](Total~isolates))) +
+    ylab(expression(log[2](Isolates~with~singleton~ARGs)))    
 
-S1BFig <- ggplot(S1Fig.data, aes(x=Manual_Annotation,y=expected_isolates_with_singleton_AR_genes)) +
-    geom_bar(stat="identity") +
-    theme_classic() + coord_flip() + ylab("Count") +
-    xlab("Isolate annotation") + ylim(0,1900) +
-    ggtitle("Expected distribution of isolates with singleton ARGs")
-
-S1CFig <- ggplot(S1Fig.data, aes(x=Manual_Annotation,y=isolates_with_singleton_AR_genes)) +
-    geom_bar(stat="identity") +
-    theme_classic() + coord_flip() + ylab("Count") +
-    xlab("Isolate annotation") + ylim(0,1900) +
-    ggtitle("Observed distribution of isolates with singleton ARGs")
-
-S1Fig <- plot_grid(S1AFig,S1BFig,S1CFig,labels=c('A','B','C'),ncol=1)
 ggsave("../results/AR-gene-duplication/S1Fig.pdf",S1Fig)
 ####################################################################
 ## Supplementary Table S2. Enrichment/deletion analysis of AR genes using duplicated genes,
@@ -431,44 +423,34 @@ write.csv(x=TableS2,file="../results/AR-gene-duplication/TableS2.csv")
 
 ############################################################
 ## S2 and S3 Figures: visualization of Table S2 results.
+S2S3Fig.data <- table.df.to.figure.df(TableS2)
 
-## remove Unannotated data.
-S2S3Fig.data <- TableS2 %>%
-    filter(Manual_Annotation != "Unannotated") %>%
-    mutate(Manual_Annotation = factor(
-               Manual_Annotation,
-               levels = rev(c("Human-host","Livestock","Animal-host",
-                          "Anthropogenic-environment", "Food", "Freshwater",
-                          "Agriculture", "Sediment", "Soil", "Plant-host",
-                          "Marine","Terrestrial", "Fungal-host"))))
+S2Fig <- ggplot(S2S3Fig.data, aes(x=log2(duplicate_genes),
+                              y=log2(MGE_duplicates),
+                              label=Manual_Annotation)) +
+    theme_classic() +
+    geom_point(color='red') +
+    geom_text_repel(size=2.5) +
+    xlab(expression(log[2](Duplicated~genes))) +
+    ylab(expression(log[2](Duplicated~MGE~genes)))    
 
-S2AFig <- ggplot(S2S3Fig.data, aes(x=Manual_Annotation,y=duplicate_genes)) +
-    geom_bar(stat="identity") +
-    theme_classic() + coord_flip() + ylab("Count") +
-    xlab("Isolate annotation") + ylim(0,120000) +
-    ggtitle("Total duplicate genes")
-
-S2BFig <- ggplot(S2S3Fig.data, aes(x=Manual_Annotation,y=MGE_duplicates)) +
-    geom_bar(stat="identity") +
-    theme_classic() + coord_flip() + ylab("Count") +
-    xlab("Isolate annotation") + ylim(0,120000) +
-    ggtitle("Total MGE duplicate genes")
-
-S3AFig <- ggplot(S2S3Fig.data, aes(x=Manual_Annotation,y=expected_AR_duplicates)) +
-    geom_bar(stat="identity") +
-    theme_classic() + coord_flip() + ylab("Count") +
-    xlab("Isolate annotation") + ylim(0,700) +
-    ggtitle("Expected distribution of duplicate ARGs")
-
-S3BFig <- ggplot(S2S3Fig.data, aes(x=Manual_Annotation,y=AR_duplicates)) +
-    geom_bar(stat="identity") +
-    theme_classic() + coord_flip() + ylab("Count") +
-    xlab("Isolate annotation") + ylim(0,700) +
-    ggtitle("Observed distribution of duplicate ARGs")
-
-S2Fig <- plot_grid(S2AFig,S2BFig,labels=c('A','B'),ncol=1)
 ggsave("../results/AR-gene-duplication/S2Fig.pdf",S2Fig)
-S3Fig <- plot_grid(S3AFig,S3BFig,labels=c('A','B'),ncol=1)
+
+S3Fig <- ggplot(S2S3Fig.data, aes(x=log2(duplicate_genes),
+                              y=log2(AR_duplicates),
+                              label=Manual_Annotation)) +
+    theme_classic() +
+    geom_segment(aes(x = log2(duplicate_genes),
+                     y = log2(AR_duplicates),
+                     xend = log2(duplicate_genes),
+                     yend = log2(expected_AR_duplicates)),
+                 color="light gray",size=0.2,linetype='dashed') +
+    geom_point(color='red') +
+    geom_line(aes(y=log2(expected_AR_duplicates)),color='yellow') +
+    geom_text_repel(size=2.5) +
+    xlab(expression(log[2](Duplicated~genes))) +
+    ylab(expression(log[2](Duplicated~ARGs)))    
+
 ggsave("../results/AR-gene-duplication/S3Fig.pdf",S3Fig)
 
 ############
@@ -607,41 +589,39 @@ write.csv(x=ControlTable2B, file="../results/AR-gene-duplication/ControlTable2B.
 ################################################################################
 ## S4 and S5 Figures: visualization of control table 2B.
 
-S4S5.Fig.data <- ControlTable2B %>%
-    mutate(Manual_Annotation = factor(
-               Manual_Annotation,
-               levels = rev(c("Human-host","Livestock","Animal-host",
-                          "Anthropogenic-environment", "Food", "Freshwater",
-                          "Agriculture", "Sediment", "Soil", "Plant-host",
-                          "Marine","Terrestrial", "Fungal-host"))))
-
-S4FigA <- ggplot(S4S5.Fig.data, aes(x=Manual_Annotation,y=singleton_genes)) +
-    geom_bar(stat="identity") +
-    theme_classic() + coord_flip() + ylab("Count") +
-    xlab("Isolate annotation") + ylim(0,7500000) +
-    ggtitle("Total singleton genes")
-
-S4FigB <- ggplot(S4S5.Fig.data, aes(x=Manual_Annotation,y=MGE_singletons)) +
-    geom_bar(stat="identity") +
-    theme_classic() + coord_flip() + ylab("Count") +
-    xlab("Isolate annotation") + ylim(0,7500000) +
-    ggtitle("Total MGE singleton genes")
-
-S5FigA <- ggplot(S4S5.Fig.data, aes(x=Manual_Annotation,y=expected_AR_singletons)) +
-    geom_bar(stat="identity") +
-    theme_classic() + coord_flip() + ylab("Count") +
-    xlab("Isolate annotation")  +
-    ggtitle("Expected distribution of singleton ARGs")
-
-S5FigB <- ggplot(S4S5.Fig.data, aes(x=Manual_Annotation,y=AR_singletons)) +
-    geom_bar(stat="identity") +
-    theme_classic() + coord_flip() + ylab("Count") +
-    xlab("Isolate annotation")  +
-    ggtitle("Observed distribution of singleton ARGs")
+S4Fig <- ggplot(ControlTable2B, aes(x=log2(singleton_genes),
+                              y=log2(MGE_singletons),
+                              label=Manual_Annotation)) +
+    theme_classic() +
+    geom_segment(aes(x = log2(singleton_genes),
+                     y = log2(MGE_singletons),
+                     xend = log2(singleton_genes),
+                     yend = log2(MGE_singletons)),
+                 color="light gray",size=0.2,linetype='dashed') +
+    geom_point(color='black') +
+    geom_text_repel(size=2.5) +
+    xlab(expression(log[2](Singleton~genes))) +
+    ylab(expression(log[2](Singleton~MGE~genes)))    
 
 S4Fig <- plot_grid(S4FigA,S4FigB,labels=c('A','B'),ncol=1)
 ggsave("../results/AR-gene-duplication/S4Fig.pdf",S4Fig)
-S5Fig <- plot_grid(S5FigA,S5FigB,labels=c('A','B'),ncol=1)
+
+
+S5Fig <- ggplot(ControlTable2B, aes(x=log2(singleton_genes),
+                              y=log2(AR_singletons),
+                              label=Manual_Annotation)) +
+    theme_classic() +
+    geom_segment(aes(x = log2(singleton_genes),
+                     y = log2(AR_singletons),
+                     xend = log2(singleton_genes),
+                     yend = log2(expected_AR_singletons)),
+                 color="light gray",size=0.2,linetype='dashed') +
+    geom_point(color='red') +
+    geom_line(aes(y=log2(expected_AR_singletons)),color='yellow') +
+    geom_text_repel(size=2.5) +
+    xlab(expression(log[2](Singleton~genes))) +
+    ylab(expression(log[2](Singleton~ARGs)))    
+
 ggsave("../results/AR-gene-duplication/S5Fig.pdf",S5Fig)
 ################################################################################
 
@@ -712,15 +692,7 @@ fisher.test(TableS4.contingency.table)$p.value
 ################################################################################
 ## Figure 3. Visualization of the data in Table S3.
 
-Fig3.data <- TableS3 %>%
-    ## remove Unannotated isolates.
-    filter(Manual_Annotation != "Unannotated") %>%
-    mutate(Manual_Annotation = factor(
-               Manual_Annotation,
-               levels = rev(c("Human-host","Livestock","Animal-host",
-                          "Anthropogenic-environment", "Food", "Freshwater",
-                          "Agriculture", "Sediment", "Soil", "Plant-host",
-                          "Marine","Terrestrial", "Fungal-host"))))
+Fig3.data <- table.df.to.figure.df(TableS3)
 
 Fig3A <- ggplot(Fig3.data, aes(x=Manual_Annotation,y=chromosomal_duplicate_genes)) +
     geom_bar(stat="identity") +
@@ -815,15 +787,7 @@ fisher.test(ControlTable4.contingency.table)$p.value
 ################################################################################
 ## S6 Figure: visualization of result in ControlTable3
 
-S6Fig.data <- ControlTable3 %>%
-    ## remove Unannotated isolates.
-    filter(Manual_Annotation != "Unannotated") %>%
-    mutate(Manual_Annotation = factor(
-               Manual_Annotation,
-               levels = rev(c("Human-host","Livestock","Animal-host",
-                          "Anthropogenic-environment", "Food", "Freshwater",
-                          "Agriculture", "Sediment", "Soil", "Plant-host",
-                          "Marine","Terrestrial", "Fungal-host"))))
+S6Fig.data <- Fig3.data <- table.df.to.figure.df(ControlTable3)
 
 S6FigA <- ggplot(S6Fig.data, aes(x=Manual_Annotation,y=chromosomal_singleton_genes)) +
     geom_bar(stat="identity") +
@@ -866,13 +830,7 @@ grant.df <- Table3 %>%
     mutate(plasmid_AR_genes=plasmid_AR_duplicate_genes+plasmid_AR_singleton_genes) %>%
     select(-plasmid_AR_duplicate_genes,-plasmid_AR_singleton_genes) %>%
     ## remove Unannotated isolates.
-    filter(Manual_Annotation != "Unannotated") %>%
-    mutate(Manual_Annotation = factor(
-               Manual_Annotation,
-               levels = rev(c("Human-host","Livestock","Animal-host",
-                              "Anthropogenic-environment", "Food", "Freshwater",
-                              "Agriculture", "Sediment", "Soil", "Plant-host",
-                              "Marine","Terrestrial", "Fungal-host"))))
+    table.df.to.figure.df()
 
 grantFigA <- ggplot(grant.df, aes(x=Manual_Annotation,y=chromosomal_genes)) +
     geom_bar(stat="identity") +
@@ -1111,7 +1069,6 @@ on.plas.no.MGE.seq.freq.table <- duplicate.proteins %>%
     arrange(desc(seq.count))
 
 ####################
-
 make.plas.annotation.freq.table <- function(manual.annot.string) {
     duplicate.proteins %>%
         filter(plasmid_count >= 1) %>%
