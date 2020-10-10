@@ -95,7 +95,7 @@ IS.keywords <- "IS|transposon|Transposase|transposase|hypothetical protein|Phage
 ## now look at a few antibiotic-specific annotations.
 antibiotic.keywords <- "lactamase|chloramphenicol|quinolone|antibiotic resistance|tetracycline|VanZ"
 
-## IMPORTANT TODO: Use the same regular expressions used by Zeevi et al. (2019).
+## Potential TODO: Use the same regular expressions used by Zeevi et al. (2019).
 ## Transposon: ‘transpos\S*|insertion|Tra[A-Z]|Tra[0-9]|IS[0-9]|conjugate transposon’
 ## plasmid: ‘relax\S*|conjug\S*|mob\S*|plasmid|type IV|chromosome partitioning|chromosome segregation’
 ## phage: ‘capsid|phage|tail|head|tape measure|antiterminatio’
@@ -151,7 +151,8 @@ duplicate.proteins <- duplicate.proteins %>%
 
 singleton.proteins <- singleton.proteins %>%
     filter(Annotation_Accession %in% gbk.annotation$Annotation_Accession)
-
+## call garbage collector to free up memory.
+gc()
 ##########################################
 ## CRITICAL BUG TO FIX:
 ## there are 7,910 isolates that have annotated proteins in their Genbank
@@ -163,7 +164,7 @@ singleton.proteins <- singleton.proteins %>%
 ## for now, I have restricted these data by filtering on Annotation_Accession--
 ## see the temporary fixes in the code above.
 ###########################################################################
-## Figure 1: Diagram of the analysis workflow, made in Inkscape/Illustrator.
+## Figure 1 A & B: Diagram of the analysis workflow, made in Inkscape/Illustrator.
 ###########################################################################
 ## Supplementary Table 1. Isolates with antibiotic resistance genes.
 
@@ -239,7 +240,7 @@ TableS1 <- calc.expected.isolates.with.AR.genes(raw.TableS1) %>%
 
 ## write Table 1 to file.
 write.csv(x=TableS1,file="../results/AR-gene-duplication/TableS1.csv")
-#############
+####################################################
 ## Figure 2: visual representation of the result in Table S1.
 
 ## helper function to wrap some common code that massages data that
@@ -288,6 +289,7 @@ AR.singleton.category.counts <- singleton.proteins %>%
     group_by(Manual_Annotation) %>%
     summarize(isolates_with_singleton_AR_genes = n()) %>%
     arrange(desc(isolates_with_singleton_AR_genes))
+gc() ## free memory.
 
 calc.expected.isolates.with.singleton.AR.genes <- function(raw.ControlTable1) {
     summed.isolates <- sum(raw.ControlTable1$total_isolates)
@@ -332,6 +334,96 @@ ControlTable1 <- calc.expected.isolates.with.singleton.AR.genes(raw.ControlTable
 ## write ControlTable 1 to file.
 write.csv(x=ControlTable1,file="../results/AR-gene-duplication/ControlTable1.csv")
 
+##############################################################
+## Figure 1C: main figure, showing enrichment of AR duplicates
+## in human hosts and livestock.
+
+make.Fig1C.df <- function(TableS1, TableS3, ControlTable1, ControlTable3) {
+    ## join duplicate and singleton tables to make Fig 1C.
+
+    ## have to remove p-values from the two tables, because
+    ## the column names are the same, but the values are different
+    ## (because these are two different tests).
+    no.pval.TableS1 <- select(TableS1, -corrected.pval)
+    no.pval.ControlTable1 <- select(ControlTable1, -corrected.pval)
+    
+    Fig1C.df <- no.pval.TableS1 %>%
+        full_join(no.pval.ControlTable1) %>%
+        full_join(TableS3) %>%
+        full_join(ControlTable3)
+    
+    total_isolates.sum <- sum(Fig1C.df$total_isolates)
+    isolates_with_duplicate_genes.sum <- sum(Fig1C.df$isolates_with_duplicate_genes)
+    isolates_with_singleton_AR_genes.sum <- sum(Fig1C.df$isolates_with_singleton_AR_genes)
+    isolates_with_duplicated_AR_genes.sum <- sum(Fig1C.df$isolates_with_duplicated_AR_genes)
+
+    Fig1C.df <- Fig1C.df %>%
+        ## calculate y-coordinates for line for duplicate genes.
+        mutate(yvals.for.isolates_with_duplicate_genes.line = total_isolates * isolates_with_duplicate_genes.sum/total_isolates.sum) %>%
+        ## calculate y-coordinates for line for singleton AR genes.
+        mutate(yvals.for.isolates_with_singleton_AR_genes.line = total_isolates * isolates_with_singleton_AR_genes.sum/total_isolates.sum) %>%
+        ## calculate y-coordinates for line for duplicate AR genes.
+        mutate(yvals.for.isolates_with_duplicated_AR_genes.line = total_isolates * isolates_with_duplicated_AR_genes.sum/total_isolates.sum) %>%
+        ## calculate the percentage of genes on plasmids for symbol size.
+        mutate(plasmid_duplicate_percent = plasmid_duplicate_genes/(plasmid_duplicate_genes+chromosomal_duplicate_genes+0.1)) %>%
+        mutate(plasmid_AR_singleton_percent = plasmid_AR_singleton_genes/(plasmid_AR_singleton_genes+chromosomal_AR_singleton_genes+0.1)) %>%
+        mutate(plasmid_AR_duplicate_percent = plasmid_AR_duplicate_genes/(plasmid_AR_duplicate_genes+chromosomal_AR_duplicate_genes+0.1))
+
+    return(Fig1C.df)
+}
+
+Fig1C.df <- make.Fig1C.df(TableS1, TableS3, ControlTable1, ControlTable3)
+
+make.Fig1C <- function(Fig1C.df) {
+
+    total_isolates.sum <- sum(Fig1C.df$total_isolates)
+    isolates_with_duplicated_AR_genes.sum <- sum(Fig1C.df$isolates_with_duplicated_AR_genes)
+    isolates_with_singleton_AR_genes.sum <- sum(Fig1C.df$isolates_with_singleton_AR_genes)
+    isolates_with_duplicate_genes.sum <- sum(Fig1C.df$isolates_with_duplicate_genes)
+
+    Fig1C.color.palette <- scales::viridis_pal()(3)
+
+    Fig1C <- ggplot(Fig1C.df, aes(x=total_isolates,
+                                  y=isolates_with_duplicated_AR_genes,
+                                  label=Manual_Annotation)) +
+        theme_classic() +
+        geom_point(aes(size = plasmid_AR_duplicate_percent * 0.5),
+                   color=Fig1C.color.palette[1], alpha=0.2) +
+        geom_point(aes(y=isolates_with_singleton_AR_genes,
+                       size=plasmid_AR_singleton_percent * 0.5),
+                   color=Fig1C.color.palette[2],alpha=0.2) +
+        geom_point(aes(y=isolates_with_duplicate_genes,
+                       size=plasmid_duplicate_percent * 0.5),color="gray",alpha=0.2) +
+        geom_line(aes(y=yvals.for.isolates_with_duplicated_AR_genes.line),
+                  color=Fig1C.color.palette[1]) +
+        geom_line(aes(y=yvals.for.isolates_with_singleton_AR_genes.line),
+                  color=Fig1C.color.palette[2]) +
+        geom_line(aes(y=yvals.for.isolates_with_duplicate_genes.line),
+                  color="gray") +
+        geom_text_repel(size=2.5) +
+        scale_x_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        scale_y_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        xlab("Total Isolates") +
+        ylab("Isolates in given class") +
+        annotate("text", x = 90, y = 2.2, label = "Isolates with duplicated ARGs",
+                 angle = 32.4, color = Fig1C.color.palette[1],size=3) +
+        annotate("text", x = 90, y = 18, label = "Isolates with singleton ARGs",
+                 angle = 32.4, color = Fig1C.color.palette[2],size=3) +
+        annotate("text", x = 90, y = 28, label = "Isolates with duplicated genes",
+                 angle = 32.4, color = "gray",size=3) +
+        guides(size=FALSE) 
+        
+    return(Fig1C)
+}
+
+Fig1C <- make.Fig1C(Fig1C.df)
+ggsave(Fig1C,file="../results/AR-gene-duplication/Fig1C.pdf")
 ######################################################################################
 ## Fig 2B : visual representation of the result in Control Table 1.
 
@@ -479,7 +571,6 @@ duplicated.ARG.type.count <- duplicate.proteins %>%
     summarize(duplicate_ARG_types = n(),
               mean.ARG.duplicate.num = sum(count)/n()) %>%
     arrange(desc(duplicate_ARG_types))
-
 
 TableS2B <- duplicated.gene.type.count %>% 
     left_join(duplicated.MGE.type.count) %>%
@@ -702,8 +793,8 @@ fisher.test(TableS4.contingency.table)$p.value
 ## TODO: REFACTOR CODE TO IMPROVE ORGANIZATION!
 
 ## Panel 3A.
-## add a column for expected number of duplicate ARGs on chromosomes, based on distribution
-## of duplicate genes across environments.
+## add a column for expected number of duplicate ARGs on chromosomes,
+## based on distribution of duplicate genes across environments.
 
 ## Fifth column: the expected number of duplicate ARGs on chromosomes in each category.
 calc.expected.AR.chromosome.duplicates <- function(TableS3) {
@@ -801,18 +892,24 @@ ggsave("../results/AR-gene-duplication/Fig3-old.pdf",oldFig3, height=4, width=12
 
 ## Column 1
 singleton.chromosome.genes.count <- singleton.proteins %>%
+    ## remove Unannotated isolates.
+    filter(Manual_Annotation != "Unannotated") %>%
     group_by(Manual_Annotation) %>%
     summarize(chromosomal_singleton_genes = sum(chromosome_count))
 gc() ## free memory when dealing with singleton.proteins.
 
 ## Column 2
 singleton.plasmid.genes.count <- singleton.proteins %>%
+    ## remove Unannotated isolates.
+    filter(Manual_Annotation != "Unannotated") %>%
     group_by(Manual_Annotation) %>%
     summarize(plasmid_singleton_genes = sum(plasmid_count))
 gc() ## free memory when dealing with singleton.proteins.
 
 ## Column 3
 singleton.AR.chromosome.genes.count <- singleton.proteins %>%
+    ## remove Unannotated isolates.
+    filter(Manual_Annotation != "Unannotated") %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
     group_by(Manual_Annotation) %>%
     summarize(chromosomal_AR_singleton_genes = sum(chromosome_count))
@@ -820,6 +917,8 @@ gc() ## free memory when dealing with singleton.proteins.
 
 ## Column 4
 singleton.AR.plasmid.genes.count <- singleton.proteins %>%
+    ## remove Unannotated isolates.
+    filter(Manual_Annotation != "Unannotated") %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
     group_by(Manual_Annotation) %>%
     summarize(plasmid_AR_singleton_genes = sum(plasmid_count))
