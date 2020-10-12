@@ -80,11 +80,10 @@ Conlan.strains %in% protein.db.metadata$Strain
 ## prokaryotes.txt genome reports file.
 ################################################################################
 
-## Naive analysis of recent protein duplications and HGT between
+## Simple analysis of recent protein duplications and HGT between
 ## chromosome and plasmids.
 
 ## remove all genes with the following keywords in the "product" annotation
-## TODO: plot distribution of JUST genes with these annotations.
 IS.keywords <- "IS|transposon|Transposase|transposase|hypothetical protein|Phage|phage|integrase|Integrase|tail|intron|Mobile|mobile|antitoxin|toxin|capsid|plasmid|Plasmid"
 
 ## now look at a few antibiotic-specific annotations.
@@ -531,8 +530,6 @@ plasmid.chromosome.singleton.ARG.contingency.test(ControlTable2)
 ## Supplementary Figure S1:
 ## Histogram visualization of ARGs on plasmids and chromosomes.
 
-## TODO: the x-axis limits could be set to be more informative.
-
 make.S1Fig <- function(ControlTable2,TableS2) {
 
     S1Fig.data <- full_join(ControlTable2, TableS2) %>%
@@ -543,53 +540,39 @@ make.S1Fig <- function(ControlTable2,TableS2) {
                                   "Agriculture", "Sediment", "Soil", "Plant-host",
                                   "Marine","Terrestrial", "Fungal-host"))))
 
-    S1FigA <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=chromosomal_singleton_genes)) +
-        geom_bar(stat="identity") +
-        theme_classic() + xlab("Count") +
-        ylab("Isolate annotation") +
-        ggtitle("Chromosomal singleton genes")
+    format.S1Fig.panel <- function(S1.panel, xlim.max, my.title) {
+        full.S1.panel <- S1.panel +
+            geom_bar(stat="identity") +
+            theme_classic() + xlab("Count") +
+            ylab("Isolate annotation") +
+            xlim(0, xlim.max) +
+            ggtitle(my.title)
+        return(full.S1.panel)
+    }
     
-    S1FigB <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=plasmid_singleton_genes)) +
-        geom_bar(stat="identity") +
-        theme_classic() + xlab("Count") +
-        ylab("Isolate annotation") +
-        ggtitle("Plasmid singleton genes")
-
-    S1FigC <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=chromosomal_singleton_ARGs)) +
-        geom_bar(stat="identity") +
-        theme_classic() + xlab("Count") +
-        ylab("Isolate annotation") +
-        ggtitle("Chromosomal singleton ARGs")
+    S1FigA <- ggplot(S1Fig.data, aes(y=Manual_Annotation, x=chromosomal_singleton_genes)) %>%
+        format.S1Fig.panel(30000000, "Chromosomal singleton genes")
     
-    S1FigD <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=plasmid_singleton_ARGs)) +
-        geom_bar(stat="identity") +
-        theme_classic() + xlab("Count") +
-        ylab("Isolate annotation") +
-        ggtitle("Plasmid singleton ARGs")
+    S1FigB <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=plasmid_singleton_genes)) %>%
+        format.S1Fig.panel(30000000, "Plasmid singleton genes")
     
-    S1FigE <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=chromosomal_duplicate_genes)) +
-        geom_bar(stat="identity") +
-        theme_classic() + xlab("Count") +
-        ylab("Isolate annotation") +
-        ggtitle("Chromosomal duplicate genes")
+    S1FigC <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=chromosomal_singleton_ARGs)) %>%
+        format.S1Fig.panel(30000, "Chromosomal singleton ARGs")
+        
+    S1FigD <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=plasmid_singleton_ARGs)) %>%
+        format.S1Fig.panel(30000, "Plasmid singleton ARGs")
     
-    S1FigF <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=plasmid_duplicate_genes)) +
-        geom_bar(stat="identity") +
-        theme_classic() + xlab("Count") +
-        ylab("Isolate annotation") +
-        ggtitle("Plasmid duplicate genes")
+    S1FigE <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=chromosomal_duplicate_genes)) %>%
+        format.S1Fig.panel(400000, "Chromosomal duplicate genes")
     
-    S1FigG <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=chromosomal_duplicate_ARGs)) +
-        geom_bar(stat="identity") +
-        theme_classic() + xlab("Count") +
-        ylab("Isolate annotation") +
-        ggtitle("Chromosomal duplicate ARGs")
+    S1FigF <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=plasmid_duplicate_genes)) %>%
+        format.S1Fig.panel(400000,"Plasmid duplicate genes")
     
-    S1FigH <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=plasmid_duplicate_ARGs)) +
-        geom_bar(stat="identity") +
-        theme_classic() + xlab("Count") +
-        ylab("Isolate annotation") +
-        ggtitle("Plasmid duplicate ARGs")
+    S1FigG <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=chromosomal_duplicate_ARGs)) %>%
+        format.S1Fig.panel(2000, "Chromosomal duplicate ARGs")
+    
+    S1FigH <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=plasmid_duplicate_ARGs)) %>%
+        format.S1Fig.panel(2000, "Plasmid duplicate ARGs")
     
     S1Fig <- plot_grid(S1FigA, S1FigB, S1FigC, S1FigD,
                        S1FigE, S1FigF, S1FigG, S1FigH,
@@ -696,31 +679,15 @@ Fig1C <- make.Fig1C(Fig1C.df)
 ggsave(Fig1C,file="../results/AR-gene-duplication/Fig1C.pdf",width=5,height=5)
 
 ################################################################################
-## REFACTOR FROM HERE: 10/11/2020.
-################################################################################
+## Make a figure similar to Fig1C, using total number of genes as the baseline.
 
-####################################################################
-## Supplementary Table S2. Enrichment/deletion analysis of AR genes using duplicated genes,
-## rather than number of isolates as in Supplementary Table S1.
+## We're going to make one dataframe with lots of columns for plotting
+## Figure S2.
 
-## First column: the number of duplicated genes in each category.
-duplicate.genes.count <- duplicate.proteins %>%
-    ## remove Unannotated isolates.
-    filter(Manual_Annotation != "Unannotated") %>%
-    group_by(Manual_Annotation) %>%
-    summarize(duplicate_genes = sum(count)) %>%
-    arrange(desc(duplicate_genes))
+## Then the particular statistics and supplementary tables are going to be
+## calculated on relevant subsets of this dataframe (subsetting columns, not rows).
 
-## Second column: the number of duplicated MGE genes.
-duplicate.MGE.genes.count <- duplicate.proteins %>%
-    ## remove Unannotated isolates.
-    filter(Manual_Annotation != "Unannotated") %>%
-    filter(str_detect(.$product,IS.keywords)) %>%
-    group_by(Manual_Annotation) %>%
-    summarize(MGE_duplicates = sum(count)) %>%
-    arrange(desc(MGE_duplicates))
-
-## Third column: the number of duplicated AR genes.
+## The number of duplicated AR genes.
 duplicate.AR.genes.count <- duplicate.proteins %>%
     ## remove Unannotated isolates.
     filter(Manual_Annotation != "Unannotated") %>%
@@ -729,27 +696,187 @@ duplicate.AR.genes.count <- duplicate.proteins %>%
     summarize(AR_duplicates = sum(count)) %>%
     arrange(desc(AR_duplicates))
 
-## Fourth column: the expected number of duplicated AR genes in each category.
-calc.expected.AR.duplicates <- function(raw.TableS2) {
-    total.duplicated.genes <- sum(raw.TableS2$duplicate_genes)
-    total.AR.duplicates <- sum(raw.TableS2$AR_duplicates)
-    Table <- raw.TableS2 %>%
-        mutate(expected_AR_duplicates = total.AR.duplicates * duplicate_genes/total.duplicated.genes)
+## The number of duplicated MGE genes.
+duplicate.MGE.genes.count <- duplicate.proteins %>%
+    ## remove Unannotated isolates.
+    filter(Manual_Annotation != "Unannotated") %>%
+    filter(str_detect(.$product,IS.keywords)) %>%
+    group_by(Manual_Annotation) %>%
+    summarize(MGE_duplicates = sum(count)) %>%
+    arrange(desc(MGE_duplicates))
+
+## The number of duplicated genes in each category.
+duplicate.genes.count <- duplicate.proteins %>%
+    ## remove Unannotated isolates.
+    filter(Manual_Annotation != "Unannotated") %>%
+    group_by(Manual_Annotation) %>%
+    summarize(duplicate_genes = sum(count)) %>%
+    arrange(desc(duplicate_genes))
+
+## The number of singleton genes in each category.
+singleton.genes.count <- singleton.proteins %>%
+    group_by(Manual_Annotation) %>%
+    summarize(singleton_genes = sum(count)) %>%
+    arrange(desc(singleton_genes))
+gc() ## free memory
+
+## The number of singleton AR genes.
+singleton.AR.genes.count <- singleton.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords)) %>%
+    group_by(Manual_Annotation) %>%
+    summarize(AR_singletons = sum(count)) %>%
+    arrange(desc(AR_singletons))
+gc() ## free memory
+
+## The number of singleton MGE genes.
+singleton.MGE.genes.count <- singleton.proteins %>%
+    filter(str_detect(.$product,IS.keywords)) %>%
+    group_by(Manual_Annotation) %>%
+    summarize(MGE_singletons = sum(count)) %>%
+    arrange(desc(MGE_singletons))
+gc() ## free memory
+
+## Sum up the totals for duplicate genes and singleton genes.
+## This is the baseline column for statistical tests.
+total.genes.count <- duplicate.genes.count %>%
+    full_join(singleton.genes.count) %>%
+    mutate(total_genes = duplicate_genes + singleton_genes) %>%
+    select(Manual_Annotation, total_genes)
+
+big.gene.analysis.df <- duplicate.AR.genes.count %>%
+    full_join(duplicate.MGE.genes.count) %>%
+    full_join(duplicate.genes.count) %>%
+    full_join(singleton.AR.genes.count) %>%
+    full_join(singleton.MGE.genes.count) %>%
+    full_join(singleton.genes.count) %>%
+    full_join(total.genes.count) %>%
+    mutate(AR_duplicates = replace_na(AR_duplicates, 0)) %>%
+    arrange(desc(AR_duplicates))
+
+## make Figure S2. The big figure!
+
+make.FigS2.df <- function(big.gene.analysis.df) {
+        
+    total_genes.sum <- sum(big.gene.analysis.df$total_genes)
+    duplicate_ARGs.sum <- sum(big.gene.analysis.df$AR_duplicates)
+    duplicate_genes.sum <- sum(big.gene.analysis.df$duplicate_genes)
+    AR_singletons.sum <- sum(big.gene.analysis.df$AR_singletons)
+    duplicate_MGEs.sum <- sum(big.gene.analysis.df$MGE_duplicates)
+    MGE_singletons.sum <- sum(big.gene.analysis.df$MGE_singletons)
+    singleton_genes.sum <- sum(big.gene.analysis.df$singleton_genes)
+            
+    FigS2.df <- big.gene.analysis.df %>%
+        ## calculate y-coordinates for line for duplicate genes.
+        mutate(yvals.for.duplicate_genes.line = exp(log(total_genes) + log(duplicate_genes.sum) - log(total_genes.sum))) %>%
+        ## calculate y-coordinates for line for singleton ARGs.
+        mutate(yvals.for.singleton_ARGs.line = exp(log(total_genes) + log(AR_singletons.sum) - log(total_genes.sum))) %>%
+        ## calculate y-coordinates for line for singleton genes.
+        mutate(yvals.for.singleton_genes.line = exp(log(total_genes) + log(singleton_genes.sum) - log(total_genes.sum))) %>%
+        ## calculate y-coordinates for line for duplicate ARGs.
+        mutate(yvals.for.duplicated_ARGs.line = exp(log(total_genes) + log(duplicate_ARGs.sum) - log(total_genes.sum))) %>%
+    ## calculate y-coordinates for line for singleton MGEs.
+        mutate(yvals.for.MGE_singletons.line = exp(log(total_genes) + log(MGE_singletons.sum) - log(total_genes.sum))) %>%
+    ## calculate y-coordinates for line for duplicate MGEs.
+        mutate(yvals.for.MGE_duplicates.line = exp(log(total_genes) + log(duplicate_MGEs.sum) - log(total_genes.sum)))
+    return(FigS2.df)
+}
+
+make.FigS2 <- function(FigS2.df) {
+    
+    FigS2.color.palette <- scales::viridis_pal()(4)
+
+    FigS2 <- ggplot(FigS2.df, aes(x = total_genes,
+                                  y = AR_duplicates,
+                                  label = Manual_Annotation)) +
+        theme_classic() +
+        scale_x_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        scale_y_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        xlab("Total genes") +
+        ylab("Genes from isolates in given class") +
+        guides(size = FALSE) +
+        
+        geom_point(color = FigS2.color.palette[1], alpha = 0.2) +
+        geom_point(aes(y = AR_singletons),
+                   color = FigS2.color.palette[2], alpha = 0.2) +
+        geom_point(aes(y = MGE_singletons),
+                   color = FigS2.color.palette[3], alpha=0.2) +
+        geom_point(aes(y = MGE_duplicates),
+                   color = FigS2.color.palette[4], alpha = 0.2) +
+        geom_point(aes(y = duplicate_genes), color="black", alpha = 0.2) +
+        geom_point(aes(y = singleton_genes), color="gray", alpha = 0.2) +
+        
+        geom_line(aes(y = yvals.for.duplicated_ARGs.line),
+                  color = FigS2.color.palette[1]) +
+        geom_line(aes(y = yvals.for.singleton_ARGs.line),
+                  color = FigS2.color.palette[2]) +
+        
+        geom_line(aes(y = yvals.for.MGE_singletons.line),
+                  color = FigS2.color.palette[3]) +
+        geom_line(aes(y = yvals.for.MGE_duplicates.line),
+                  color = FigS2.color.palette[4]) +
+        geom_line(aes(y = yvals.for.duplicate_genes.line),
+                  color = "black") +
+        geom_line(aes(y = yvals.for.singleton_genes.line),
+                  color = "gray") +
+        
+        geom_text_repel(size = 2.5) +
+        ##geom_text_repel(aes(y = AR_singletons), size = 2.5) +
+        ##geom_text_repel(aes(y = duplicate_genes), size = 2.5) +
+               
+        annotate("text", x = 500000, y = 40, label = "Duplicated ARGs",
+                 angle = 25, color = FigS2.color.palette[1],size=3) +
+        annotate("text", x = 500000, y = 600 , label = "Singleton ARGs",
+                 angle = 25, color = FigS2.color.palette[2],size=3) +
+        
+        annotate("text", x = 500000, y = 100000, label = "MGE singletons",
+                 angle = 25, color = FigS2.color.palette[3],size=3) +
+        annotate("text", x = 500000, y = 15000 , label = "MGE duplicates",
+                 angle = 25, color = FigS2.color.palette[4],size=3) +
+
+        annotate("text", x = 500000, y = 12000, label = "Duplicated genes",
+                 angle = 25, color = "black",size=3) +
+        annotate("text", x = 500000, y = 700000, label = "Singleton genes",
+                 angle = 25, color = "gray",size=3)
+
+    return(FigS2)
+}
+
+FigS2.df <- make.FigS2.df(big.gene.analysis.df)
+FigS2 <- make.FigS2(FigS2.df)
+ggsave(FigS2,file="../results/AR-gene-duplication/FigS2.pdf",width=6,height=6)
+
+#############################
+## Supplementary Table S2.
+## Enrichment/deletion analysis of AR genes using total genes,
+## rather than number of isolates as in Supplementary Table S1.
+
+## the expected number of duplicated AR genes in each category.
+calc.expected.AR.duplicates <- function(raw.Table) {
+    total.genes.sum <- sum(raw.Table$total_genes)
+    total.AR.duplicates <- sum(raw.Table$AR_duplicates)
+    Table <- raw.Table %>%
+        mutate(expected_AR_duplicates = total.AR.duplicates * total_genes/total.genes.sum)
     return(Table)
 }
 
-## Fifth column: p-value for enrichment/depletion of duplicated AR genes in each category.
-calc.AR.duplicate.enrichment.pvals <- function(raw.TableS2) {
+## Seventh column: p-value for enrichment/depletion of duplicated AR genes in each category.
+calc.AR.duplicate.enrichment.pvals <- function(raw.Table) {
 
-    total.duplicated.genes <- sum(raw.TableS2$duplicate_genes)
-    total.AR.duplicates <- sum(raw.TableS2$AR_duplicates)
+    total.genes.sum <- sum(raw.Table$total_genes)
+    total.AR.duplicates <- sum(raw.Table$AR_duplicates)
 
-    Table <- raw.TableS2 %>%
+    Table <- raw.Table %>%
         rowwise() %>%
         mutate(binom.test.pval = binom.test(
                    x = AR_duplicates,
                    n = total.AR.duplicates,
-                   p = duplicate_genes/total.duplicated.genes
+                   p = total_genes/total.genes.sum
                )$p.value) %>%
         mutate(corrected.pval = p.adjust(binom.test.pval,"BH")) %>%
         ## use Benjamini-Hochberg p-value correction.
@@ -758,37 +885,109 @@ calc.AR.duplicate.enrichment.pvals <- function(raw.TableS2) {
     return(Table)
 }
 
-TableS2 <- duplicate.genes.count %>% ## first column
-    left_join(duplicate.MGE.genes.count) %>% ## second column
-    left_join(duplicate.AR.genes.count) %>% ## third column
-    mutate(AR_duplicates = replace_na(AR_duplicates, 0)) %>%
-    arrange(desc(AR_duplicates)) %>%
-    calc.expected.AR.duplicates() %>% ## fourth column
-    calc.AR.duplicate.enrichment.pvals() ## fifth column
+TableS2 <- big.gene.analysis.df %>%
+    select(Manual_Annotation, AR_duplicates, total_genes) %>%
+    calc.expected.AR.duplicates() %>% 
+    calc.AR.duplicate.enrichment.pvals() %>%
+    mutate(deviation.from.expected = AR_duplicates - expected_AR_duplicates) %>%
+    arrange(desc(deviation.from.expected)) %>%
+    select(-deviation.from.expected)
 
-## write Table 2 to file.
+
+## write Supplementary Table S2 to file.
 write.csv(x=TableS2,file="../results/AR-gene-duplication/TableS2.csv")
 
 ############################################################
-## S2 Figure: visualization of Table S2 results.
+## Positive control: Examine the distribution of ARGs that have NOT duplicated.
+## This shows that Soil and Agricultural isolates are highly enriched in
+## singleton ARGs.
 
-S2Fig <- ggplot(TableS2, aes(x=log2(duplicate_genes),
-                              y=log2(MGE_duplicates),
-                              label=Manual_Annotation)) +
-    theme_classic() +
-    geom_point(color='red') +
-    geom_text_repel(size=2.5) +
-    xlab(expression(log[2](Duplicated~genes))) +
-    ylab(expression(log[2](Duplicated~MGE~genes)))    
+## calculate the expected number of singleton AR genes in each category.
+calc.expected.AR.singletons <- function(raw.Table) {
+    total.genes.sum <- sum(raw.Table$total_genes)
+    total.AR.singletons <- sum(raw.Table$AR_singletons)
+    Table <- raw.Table %>%
+        mutate(expected_AR_singletons = exp(log(total.AR.singletons) + log(total_genes) - log(total.genes.sum)))
+    return(Table)
+}
 
-ggsave("../results/AR-gene-duplication/S2Fig.pdf",S2Fig)
+## p-value for enrichment/depletion of singleton AR genes in each category.
+calc.AR.singleton.enrichment.pvals <- function(raw.Table) {
+    total.genes.sum <- sum(raw.Table$total_genes)
+    total.AR.singletons <- sum(raw.Table$AR_singletons)
 
-############
+    Table <- raw.Table %>%
+        rowwise() %>%
+        mutate(binom.test.pval = binom.test(
+                   x = AR_singletons,
+                   n = total.AR.singletons,
+                   p = total_genes/total.genes.sum
+               )$p.value) %>%
+        mutate(corrected.pval = p.adjust(binom.test.pval,"BH")) %>%
+        ## use Benjamini-Hochberg p-value correction.
+        select(-binom.test.pval) ## drop original p-value after the correction.
+    
+    return(Table)
+}
 
-## Table S2B: the number of types of duplicate genes in each category,
+TableS3 <- big.gene.analysis.df %>%
+    select(Manual_Annotation, AR_singletons, total_genes) %>%
+    calc.expected.AR.singletons() %>%
+    calc.AR.singleton.enrichment.pvals() %>%
+    mutate(deviation.from.expected = AR_singletons - expected_AR_singletons) %>%
+    arrange(desc(deviation.from.expected)) %>%
+    select(-deviation.from.expected)
+
+write.csv(x=TableS3, file="../results/AR-gene-duplication/TableS3.csv")
+############################################################
+## Positive control: Examine the distribution of duplicated genes.
+
+## The distribution of total genes is a terrible null model for the distribution
+## of duplicated genes. The number of duplicated genes is not proportional
+## to the total number of genes.
+
+## calculate the expected number of duplicated in each category.
+calc.expected.duplicated <- function(raw.Table) {
+    total.genes.sum <- sum(raw.Table$total_genes)
+    total.duplicates <- sum(raw.Table$duplicate_genes)
+    Table <- raw.Table %>%
+        mutate(expected_duplicates = exp(log(total.duplicates) + log(total_genes) - log(total.genes.sum)))
+    return(Table)
+}
+
+## p-value for enrichment/depletion of duplicate genes in each category.
+calc.duplicate.enrichment.pvals <- function(raw.Table) {
+    total.genes.sum <- sum(raw.Table$total_genes)
+    total.duplicates <- sum(raw.Table$duplicate_genes)
+
+    Table <- raw.Table %>%
+        rowwise() %>%
+        mutate(binom.test.pval = binom.test(
+                   x = duplicate_genes,
+                   n = total.duplicates,
+                   p = total_genes/total.genes.sum
+               )$p.value) %>%
+        mutate(corrected.pval = p.adjust(binom.test.pval,"BH")) %>%
+        ## use Benjamini-Hochberg p-value correction.
+        select(-binom.test.pval) ## drop original p-value after the correction.
+    
+    return(Table)
+}
+
+duplicate.table.test <- big.gene.analysis.df %>%
+    select(Manual_Annotation, duplicate_genes, total_genes) %>%
+    calc.expected.duplicated() %>%
+    calc.duplicate.enrichment.pvals() %>%
+    mutate(deviation.from.expected = duplicate_genes - expected_duplicates) %>%
+    arrange(desc(deviation.from.expected)) %>%
+    select(-deviation.from.expected)
+
+######################################################
+## Control for Table S2 that Lingchong asked me to make.
+## examine the number of types of duplicate genes in each category,
 ## and the average num.
 
-## Columns 1 and 2:
+## the number of duplicate gene types.
 duplicated.gene.type.count <- duplicate.proteins %>%
     group_by(Manual_Annotation) %>%
     ## each row corresponds to a type of duplicated gene.
@@ -796,7 +995,7 @@ duplicated.gene.type.count <- duplicate.proteins %>%
               mean.duplicate.num = sum(count)/n()) %>%
     arrange(desc(duplicate_gene_types))
 
-## Cols 3 & 4: the number of duplicated MGE gene types
+## the number of duplicated MGE gene types
 duplicated.MGE.type.count <- duplicate.proteins %>%
     filter(str_detect(.$product,IS.keywords)) %>%
     group_by(Manual_Annotation) %>%
@@ -805,7 +1004,7 @@ duplicated.MGE.type.count <- duplicate.proteins %>%
               mean.MGE.duplicate.num = sum(count)/n()) %>%
     arrange(desc(duplicate_MGE_types))
 
-## Cols 5 & 6: the number of duplicated AR genes.
+## the number of duplicated AR gene types.
 duplicated.ARG.type.count <- duplicate.proteins %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
     group_by(Manual_Annotation) %>%
@@ -814,430 +1013,13 @@ duplicated.ARG.type.count <- duplicate.proteins %>%
               mean.ARG.duplicate.num = sum(count)/n()) %>%
     arrange(desc(duplicate_ARG_types))
 
-TableS2B <- duplicated.gene.type.count %>% 
+Control.for.TableS2 <- duplicated.gene.type.count %>% 
     left_join(duplicated.MGE.type.count) %>%
     left_join(duplicated.ARG.type.count) %>%
     mutate(duplicate_ARG_types = replace_na(duplicate_ARG_types, 0)) %>%
     mutate(mean.ARG.duplicate.num = replace_na(mean.ARG.duplicate.num, 0)) %>%
     arrange(desc(duplicate_ARG_types))
 
-## write Table S2B to file.
-write.csv(x=TableS2B, file="../results/AR-gene-duplication/TableS2B.csv")
-
-################################################################################
-
-## Positive control 2: Make a version of Table 2, examining the distribution
-## of AR genes that have NOT duplicated.
-
-## First column: the number of singleton genes in each category.
-singleton.genes.count <- singleton.proteins %>%
-    group_by(Manual_Annotation) %>%
-    summarize(singleton_genes = sum(count)) %>%
-    arrange(desc(singleton_genes))
-
-## Second column: the number of singleton MGE genes.
-singleton.MGE.genes.count <- singleton.proteins %>%
-    filter(str_detect(.$product,IS.keywords)) %>%
-    group_by(Manual_Annotation) %>%
-    summarize(MGE_singletons = sum(count)) %>%
-    arrange(desc(MGE_singletons))
-
-## Third column: the number of singleton AR genes.
-singleton.AR.genes.count <- singleton.proteins %>%
-    filter(str_detect(.$product,antibiotic.keywords)) %>%
-    group_by(Manual_Annotation) %>%
-    summarize(AR_singletons = sum(count)) %>%
-    arrange(desc(AR_singletons))
-
-## Fourth column: the expected number of singleton AR genes in each category.
-calc.expected.AR.singletons <- function(raw.ControlTable2) {
-    total.singleton.genes <- sum(raw.ControlTable2$singleton_genes)
-    total.AR.singletons <- sum(raw.ControlTable2$AR_singletons)
-    ControlTable <- raw.ControlTable2 %>%
-        mutate(expected_AR_singletons = total.AR.singletons * singleton_genes/total.singleton.genes)
-    return(ControlTable)
-}
-
-## Fifth column: p-value for enrichment/depletion of singleton AR genes
-## in each category.
-calc.AR.singleton.enrichment.pvals <- function(raw.ControlTable2) {
-
-    total.singleton.genes <- sum(raw.ControlTable2$singleton_genes)
-    total.AR.singletons <- sum(raw.ControlTable2$AR_singletons)
-
-    ControlTable <- raw.ControlTable2 %>%
-        rowwise() %>%
-        mutate(binom.test.pval = binom.test(
-                   x = AR_singletons,
-                   n = total.AR.singletons,
-                   p = singleton_genes/total.singleton.genes
-               )$p.value) %>%
-        mutate(corrected.pval = p.adjust(binom.test.pval,"BH")) %>%
-        ## use Benjamini-Hochberg p-value correction.
-        select(-binom.test.pval) ## drop original p-value after the correction.
-    
-    return(ControlTable)
-}
-
-## IMPORTANT: Unannotated strains are ridiculously enriched in singleton AR genes.
-## the null distribution changes significantly depending on whether
-## Unannotated strains are included in this table, or not.
-
-## when including Unannotated strains, human isolates are highly depleted in
-## singleton AR genes; when removing them, human isolates are significantly
-## enriched in AR genes.
-
-## In both cases, however, soil is significantly enriched in AR singletons.
-## This shows that soil has more singleton AR genes than human isolates, no matter
-## how this analysis is done.
-
-## I will present the table that exclude the Unannotated strains, and I may
-## put the table with the Unannotated strains included in the supplement.
-
-raw.ControlTable2 <- singleton.genes.count %>% ## first column
-    left_join(singleton.MGE.genes.count) %>% ## second column
-    left_join(singleton.AR.genes.count) %>% ## third column
-    mutate(AR_singletons = replace_na(AR_singletons, 0)) %>%
-    arrange(desc(AR_singletons))
-
-## CRITICAL STEP: keep Unannotated strains.
-ControlTable2A <- raw.ControlTable2 %>%
-    calc.expected.AR.singletons() %>% ## fourth column
-    calc.AR.singleton.enrichment.pvals() ## fifth column
-
-## CRITICAL STEP: remove Unannotated strains.
-ControlTable2B <- raw.ControlTable2 %>%
-    filter(Manual_Annotation != "Unannotated") %>%
-    calc.expected.AR.singletons() %>% ## fourth column
-    calc.AR.singleton.enrichment.pvals() ## fifth column
-
-write.csv(x=ControlTable2A, file="../results/AR-gene-duplication/ControlTable2A.csv")
-write.csv(x=ControlTable2B, file="../results/AR-gene-duplication/ControlTable2B.csv")
-
-################################################################################
-## S4 and S5 Figures: visualization of control table 2B.
-
-S4Fig <- ggplot(ControlTable2B, aes(x=log2(singleton_genes),
-                              y=log2(MGE_singletons),
-                              label=Manual_Annotation)) +
-    theme_classic() +
-    geom_segment(aes(x = log2(singleton_genes),
-                     y = log2(MGE_singletons),
-                     xend = log2(singleton_genes),
-                     yend = log2(MGE_singletons)),
-                 color="light gray",size=0.2,linetype='dashed') +
-    geom_point(color='black') +
-    geom_text_repel(size=2.5) +
-    xlab(expression(log[2](Singleton~genes))) +
-    ylab(expression(log[2](Singleton~MGE~genes)))    
-
-S4Fig <- plot_grid(S4FigA,S4FigB,labels=c('A','B'),ncol=1)
-ggsave("../results/AR-gene-duplication/S4Fig.pdf",S4Fig)
-
-
-Fig2D <- ggplot(ControlTable2B, aes(x=log2(singleton_genes),
-                              y=log2(AR_singletons),
-                              label=Manual_Annotation)) +
-    theme_classic() +
-    geom_segment(aes(x = log2(singleton_genes),
-                     y = log2(AR_singletons),
-                     xend = log2(singleton_genes),
-                     yend = log2(expected_AR_singletons)),
-                 color="light gray",size=0.2,linetype='dashed') +
-    geom_point(color='red') +
-    geom_line(aes(y=log2(expected_AR_singletons)),color='yellow') +
-    geom_text_repel(size=2.5) +
-    xlab(expression(log[2](Singleton~genes))) +
-    ylab(expression(log[2](Singleton~ARGs)))    
-
-### NOW *FINALLY* MAKE FIGURE 2.
-Fig2 <- plot_grid(Fig2A,Fig2B,Fig2C,Fig2D,labels=c('A','B','C','D'),nrow=2)
-ggsave("../results/AR-gene-duplication/Fig2.pdf",Fig2)
-
-################################################################################
-## Figure 3. Visualization of the data in Table S3.
-
-## SEE CODE FOR SUPPLEMENTARY FIGURE S6 FOR PANELS B AND D!!!
-## TODO: REFACTOR CODE TO IMPROVE ORGANIZATION!
-
-## Panel 3A.
-## add a column for expected number of duplicate ARGs on chromosomes,
-## based on distribution of duplicate genes across environments.
-
-## Fifth column: the expected number of duplicate ARGs on chromosomes in each category.
-calc.expected.AR.chromosome.duplicates <- function(TableS3) {
-    total.chromosome.duplicate.genes <- sum(TableS3$chromosomal_duplicate_genes)
-    total.AR.chromosome.duplicate.genes <- sum(TableS3$chromosomal_AR_duplicate_genes)
-    Fig3A.df <- TableS3 %>%
-        mutate(expected_chromosomal_AR_duplicates = total.AR.chromosome.duplicate.genes * chromosomal_duplicate_genes/total.chromosome.duplicate.genes)
-    return(Fig3A.df)
-}
-
-Fig3A.data <- calc.expected.AR.chromosome.duplicates(TableS3)
-
-## enrichment of AR duplications on chromosomes.
-Fig3A <- ggplot(Fig3A.data, aes(x=log2(chromosomal_duplicate_genes),
-                              y=log2(chromosomal_AR_duplicate_genes),
-                              label=Manual_Annotation)) +
-    theme_classic() +
-    geom_segment(aes(x = log2(chromosomal_duplicate_genes),
-                     y = log2(chromosomal_AR_duplicate_genes),
-                     xend = log2(chromosomal_duplicate_genes),
-                     yend = log2(expected_chromosomal_AR_duplicates)),
-                 color="light gray",size=0.2,linetype='dashed') +
-    geom_point(color='red') +
-    geom_line(aes(y=log2(expected_chromosomal_AR_duplicates)),color='yellow') +
-    geom_text_repel(size=2.5) +
-    xlab(expression(log[2](chromosomal~~duplicate~genes))) +
-    ylab(expression(log[2](chromosomal~duplicate~ARGs)))    
-
-## Panel 3C.
-
-## add a column for expected number of duplicate ARGs on plasmids, based on distribution
-## of duplicate genes on plasmids across environments.
-
-## Fifth column: the expected number of duplicate ARGs on plasmids in each category.
-calc.expected.AR.plasmid.duplicates <- function(TableS3) {
-    total.plasmid.duplicate.genes <- sum(TableS3$plasmid_duplicate_genes)
-    total.AR.plasmid.duplicate.genes <- sum(TableS3$plasmid_AR_duplicate_genes)
-    Fig3C.df <- TableS3 %>%
-        mutate(expected_plasmid_AR_duplicates = total.AR.plasmid.duplicate.genes * plasmid_duplicate_genes/total.plasmid.duplicate.genes)
-    return(Fig3C.df)
-}
-
-Fig3C.data <- calc.expected.AR.plasmid.duplicates(TableS3)
-
-## enrichment of AR duplications on chromosomes.
-Fig3C <- ggplot(Fig3C.data, aes(x=log2(plasmid_duplicate_genes),
-                              y=log2(plasmid_AR_duplicate_genes),
-                              label=Manual_Annotation)) +
-    theme_classic() +
-    geom_segment(aes(x = log2(plasmid_duplicate_genes),
-                     y = log2(plasmid_AR_duplicate_genes),
-                     xend = log2(plasmid_duplicate_genes),
-                     yend = log2(expected_plasmid_AR_duplicates)),
-                 color="light gray",size=0.2,linetype='dashed') +
-    geom_point(color='red') +
-    geom_line(aes(y=log2(expected_plasmid_AR_duplicates)),color='yellow') +
-    geom_text_repel(size=2.5) +
-    xlab(expression(log[2](plasmid~~duplicate~genes))) +
-    ylab(expression(log[2](plasmid~duplicate~ARGs)))
-
-
-## Use S6Fig.data to make panels 3B and 3D to finish making Figure 3. 
-
-## Panel 3B.
-## add a column for expected number of singleton ARGs on chromosomes, based on distribution
-## of singleton genes across environments.
-
-## Fifth column: the expected number of singleton ARGs on chromosomes in each category.
-calc.expected.AR.chromosome.singletons <- function(S6Fig.data) {
-    total.chromosome.singleton.genes <- sum(S6Fig.data$chromosomal_singleton_genes)
-    total.AR.chromosome.singleton.genes <- sum(S6Fig.data$chromosomal_AR_singleton_genes)
-    Fig3B.df <- S6Fig.data %>%
-        mutate(expected_chromosomal_AR_singletons = total.AR.chromosome.singleton.genes * chromosomal_singleton_genes/total.chromosome.singleton.genes)
-    return(Fig3B.df)
-}
-
-Fig3B.data <- calc.expected.AR.chromosome.singletons(S6Fig.data)
-
-## enrichment of AR singletons on chromosomes.
-Fig3B <- ggplot(Fig3B.data, aes(x=log2(chromosomal_singleton_genes),
-                              y=log2(chromosomal_AR_singleton_genes),
-                              label=Manual_Annotation)) +
-    theme_classic() +
-    geom_segment(aes(x = log2(chromosomal_singleton_genes),
-                     y = log2(chromosomal_AR_singleton_genes),
-                     xend = log2(chromosomal_singleton_genes),
-                     yend = log2(expected_chromosomal_AR_singletons)),
-                 color="light gray",size=0.2,linetype='dashed') +
-    geom_point(color='red') +
-    geom_line(aes(y=log2(expected_chromosomal_AR_singletons)),color='yellow') +
-    geom_text_repel(size=2.5) +
-    xlab(expression(log[2](chromosomal~~singleton~genes))) +
-    ylab(expression(log[2](chromosomal~singleton~ARGs)))    
-
-## Panel 3D.
-
-## add a column for expected number of singleton ARGs on plasmids, based on distribution
-## of singleton genes on plasmids across environments.
-
-## Fifth column: the expected number of singleton ARGs on plasmids in each category.
-calc.expected.AR.plasmid.singletons <- function(S6Fig.data) {
-    total.plasmid.singleton.genes <- sum(S6Fig.data$plasmid_singleton_genes)
-    total.AR.plasmid.singleton.genes <- sum(S6Fig.data$plasmid_AR_singleton_genes)
-    Fig3D.df <- S6Fig.data %>%
-        mutate(expected_plasmid_AR_singletons = total.AR.plasmid.singleton.genes * plasmid_singleton_genes/total.plasmid.singleton.genes)
-    return(Fig3D.df)
-}
-
-Fig3D.data <- calc.expected.AR.plasmid.singletons(S6Fig.data)
-
-## enrichment of AR singletons on plasmids.
-Fig3D <- ggplot(Fig3D.data, aes(x=log2(plasmid_singleton_genes),
-                              y=log2(plasmid_AR_singleton_genes),
-                              label=Manual_Annotation)) +
-    theme_classic() +
-    geom_segment(aes(x = log2(plasmid_singleton_genes),
-                     y = log2(plasmid_AR_singleton_genes),
-                     xend = log2(plasmid_singleton_genes),
-                     yend = log2(expected_plasmid_AR_singletons)),
-                 color="light gray",size=0.2,linetype='dashed') +
-    geom_point(color='red') +
-    geom_line(aes(y=log2(expected_plasmid_AR_singletons)),color='yellow') +
-    geom_text_repel(size=2.5) +
-    xlab(expression(log[2](plasmid~singleton~genes))) +
-    ylab(expression(log[2](plasmid~singleton~ARGs)))
-
-### NOW *FINALLY* MAKE FIGURE 3.
-Fig3 <- plot_grid(Fig3A,Fig3B,Fig3C,Fig3D,labels=c('A','B','C','D'),nrow=2)
-ggsave("../results/AR-gene-duplication/Fig3.pdf",Fig3)
-
-#######################################################################
-## Figure 4.
-
-## Where Figure 3 does vertical comparisons between panels in old Figure 3
-## and Figure S6, Figure 4 does horizontal comparisons.
-
-## This compares the distribution of genes on plasmids per category to the
-## distribution of genes on chromosomes. This answers, for instance,
-## where any categories are enriched with plasmids.
-
-## Fig. 4A.
-## add a column for expected number of duplicate genes on plasmids, based on distribution
-## of duplicate genes on chromosomes across environments.
-
-## Fifth column: the expected number of duplicate genes on plasmids in each category.
-calc.expected.duplicate.genes.on.plasmids <- function(TableS3) {
-    total.chromosome.duplicate.genes <- sum(TableS3$chromosomal_duplicate_genes)
-    total.plasmid.duplicate.genes <- sum(TableS3$plasmid_duplicate_genes)
-    Fig4A.df <- TableS3 %>%
-        ## use exp(log(x)) trick to avoid numerical overflow.
-        mutate(expected_duplicates_on_plasmids = exp(log(total.plasmid.duplicate.genes) + log(chromosomal_duplicate_genes) - log(total.chromosome.duplicate.genes)))
-    return(Fig4A.df)
-}
-
-Fig4A.data <- calc.expected.duplicate.genes.on.plasmids(TableS3)
-
-## enrichment of duplicates on plasmids compared to duplicates on chromosomes.
-Fig4A <- ggplot(Fig4A.data, aes(x=log2(chromosomal_duplicate_genes),
-                              y=log2(plasmid_duplicate_genes),
-                              label=Manual_Annotation)) +
-    theme_classic() +
-    geom_segment(aes(x = log2(chromosomal_duplicate_genes),
-                     y = log2(plasmid_duplicate_genes),
-                     xend = log2(chromosomal_duplicate_genes),
-                     yend = log2(expected_duplicates_on_plasmids)),
-                 color="light gray",size=0.2,linetype='dashed') +
-    geom_point(color='red') +
-    geom_line(aes(y=log2(expected_duplicates_on_plasmids)),color='yellow') +
-    geom_text_repel(size=2.5) +
-    xlab(expression(log[2](chromosomal~~duplicate~genes))) +
-    ylab(expression(log[2](plasmid~duplicate~genes)))    
-
-
-## Fig. 4B.
-## add a column for expected number of singleton genes on plasmids, based on distribution
-## of singleton genes on chromosomes across environments.
-
-## Fifth column: the expected number of singleton genes on plasmids in each category.
-calc.expected.singleton.genes.on.plasmids <- function(S6Fig.data) {
-    total.chromosome.singleton.genes <- sum(S6Fig.data$chromosomal_singleton_genes)
-    total.plasmid.singleton.genes <- sum(S6Fig.data$plasmid_singleton_genes)
-    Fig4B.df <- S6Fig.data %>%
-        ## use exp(log(x)) trick to avoid numerical overflow.
-        mutate(expected_singletons_on_plasmids = exp(log(total.plasmid.singleton.genes) + log(chromosomal_singleton_genes) - log(total.chromosome.singleton.genes)))
-    return(Fig4B.df)
-}
-
-Fig4B.data <- calc.expected.singleton.genes.on.plasmids(S6Fig.data)
-
-## enrichment of singletons on plasmids compared to singletons on chromosomes.
-Fig4B <- ggplot(Fig4B.data, aes(x=log2(chromosomal_singleton_genes),
-                              y=log2(plasmid_singleton_genes),
-                              label=Manual_Annotation)) +
-    theme_classic() +
-    geom_segment(aes(x = log2(chromosomal_singleton_genes),
-                     y = log2(plasmid_singleton_genes),
-                     xend = log2(chromosomal_singleton_genes),
-                     yend = log2(expected_singletons_on_plasmids)),
-                 color="light gray",size=0.2,linetype='dashed') +
-    geom_point(color='red') +
-    geom_line(aes(y=log2(expected_singletons_on_plasmids)),color='yellow') +
-    geom_text_repel(size=2.5) +
-    xlab(expression(log[2](chromosomal~~singleton~genes))) +
-    ylab(expression(log[2](plasmid~singleton~genes)))    
-
-## Panel 4C.
-## add a column for expected number of duplicate ARGs on plasmids, based on distribution
-## of duplicate ARGs on chromosomes across environments.
-
-## Fifth column: the expected number of duplicate ARGs on plasmids, based on
-## distribution of duplicate ARGs on chromosomes in each category.
-calc.expected.AR.plasmid.duplicates.compared.to.chromosomes <- function(TableS3) {
-    total.AR.plasmid.duplicate.genes <- sum(TableS3$plasmid_AR_duplicate_genes)
-    total.AR.chromosome.duplicate.genes <- sum(TableS3$chromosomal_AR_duplicate_genes)
-    Fig4C.df <- TableS3 %>%
-        mutate(expected_plasmid_AR_duplicates = total.AR.plasmid.duplicate.genes * chromosomal_AR_duplicate_genes/total.AR.chromosome.duplicate.genes)
-    return(Fig4C.df)
-}
-
-Fig4C.data <- calc.expected.AR.plasmid.duplicates.compared.to.chromosomes(TableS3)
-
-## enrichment of AR duplications on plasmids compared to chromosomes.
-Fig4C <- ggplot(Fig4C.data, aes(x=log2(chromosomal_AR_duplicate_genes),
-                              y=log2(plasmid_AR_duplicate_genes),
-                              label=Manual_Annotation)) +
-    theme_classic() +
-    geom_segment(aes(x = log2(chromosomal_AR_duplicate_genes),
-                     y = log2(plasmid_AR_duplicate_genes),
-                     xend = log2(chromosomal_AR_duplicate_genes),
-                     yend = log2(expected_plasmid_AR_duplicates)),
-                 color="light gray",size=0.2,linetype='dashed') +
-    geom_point(color='red') +
-    geom_line(aes(y=log2(expected_plasmid_AR_duplicates)),color='yellow') +
-    geom_text_repel(size=2.5) +
-    xlab(expression(log[2](chromosomal~~duplicate~ARGs))) +
-    ylab(expression(log[2](plasmid~duplicate~ARGs)))    
-
-
-## Panel 4D.
-## add a column for expected number of singleton ARGs on plasmids, based on distribution
-## of singleton ARGs on chromosomes across environments.
-
-## Fifth column: the expected number of singleton ARGs on plasmids, based on
-## distribution of singleton ARGs on chromosomes in each category.
-calc.expected.AR.plasmid.singletons.compared.to.chromosomes <- function(S6Fig.data) {
-    total.AR.plasmid.singleton.genes <- sum(S6Fig.data$plasmid_AR_singleton_genes)
-    total.AR.chromosome.singleton.genes <- sum(S6Fig.data$chromosomal_AR_singleton_genes)
-    Fig4D.df <- S6Fig.data %>%
-        mutate(expected_plasmid_AR_singletons = total.AR.plasmid.singleton.genes * chromosomal_AR_singleton_genes/total.AR.chromosome.singleton.genes)
-    return(Fig4D.df)
-}
-
-Fig4D.data <- calc.expected.AR.plasmid.singletons.compared.to.chromosomes(S6Fig.data)
-
-## enrichment of AR singletons on plasmids compared to chromosomes.
-Fig4D <- ggplot(Fig4D.data, aes(x=log2(chromosomal_AR_singleton_genes),
-                              y=log2(plasmid_AR_singleton_genes),
-                              label=Manual_Annotation)) +
-    theme_classic() +
-    geom_segment(aes(x = log2(chromosomal_AR_singleton_genes),
-                     y = log2(plasmid_AR_singleton_genes),
-                     xend = log2(chromosomal_AR_singleton_genes),
-                     yend = log2(expected_plasmid_AR_singletons)),
-                 color="light gray",size=0.2,linetype='dashed') +
-    geom_point(color='red') +
-    geom_line(aes(y=log2(expected_plasmid_AR_singletons)),color='yellow') +
-    geom_text_repel(size=2.5) +
-    xlab(expression(log[2](chromosomal~~singleton~ARGs))) +
-    ylab(expression(log[2](plasmid~singleton~ARGs)))    
-
-
-Fig4 <- plot_grid(Fig4A,Fig4B,Fig4C,Fig4D,labels=c('A','B','C','D'),nrow=2)
-ggsave("../results/AR-gene-duplication/Fig4.pdf",Fig4)
-
-#######################################################################
 ################################################################################
 ## Analysis of duplicate pairs found just on chromosome, just on plasmid, or
 ## on both chromosomes and plasmids.
@@ -1469,8 +1251,6 @@ freshwater.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Freshwater")
 terrestrial.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Terrestrial")
 plant.host.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Plant-host")
 fungal.host.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Fungal-host")
-
-
 
 ##########################################
 ## NOTES AND IDEAS
