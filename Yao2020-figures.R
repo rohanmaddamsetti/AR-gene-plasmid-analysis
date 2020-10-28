@@ -32,7 +32,8 @@ Fig4B <- ggplot(data=Fig4B.dataframe, aes(x=Tet,
     facet_wrap(.~name,nrow=2) +
     xlab(expression(paste("[Tet] (",mu,"g/mL)"))) +
     ylab(expression('f'[PT]*" frequency")) +
-    theme(text=element_text(family="Calibri", size=18))
+    theme(text=element_text(family="Calibri", size=18)) +
+    theme(strip.background = element_blank())
 
 ## save the figure to file as PDF.
 ggsave("../results/Yao2020/Fig4B.pdf", Fig4B,height=3,width=5)

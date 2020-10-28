@@ -1041,15 +1041,19 @@ just.plasmid.cases <- duplicate.proteins %>%
 ################################################################################
 
 ## simple HGT analysis.
+## include genes from Unannotated genomes.
 
 ## get the match between sequences and product annotations.
-duplicate.protein.annotations <- duplicate.proteins %>%
+duplicate.protein.annotations <- all.duplicate.proteins %>%
     select(product, sequence) %>%
     distinct()
 
-HGT.candidates <- duplicate.proteins %>%
+HGT.candidates <- all.duplicate.proteins %>%
     group_by(sequence) %>%
-    summarize(number.of.genomes = n()) %>%
+    summarize(number.of.genomes = n(),
+              total.copies = sum(count),
+              chromosome.copies = sum(chromosome_count),
+              plasmid.copies = sum(plasmid_count)) %>%
     filter(number.of.genomes > 1) %>%
     arrange(desc(number.of.genomes)) %>%
     left_join(duplicate.protein.annotations)
@@ -1065,6 +1069,12 @@ non.MGE.HGT.candidates <- HGT.candidate.summary %>%
 
 AR.HGT.candidates <- HGT.candidate.summary %>%
     filter(str_detect(.$product,antibiotic.keywords))
+
+plasmid.only.HGT.candidates <- HGT.candidate.summary %>%
+    filter(chromosome.copies == 0)
+
+non.MGE.plasmid.only.HGT.candidates <- plasmid.only.HGT.candidates %>%
+    filter(!str_detect(.$product,IS.keywords))
 
 ################################################################################
 
