@@ -1266,14 +1266,13 @@ fungal.host.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Fungal-host")
 ## NOTES AND IDEAS
 ## signal decomposition algorithms: non-negative matrix factorization,
 ## ICA, etc.
-## represent strains by duplicated genes. Then factorize
-## those strains into non-negative combinations of sequences/annotations
-## and their counts.
-## for a classifier, weight sequences/annotations that are most informative
-## of particular environments.
+## represent strains by duplicated genes. Then factorize those strains
+## into non-negative combinations of sequences/annotations
+## and their counts. for a classifier, weight sequences/annotations that
+## are most informative of particular environments.
 
-## if I filter out MGEs, then I probably get more insight into WHAT functions
-## are being selected.
+## if I filter out MGEs, then I probably get more insight into WHAT
+## functions are being selected.
 ## BUT MGEs probably carry significant information about niches!
 ## assume that gene flow networks are more tightly connected within a niche
 ## in comparison to between niches (since higher probability of interaction).

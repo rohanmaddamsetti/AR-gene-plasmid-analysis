@@ -142,7 +142,7 @@ function duplication_dynamics!(du,u,p,t)
     	du[1] = dx1 = (f1 - ϕ)*x1 - μ*x1 - Kdup*x1 + Krec*x2 + 0.5Krec*x3
     	du[2] = dx2 = (f2 - ϕ)*x2 + Kdup*x1 - Krec*x2 - 2μ*x2
 		du[3] = dx3 = (f2 - ϕ)*x3 + 2μ*x2 - Krec*x3
-		du[4] = dx4 = (f1 - ϕ)*x4 + μ*x1 - 0.5Krec*x3 - Kdup*x4 + Krec*x5
+		du[4] = dx4 = (f1 - ϕ)*x4 + μ*x1 + 0.5Krec*x3 - Kdup*x4 + Krec*x5
 		du[5] = dx5 = (f2 - ϕ)*x5 + Kdup*x4 - Krec*x5
 end
 

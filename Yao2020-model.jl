@@ -4,6 +4,15 @@
 using Markdown
 using InteractiveUtils
 
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    quote
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : missing
+        el
+    end
+end
+
 # ╔═╡ 2dcb18d0-0970-11eb-048a-c1734c6db842
 begin
 	using Plots
@@ -59,13 +68,10 @@ md"""
 We constructed a kinetic model consisting of two non-dimensionalized ordinary differential equations (ODEs) to describe the effect of antibiotics on the population dynamics of transposons moving back and forth from chromosomes to plasmids.
 
 
-$\frac{dS_c}{dt} = (\mu_c - \eta_c)S_c + \eta_pS_p$
-$\frac{dS_p}{dt} = (\mu_p - \eta_p)S_p + \eta_cS_c$
-
-Here, $S_c$ represents the population that carries the transposons on the chromosome only, while $S_p$ population carries the transposons on the plasmids (no matter whether it carries transposon on the chromosome or not). $S_c$ and $S_p$ grow in a logistic manner, and we only simulate the exponential growth phase of the two populations. $\mu_c$ and $\mu_p$ are the growth rates of the populations with chromosomal and plasmid-encoded transposons, respectively. $\eta_c$ is the translocation rate of the transposon from the chromosome to the plasmids. We assume that the probability that more than one plasmid-based transposon (i.e. two or more simultaneous loss events) is lost in any unit of time is negligible compared to the rate of chromosome-to-plasmid transposition. To further simplify the model, we can neglect the $S_p$ to $S_c$ transposition rate, which means that we assume the $S_p$ population cannot be transposed back to the $S_c$ population. So, let's just call $\eta_c$, the rate of transposition from chromosome to plasmid, $\eta$.
-
 $\frac{dS_c}{dt} = (\mu_c - \eta)S_c$
-$\frac{dS_p}{dt} = \mu_pS_p + \eta S_c$
+$\frac{dS_p}{dt} = \mu_p S_p + \eta S_c$
+
+Here, $S_c$ represents the population that carries the transposons on the chromosome only, while $S_p$ population carries the transposons on the plasmids (no matter whether it carries transposon on the chromosome or not). $S_c$ and $S_p$ grow in a logistic manner, and we only simulate the exponential growth phase of the two populations. $\mu_c$ and $\mu_p$ are the growth rates of the populations with chromosomal and plasmid-encoded transposons, respectively. $\eta$ is the translocation rate of the transposon from the chromosome to the plasmids. We assume that the probability that more than one plasmid-based transposon (i.e. two or more simultaneous loss events) is lost in any unit of time is negligible compared to the rate of chromosome-to-plasmid transposition. We ignore $S_p$ to $S_c$ transpositions, because for multi-copy plasmids, a single transposition to the chromosome does not affect the remaining plasmids-- we assume the $S_p$ population cannot be transposed back to the $S_c$ population.
 
 To define the criterion when $S_c$ or $S_p$ population will be dominant in the community, we need to compare $\frac{S_p(t)}{S_c(t)}$ with $\frac{S_p(0)}{S_c(0)}$, where $S_p(t)$ and $S_c(t)$ are the population sizes of each population when the time is equal to $t$, and $S_p(0)$ and $S_c(0)$ are the population sizes of each population when the time is equal to 0.
 
@@ -115,6 +121,21 @@ function transposon_dynamics!(du,u,p,t)
     	du[2] = dSp = μp * Sp + η * Sc
 	end
 
+# ╔═╡ 27d302fe-1237-11eb-0166-1bf9048405e7
+begin	
+	## initial conditions
+	Sc₀ = 0.1
+	Sp₀ = 1.0000000000000001E-28
+	u₀ = [Sc₀, Sp₀]
+	tspan = (0.0,100.0) ## time interval
+end
+
+# ╔═╡ 1d2eda16-1963-11eb-21a3-8fdaac79fc97
+md""" AntibioticConcentration slider"""
+
+# ╔═╡ 29a14964-1963-11eb-138a-df727f736284
+@bind AntibioticConcentration Slider(0:0.1:10,show_value=true)
+
 # ╔═╡ 7d9153d0-13c2-11eb-1c1e-a7e70aaa9072
 begin
 	## default parameters chosen by Yi.
@@ -123,7 +144,8 @@ begin
 	Kc = 2.5
 	Kp = 10.0 
 	n = 2 ## Hill coefficient
-	A = 5 ## Antibiotic concentration
+	## Antibiotic concentration
+	A = AntibioticConcentration ## default value = 5
 	η = 1.0E-5 ## rate of transposition from chromosome to plasmid
 	
 	my_parameters = [μc₀, μp₀, Kc, Kp, n, A, η]
@@ -134,15 +156,6 @@ calc_μc(μc₀, Kc, n, A)
 
 # ╔═╡ 4e32b83a-13c8-11eb-390d-0d3502d6f88e
 calc_μp(μp₀, Kp, n, A)
-
-# ╔═╡ 27d302fe-1237-11eb-0166-1bf9048405e7
-begin	
-	## initial conditions
-	Sc₀ = 0.1
-	Sp₀ = 1.0000000000000001E-28
-	u₀ = [Sc₀, Sp₀]
-	tspan = (0.0,100.0) ## time interval
-end
 
 # ╔═╡ cecbfcae-1238-11eb-0353-3905b2919507
 prob = ODEProblem(transposon_dynamics!, u₀, tspan, my_parameters)
@@ -209,26 +222,22 @@ function array_of_good_parameter_vecs(N)
 	return vec_array
 end
 
-# ╔═╡ 2fda1020-13c5-11eb-25ab-29641621d1ac
-## choose 1000 sets of random parameters, obeying the given inequality.
-parameter_vectors = array_of_good_parameter_vecs(1000)
+# ╔═╡ 418230ec-1b17-11eb-0076-2536d542f89b
+parameter_vectors = array_of_good_parameter_vecs(500)
 
 # ╔═╡ a79aef24-13ca-11eb-0b07-7face8ad3904
 let
 	plot2 = plot()
 	for param_vec in parameter_vectors
-		param_vec
 		prob2 = ODEProblem(transposon_dynamics!, u₀, tspan, param_vec)
 		sol2 = solve(prob2)
-		
-		tvec = sol.t
-		my_Sc = [x[1] for x in sol.u]
-		my_Sp = [x[2] for x in sol.u]
+		tvec = sol2.t
+		my_Sc = [x[1] for x in sol2.u]
+		my_Sp = [x[2] for x in sol2.u]
 		fraction_on_plasmid_vec = my_Sp./(my_Sp + my_Sc)
-		plot!(plot2, tvec, fraction_on_plasmid_vec)
+		plot!(plot2, tvec, fraction_on_plasmid_vec,legend = false)
 	end
 	plot2
-	
 end
 
 # ╔═╡ d5cb6b2c-0a66-11eb-1aff-41d0e502d5e5
@@ -250,11 +259,13 @@ bigbreak = html"<br><br><br><br>";
 # ╠═cecbfcae-1238-11eb-0353-3905b2919507
 # ╠═69daf25e-124b-11eb-1fd1-7bb52f61b420
 # ╠═fa177622-124c-11eb-28e1-d99fe7c076a0
-# ╠═a384ca20-124d-11eb-0bea-87d588481f08
+# ╟─a384ca20-124d-11eb-0bea-87d588481f08
+# ╠═1d2eda16-1963-11eb-21a3-8fdaac79fc97
+# ╠═29a14964-1963-11eb-138a-df727f736284
 # ╠═9695e99c-124e-11eb-06bb-0585c7602429
-# ╠═ba7b560c-13c1-11eb-108f-93adf5ae12b3
+# ╟─ba7b560c-13c1-11eb-108f-93adf5ae12b3
 # ╠═a278af92-13c5-11eb-06d1-4df33152bd36
 # ╠═fdc39818-13c4-11eb-1b4c-278ed2e63eed
-# ╠═2fda1020-13c5-11eb-25ab-29641621d1ac
+# ╠═418230ec-1b17-11eb-0076-2536d542f89b
 # ╠═a79aef24-13ca-11eb-0b07-7face8ad3904
 # ╟─d5cb6b2c-0a66-11eb-1aff-41d0e502d5e5
