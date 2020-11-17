@@ -3,6 +3,9 @@
 ## analyse the distribution of AR genes on chromosomes versus plasmids in
 ## fully-sequenced genomes and plasmids in the NCBI Nucleotide database.
 
+## TODO: add a scale to Figure 1C to interpret the size of the circles
+## (percentage of duplicated ARGs on plasmids)
+
 ## CRITICAL TODO: re-annotate manually-curated-gbk-annotation-table.csv
 ## using the updated gbk-annotation table. This will add ~300 extra genomes
 ## to the analysis.
