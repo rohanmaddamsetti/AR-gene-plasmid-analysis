@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.12.4
+# v0.12.7
 
 using Markdown
 using InteractiveUtils
@@ -18,6 +18,8 @@ begin
 	using Plots
 	using PlutoUI
 	using DifferentialEquations
+	using DataFrames
+	using CSV
 end
 
 # ╔═╡ 49567f8e-09a2-11eb-34c1-bb5c0b642fe8
@@ -226,7 +228,7 @@ end
 parameter_vectors = array_of_good_parameter_vecs(500)
 
 # ╔═╡ a79aef24-13ca-11eb-0b07-7face8ad3904
-let
+begin
 	plot2 = plot()
 	for param_vec in parameter_vectors
 		prob2 = ODEProblem(transposon_dynamics!, u₀, tspan, param_vec)
@@ -237,7 +239,42 @@ let
 		fraction_on_plasmid_vec = my_Sp./(my_Sp + my_Sc)
 		plot!(plot2, tvec, fraction_on_plasmid_vec,legend = false)
 	end
+	xlabel!(plot2, "Time")
+	ylabel!(plot2, "Frequency of plasmid-borne ARG")
+	savefig(plot2,"../results/Yao2020/random-trajectories.pdf")
 	plot2
+end
+
+# ╔═╡ 90705bbe-3022-11eb-0ed5-19dbdd500308
+let
+	plot3 = plot(yaxis=:log)
+	for param_vec in parameter_vectors
+		prob2 = ODEProblem(transposon_dynamics!, u₀, tspan, param_vec)
+		sol2 = solve(prob2)
+		tvec = sol2.t
+		my_Sc = [x[1] for x in sol2.u]
+		my_Sp = [x[2] for x in sol2.u]
+		fraction_on_plasmid_vec = my_Sp./(my_Sp + my_Sc)
+		plot!(plot3, tvec, fraction_on_plasmid_vec,legend = false)
+	end
+	xlabel!(plot3, "Time")
+	ylabel!(plot3, "log(Frequency of plasmid-borne ARG)")
+	savefig(plot3,"../results/Yao2020/random-log-trajectories.pdf")
+	plot3
+end
+
+# ╔═╡ 2f3d0ebe-3024-11eb-1dbd-b166e07b78fc
+begin
+	## write random parameters to a CSV
+	param_df = DataFrame(mu_c0 = [v[1] for v in parameter_vectors],
+					mu_p0 = [v[2] for v in parameter_vectors],
+               		Kc = [v[3] for v in parameter_vectors],
+					Kp = [v[4] for v in parameter_vectors],
+					n = [v[5] for v in parameter_vectors],
+					Aconc = [v[6] for v in parameter_vectors],
+					eta = [v[7] for v in parameter_vectors]
+               		)
+	CSV.write("../results/Yao2020/random_parameters.csv", param_df)
 end
 
 # ╔═╡ d5cb6b2c-0a66-11eb-1aff-41d0e502d5e5
@@ -268,4 +305,6 @@ bigbreak = html"<br><br><br><br>";
 # ╠═fdc39818-13c4-11eb-1b4c-278ed2e63eed
 # ╠═418230ec-1b17-11eb-0076-2536d542f89b
 # ╠═a79aef24-13ca-11eb-0b07-7face8ad3904
+# ╠═90705bbe-3022-11eb-0ed5-19dbdd500308
+# ╠═2f3d0ebe-3024-11eb-1dbd-b166e07b78fc
 # ╟─d5cb6b2c-0a66-11eb-1aff-41d0e502d5e5

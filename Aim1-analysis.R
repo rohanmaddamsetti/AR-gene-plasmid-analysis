@@ -99,7 +99,6 @@ antibiotic.keywords <- "lactamase|chloramphenicol|quinolone|antibiotic resistanc
 ## other HGT mechanisms: ‘integrase|excision\S*|exo- nuclease|recomb|toxin|restrict\S*|resolv\S*|topoisomerase|reverse transcrip’
 ## antibiotic resistance: ‘azole resistance|antibiotic resistance|TetR|tetracycline resistance|VanZ|betalactam\S*|beta-lactam|antimicrob\S*|lantibio\S*’.
 
-
 ## I want the sequence column for the duplicate genes,
 ## but not for the singletons, to save memory.
 
@@ -853,6 +852,33 @@ make.FigS2 <- function(FigS2.df) {
 FigS2.df <- make.FigS2.df(big.gene.analysis.df)
 FigS2 <- make.FigS2(FigS2.df)
 ggsave(FigS2,file="../results/AR-gene-duplication/FigS2.pdf",width=6,height=6)
+
+#############################
+## Duplication Index Ratio calculations.
+
+duplication.index.df <- big.gene.analysis.df %>%
+    ## calculate the ratio of duplicated ARGs to singleton ARGs.
+    mutate(DI.ARGs = AR_duplicates/AR_singletons)  %>%
+    mutate(DI.all = duplicate_genes/singleton_genes) %>%
+    mutate(Manual_Annotation = factor(Manual_Annotation,
+                                      levels=rev(big.gene.analysis.df$Manual_Annotation))) %>%
+    ## make a bar graph comparing DI for ARGs to DI for all genes.
+    pivot_longer(c(DI.ARGs, DI.all), names_to = "DI.type", values_to = "DI")
+
+DI.ARGs.to.all.fig <- ggplot(duplication.index.df,
+                       aes(x = Manual_Annotation, y = DI,fill=DI.type)) +
+    geom_bar(stat="identity", position=position_dodge()) +
+    theme_classic() +
+    ## make a better legend.
+    scale_fill_manual(values=c("gray","black"),
+                      name = "",
+                      labels=c("All genes", "ARGs")) +
+    theme(axis.text.x  = element_text(angle=90,vjust=0.2,hjust=0.95)) +
+    ylab("Duplication Index") +
+    theme(legend.position="top") +
+    xlab("Annotation")
+
+ggsave("../results/AR-gene-duplication/DI-index.pdf", DI.ARGs.to.all.fig)
 
 #############################
 ## Supplementary Table S2.
