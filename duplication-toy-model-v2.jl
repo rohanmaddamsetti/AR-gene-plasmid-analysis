@@ -273,7 +273,7 @@ p3
 end
 
 # ╔═╡ 3a9451de-1d56-11eb-0011-5df5238d4a71
-savefig(p3, "../results/AR-gene-duplication/toy-model-dynamics-v0.5.pdf")
+savefig(p3, "../results/AR-gene-duplication/toy-model-dynamics-v2.pdf")
 
 # ╔═╡ 0eeaa15a-4f71-11eb-193c-a10a3c7a964b
 md""" __Duplication Index calculation__
@@ -334,7 +334,7 @@ let
 			legend=:bottomright,ylabel="Duplication Index",
 			xlabel="Antibiotic Concentration")
 	end
-	savefig(p, "../results/AR-gene-duplication/DI-selection-strength.pdf")
+	savefig(p, "../results/AR-gene-duplication/DI-selection-strength-v2.pdf")
 	p
 end
 

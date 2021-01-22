@@ -655,7 +655,7 @@ make.Fig1C <- function(Fig1C.df) {
                   color=Fig1C.color.palette[2]) +
         geom_line(aes(y=yvals.for.isolates_with_duplicate_genes.line),
                   color="gray") +
-        geom_text_repel(size=2.5) +
+        geom_text_repel(size=3) +
         scale_x_log10(
             breaks = scales::trans_breaks("log10", function(x) 10^x),
             labels = scales::trans_format("log10", scales::math_format(10^.x))

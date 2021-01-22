@@ -69,7 +69,7 @@ md"""
 """
 
 # ╔═╡ 6724e69e-16ff-11eb-2b4c-a50d658ddd53
-load("../results/AR-gene-duplication/diagrams/toy-model-v0.5.2.jpg")
+load("../results/AR-gene-duplication/diagrams/toy-model.jpg")
 
 # ╔═╡ 0497b050-1232-11eb-176c-698843f3368b
 md"""
@@ -173,6 +173,9 @@ function dynamics!(du, u, p, t)
 		du[5] = dx5 = f5*x5*(1 - xtotal) - D*x5 + d*x2 + η*x4 - r*x5
 end
 
+# ╔═╡ a90b982c-5bf2-11eb-2e54-3d573004d003
+md""" plots of the fitness functions. """
+
 # ╔═╡ 27d302fe-1237-11eb-0166-1bf9048405e7
 begin	
 	## initial conditions
@@ -238,6 +241,23 @@ begin
 	## bundle parameters into a vector.
 	antibiotic_treatment = [r, d, η, A₀, c, D]
 	pulse_antibiotic_treatment = [r, d, η, Apulse, c, D]
+end
+
+# ╔═╡ 6991b524-5bf6-11eb-3478-d9082643bc80
+let ## local scope block
+	
+	k1, k2, k3, k4, k5 = [1, 2.5, 5.0, 10, 20]
+	n = 3 # Hill coefficient
+	
+	f1 = calc_fi(AntibioticConcentration, k1, n)
+	f2 = calc_fj(AntibioticConcentration, k2, n, c)
+	f3 = calc_fj(AntibioticConcentration, k3, n, c)
+	f4 = calc_fk(AntibioticConcentration, k4, n, c)
+	f5 = calc_fk(AntibioticConcentration, k5, n, c)
+	fitnesses = [f1, f2, f3, f4, f5]
+	
+	p = plot(fitnesses, linewidth=1)
+	
 end
 
 # ╔═╡ cecbfcae-1238-11eb-0353-3905b2919507
@@ -331,7 +351,7 @@ let
 			legend=:bottomright,ylabel="Duplication Index",
 			xlabel="Antibiotic Concentration")
 	end
-	savefig(p, "../results/AR-gene-duplication/DI-selection-strength.pdf")
+	savefig(p, "../results/AR-gene-duplication/DI-selection-strength-v1.pdf")
 	p
 end
 
@@ -356,16 +376,18 @@ bigbreak = html"<br><br><br><br>";
 # ╠═ad33b5a8-249b-11eb-0707-31634e641d07
 # ╠═2d680c50-13c2-11eb-151b-99bacb19999c
 # ╠═7d9153d0-13c2-11eb-1c1e-a7e70aaa9072
+# ╟─a90b982c-5bf2-11eb-2e54-3d573004d003
+# ╠═6991b524-5bf6-11eb-3478-d9082643bc80
 # ╠═27d302fe-1237-11eb-0166-1bf9048405e7
 # ╠═cecbfcae-1238-11eb-0353-3905b2919507
 # ╠═ec31ed3c-17c7-11eb-0700-6dae1e0fa0ad
 # ╠═69daf25e-124b-11eb-1fd1-7bb52f61b420
 # ╠═367b0e5c-17c6-11eb-11ff-25fe3e16ecea
-# ╟─6bbb5a30-192f-11eb-0dd8-7300290d17f0
-# ╟─7229eb0c-192f-11eb-0a00-09121752d3c9
-# ╟─4e324796-1930-11eb-2899-9fa24abd017a
+# ╠═6bbb5a30-192f-11eb-0dd8-7300290d17f0
+# ╠═7229eb0c-192f-11eb-0a00-09121752d3c9
+# ╠═4e324796-1930-11eb-2899-9fa24abd017a
 # ╟─4f37b380-1930-11eb-248a-975c9d4c9a2e
-# ╠═28dfb5a0-249c-11eb-303c-8bd8ebd258e7
+# ╟─28dfb5a0-249c-11eb-303c-8bd8ebd258e7
 # ╠═2e9fded2-249c-11eb-2b78-9be4a0e3e723
 # ╟─673e010e-283e-11eb-288f-fbe7fc2f99bc
 # ╠═576e9f6a-283e-11eb-0881-df8d68272a19
