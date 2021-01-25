@@ -678,7 +678,7 @@ make.Fig1C <- function(Fig1C.df) {
 }
 
 Fig1C <- make.Fig1C(Fig1C.df)
-ggsave(Fig1C,file="../results/AR-gene-duplication/Fig1C.pdf",width=5,height=5)
+ggsave(Fig1C,file="../results/AR-gene-duplication/Fig1C.pdf",width=4,height=4)
 
 ################################################################################
 ## Make a figure similar to Fig1C, using total number of genes as the baseline.
