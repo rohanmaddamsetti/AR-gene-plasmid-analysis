@@ -13,7 +13,8 @@ Usage:
 manual_accession_to_host = {}
 manual_accession_to_isolation_source = {}
 manual_accession_to_annotation = {}
-with open("../data/manually-curated-gbk-annotation-table.csv") as fh:
+with open("../data/manually-curated-gbk-annotation-table.csv") as fh: ## This is for Rohan's computer.
+##with open("manually-curated-gbk-annotation-table.csv") as fh: ## This is for Vincent's computer.
     for i, line in enumerate(fh):  # iterates through every line in file, i is a counter
         if i == 0: continue
         line = line.strip()  # trims leading and ending whitespaces
@@ -23,15 +24,14 @@ with open("../data/manually-curated-gbk-annotation-table.csv") as fh:
         manual_accession_to_isolation_source[accession] = isolation_source
         manual_accession_to_annotation[accession] = annotation
 
-
 notAnnotatedCount = 0
 errorCount = 0
 correctCount = 0
 unstableAnnotationCount = 0
-
 computational_accessions = [] ## for error checking.
 
-with open("../results/AR-gene-duplication/computationally-annotated-gbk-annotated-table.csv") as fh:
+with open("../results/AR-gene-duplication/computationally-annotated-gbk-annotated-table.csv") as fh: ## for Rohan's computer.
+##with open("output.csv") as fh: ## for Vincent's computer
     for i, line in enumerate(fh):
         if i == 0: continue ## skip the header.
         line = line.strip()
@@ -43,8 +43,10 @@ with open("../results/AR-gene-duplication/computationally-annotated-gbk-annotate
         elif (host != manual_accession_to_host[accession_id]) or (isolation_source != manual_accession_to_isolation_source[accession_id]):
             unstableAnnotationCount += 1
         elif annotation != manual_accession_to_annotation.get(accession_id):
-            print("ERROR: annotation does not match.")
+            print("ERROR: Annotation Does Not Match.")
             print("Accession ID: ", accession_id)
+            print("Host: ", host)
+            print("Isolation Source: ", isolation_source)
             print("Manual annotation:", manual_accession_to_annotation.get(accession_id))
             print("Computational annotation:", annotation)
             print()

@@ -20,6 +20,8 @@ begin
 	using DifferentialEquations
 	using LinearAlgebra
 	using Images
+	using StatsPlots
+	using DataFrames
 end
 
 # ╔═╡ 49567f8e-09a2-11eb-34c1-bb5c0b642fe8
@@ -150,6 +152,11 @@ function calc_fk(Aₜ, k, n, c)
 		(1 - c)^2 * k^n/(k^n + Aₜ^n)
 end
 
+# ╔═╡ ff8bcb5a-617d-11eb-246e-c72ce4777f88
+##k1, k2, k3, k4, k5 = [1, 2.5, 5.0, 10, 20]
+k1, k2, k3, k4, k5 = [1, 2.5, 5.0, 10, 20]
+
+
 # ╔═╡ 2d680c50-13c2-11eb-151b-99bacb19999c
 function dynamics!(du, u, p, t)	
 		x1, x2, x3, x4, x5 = u
@@ -157,7 +164,7 @@ function dynamics!(du, u, p, t)
 
 		r, d, η, antibiotic_conc_func, c, D = p
 		
-		k1, k2, k3, k4, k5 = [1, 2.5, 5.0, 10, 20]
+		##k1, k2, k3, k4, k5 = [1, 2.5, 5.0, 10, 20]
 		n = 3 # Hill coefficient
 	
 		f1 = calc_fi(antibiotic_conc_func(t), k1, n)
@@ -207,7 +214,7 @@ md""" Transfer Rate Slider"""
 md""" Dilution Rate Slider"""
 
 # ╔═╡ 576e9f6a-283e-11eb-0881-df8d68272a19
-@bind DilutionRate Slider(0:0.0001:0.2, show_value=true)
+@bind DilutionRate Slider(0:0.01:0.2, show_value=true)
 
 # ╔═╡ 7d9153d0-13c2-11eb-1c1e-a7e70aaa9072
 begin 
@@ -229,7 +236,7 @@ begin
 	## fitness cost of duplication c: can be anywhere between 0 and 1.
 	c = DuplicationCost
 	
-	match_Dynetica = true
+	match_Dynetica = false
 	if (match_Dynetica)
 		η = 3e-5
 		D = 0.05
@@ -246,7 +253,7 @@ end
 # ╔═╡ 6991b524-5bf6-11eb-3478-d9082643bc80
 let ## local scope block
 	
-	k1, k2, k3, k4, k5 = [1, 2.5, 5.0, 10, 20]
+	##k1, k2, k3, k4, k5 = [1, 2.5, 5.0, 10, 20]
 	n = 3 # Hill coefficient
 	
 	f1 = calc_fi(AntibioticConcentration, k1, n)
@@ -256,7 +263,7 @@ let ## local scope block
 	f5 = calc_fk(AntibioticConcentration, k5, n, c)
 	fitnesses = [f1, f2, f3, f4, f5]
 	
-	p = plot(fitnesses, linewidth=1)
+	bar(fitnesses,legend=:bottomright)
 	
 end
 
@@ -278,16 +285,19 @@ plot(antibiotic_sol,linewidth=2,xaxis="t")
 # ╔═╡ 381c3af2-3a52-11eb-1353-57f822f177eb
 plot(antibiotic_sol,linewidth=2,xaxis="t",yscale=:log10)
 
-# ╔═╡ bac007fa-1d55-11eb-3075-f5fb5e62ffcf
-antibiotic_sol
-
 # ╔═╡ 47619c5e-17c6-11eb-1f77-25bc5f4a5160
 begin
-p1 = plot([Apulse(t) for t in 1:10000], linewidth=1,label="Antibiotic")
+p1 = plot([Apulse(t) for t in 1:1000], linewidth=1,label="Antibiotic")
 p2 = plot(pulse_antibiotic_sol,linewidth=2,xaxis="t")
 p3 = plot(p1, p2, layout = (2, 1))
 p3
 end
+
+# ╔═╡ 8cb4fb3c-5fe9-11eb-1fcc-f75106e9b748
+antibiotic_sol_array = transpose(hcat(antibiotic_sol.u...))
+
+# ╔═╡ 9c2038bc-5ff2-11eb-1eb8-df1d0766dbeb
+groupedbar(antibiotic_sol_array, bar_position = :stack, bar_width=0.7,legend=:bottom)
 
 # ╔═╡ 3a9451de-1d56-11eb-0011-5df5238d4a71
 savefig(p3, "../results/AR-gene-duplication/toy-model-dynamics-v0.5.pdf")
@@ -338,6 +348,19 @@ function ConcAndCostToDuplicationIndex(antibiotic_conc::Float64, my_cost::Float6
 	return DuplicationIndex(my_sol)
 end
 
+# ╔═╡ 7f2414bc-5fe4-11eb-1557-73f27ec8ddc9
+function ConcAndCostToXTotal(antibiotic_conc::Float64, my_cost::Float64, fixed_parameters)
+	
+	r, d, η, D = fixed_parameters
+	antibiotic_conc_func = t->antibiotic_conc
+
+	my_parameters = [r, d, η, antibiotic_conc_func, my_cost, D]
+	
+	my_prob = ODEProblem(dynamics!, u₀, tspan, my_parameters)
+	my_sol = solve(my_prob)
+	return sum(my_sol[end])
+end
+
 # ╔═╡ 27b28d24-4f71-11eb-1291-0b1c965aa0e0
 let
 	fixed_parameters = [r, d, η, D]
@@ -354,6 +377,25 @@ let
 	savefig(p, "../results/AR-gene-duplication/DI-selection-strength-v1.pdf")
 	p
 end
+
+# ╔═╡ 6baaa82e-5fe4-11eb-3e2b-c1dbf419ffda
+let
+	fixed_parameters = [r, d, η, D]
+	
+	p = plot()
+	for cost in 0:0.1:0.3
+	antibiotic_concs = [x for x in 0:0.02:4]
+	xtotals = [ConcAndCostToXTotal(x, cost, fixed_parameters) for x in antibiotic_concs]
+	my_label = "cost = $cost"
+	plot!(antibiotic_concs, xtotals, label=my_label,
+			legend=:bottom,ylabel="Total population size",
+			xlabel="Antibiotic Concentration")
+	end
+	p
+end
+
+# ╔═╡ 3133d7ba-5fe9-11eb-08af-3d21f659e7ba
+md"""fitnesses of x1, x2, x3, x4, x5. Set cost to 0.1 and antibiotic concentration to 2.4 to see the transition between x3 being the most fit to x5 being the most fit. """
 
 # ╔═╡ c6d3267c-1930-11eb-3164-871a29bfeaad
 md""" **Acknowledgements**
@@ -374,33 +416,38 @@ bigbreak = html"<br><br><br><br>";
 # ╠═2dd79174-13c2-11eb-1716-6b1949b4632c
 # ╠═de59b2e6-249a-11eb-08f4-79a001ffd980
 # ╠═ad33b5a8-249b-11eb-0707-31634e641d07
+# ╠═ff8bcb5a-617d-11eb-246e-c72ce4777f88
 # ╠═2d680c50-13c2-11eb-151b-99bacb19999c
-# ╠═7d9153d0-13c2-11eb-1c1e-a7e70aaa9072
+# ╟─7d9153d0-13c2-11eb-1c1e-a7e70aaa9072
 # ╟─a90b982c-5bf2-11eb-2e54-3d573004d003
-# ╠═6991b524-5bf6-11eb-3478-d9082643bc80
+# ╟─6991b524-5bf6-11eb-3478-d9082643bc80
 # ╠═27d302fe-1237-11eb-0166-1bf9048405e7
 # ╠═cecbfcae-1238-11eb-0353-3905b2919507
 # ╠═ec31ed3c-17c7-11eb-0700-6dae1e0fa0ad
 # ╠═69daf25e-124b-11eb-1fd1-7bb52f61b420
 # ╠═367b0e5c-17c6-11eb-11ff-25fe3e16ecea
-# ╠═6bbb5a30-192f-11eb-0dd8-7300290d17f0
-# ╠═7229eb0c-192f-11eb-0a00-09121752d3c9
-# ╠═4e324796-1930-11eb-2899-9fa24abd017a
+# ╟─6bbb5a30-192f-11eb-0dd8-7300290d17f0
+# ╟─7229eb0c-192f-11eb-0a00-09121752d3c9
+# ╟─4e324796-1930-11eb-2899-9fa24abd017a
 # ╟─4f37b380-1930-11eb-248a-975c9d4c9a2e
 # ╟─28dfb5a0-249c-11eb-303c-8bd8ebd258e7
-# ╠═2e9fded2-249c-11eb-2b78-9be4a0e3e723
+# ╟─2e9fded2-249c-11eb-2b78-9be4a0e3e723
 # ╟─673e010e-283e-11eb-288f-fbe7fc2f99bc
-# ╠═576e9f6a-283e-11eb-0881-df8d68272a19
-# ╠═fa177622-124c-11eb-28e1-d99fe7c076a0
+# ╟─576e9f6a-283e-11eb-0881-df8d68272a19
+# ╟─fa177622-124c-11eb-28e1-d99fe7c076a0
 # ╠═381c3af2-3a52-11eb-1353-57f822f177eb
-# ╠═bac007fa-1d55-11eb-3075-f5fb5e62ffcf
 # ╠═47619c5e-17c6-11eb-1f77-25bc5f4a5160
-# ╠═3a9451de-1d56-11eb-0011-5df5238d4a71
-# ╠═0eeaa15a-4f71-11eb-193c-a10a3c7a964b
-# ╠═13def1fa-4f71-11eb-20b3-41fecdd8c073
-# ╠═194c7fa4-4f71-11eb-09cf-4f347b7bd421
-# ╠═1d679736-4f71-11eb-113a-bd2569486e09
-# ╠═22f819a0-4f71-11eb-03bb-d9e161b7fd27
-# ╠═27b28d24-4f71-11eb-1291-0b1c965aa0e0
+# ╠═8cb4fb3c-5fe9-11eb-1fcc-f75106e9b748
+# ╠═9c2038bc-5ff2-11eb-1eb8-df1d0766dbeb
+# ╟─3a9451de-1d56-11eb-0011-5df5238d4a71
+# ╟─0eeaa15a-4f71-11eb-193c-a10a3c7a964b
+# ╟─13def1fa-4f71-11eb-20b3-41fecdd8c073
+# ╟─194c7fa4-4f71-11eb-09cf-4f347b7bd421
+# ╟─1d679736-4f71-11eb-113a-bd2569486e09
+# ╟─22f819a0-4f71-11eb-03bb-d9e161b7fd27
+# ╟─7f2414bc-5fe4-11eb-1557-73f27ec8ddc9
+# ╟─27b28d24-4f71-11eb-1291-0b1c965aa0e0
+# ╟─6baaa82e-5fe4-11eb-3e2b-c1dbf419ffda
+# ╟─3133d7ba-5fe9-11eb-08af-3d21f659e7ba
 # ╟─c6d3267c-1930-11eb-3164-871a29bfeaad
 # ╟─d5cb6b2c-0a66-11eb-1aff-41d0e502d5e5
