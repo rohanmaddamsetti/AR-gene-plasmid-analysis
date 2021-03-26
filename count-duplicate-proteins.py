@@ -21,7 +21,7 @@ ignore_singletons = True
 ## based on Annotation_Accession and then NCBI Nucleotide ID.
 
 replicon_type_lookup_table = {}
-chromosome_plasmid_tbl = "../results/chromosome-plasmid-table.csv"
+chromosome_plasmid_tbl = "../results/AR-gene-duplication/chromosome-plasmid-table.csv"
 with open(chromosome_plasmid_tbl, 'r') as chromosome_plasmid_fh:
     for i, line in enumerate(chromosome_plasmid_fh):
         if i == 0: continue ## skip the header
@@ -35,14 +35,14 @@ with open(chromosome_plasmid_tbl, 'r') as chromosome_plasmid_fh:
         else:
             replicon_type_lookup_table[my_annot_accession] = {rep_id : rep_type}
 
-outf = "../results/duplicate-proteins.csv"
+outf = "../results/AR-gene-duplication/duplicate-proteins.csv"
 with open(outf, 'w') as outfh:
     header = "Annotation_Accession,count,chromosome_count,plasmid_count,unassembled_count,product,sequence\n"
     outfh.write(header)
-    for gbk_gz in tqdm(os.listdir("../results/gbk-annotation")):
+    for gbk_gz in tqdm(os.listdir("../results/AR-gene-duplication/gbk-annotation")):
         if not gbk_gz.endswith(".gbff.gz"): continue
         annotation_accession = gbk_gz.split("_genomic.gbff.gz")[0]
-        infile = "../results/gbk-annotation/" + gbk_gz
+        infile = "../results/AR-gene-duplication/gbk-annotation/" + gbk_gz
         with gzip.open(infile, "rt") as genome_fh:
             protein_dict = {}
             for replicon in SeqIO.parse(genome_fh, "gb"):

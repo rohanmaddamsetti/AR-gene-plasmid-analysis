@@ -3,15 +3,15 @@
 '''
 make-chromosome-plasmid-table.py by Rohan Maddamsetti.
 
-This script reads in ../results/prokaryotes-with-plasmids.txt.
+This script reads in ../results/AR-gene-duplication/prokaryotes-with-plasmids.txt.
 '''
 import os
 
-with open("../results/chromosome-plasmid-table.csv",'w') as out_fh:
+with open("../results/AR-gene-duplication/chromosome-plasmid-table.csv",'w') as out_fh:
     header = "Organism,Strain,NCBI_Nucleotide_Accession,SequenceType,Annotation_Accession\n"
     out_fh.write(header)
     ## open the genome report file, and parse line by line.
-    with open("../results/prokaryotes-with-plasmids.txt", "r") as genome_report_fh:
+    with open("../results/AR-gene-duplication/prokaryotes-with-plasmids.txt", "r") as genome_report_fh:
         for i, line in enumerate(genome_report_fh):
             line = line.strip()
             if i == 0: ## get the names of the columns from the header.
@@ -23,7 +23,7 @@ with open("../results/chromosome-plasmid-table.csv",'w') as out_fh:
             replicons = fields[8]
             ftp_path = fields[20]
             GBAnnotation = os.path.basename(ftp_path)
-            my_annotation_file = "../results/gbk-annotation/" + GBAnnotation + "_genomic.gbff.gz"
+            my_annotation_file = "../results/AR-gene-duplication/gbk-annotation/" + GBAnnotation + "_genomic.gbff.gz"
             ''' make sure that this file exists in the annotation directory--
             skip if this was not the case.
             this is important; we don't want to include genomes that were
