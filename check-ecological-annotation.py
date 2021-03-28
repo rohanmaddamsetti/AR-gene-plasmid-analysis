@@ -42,6 +42,23 @@ with open("../results/AR-gene-duplication/computationally-annotated-gbk-annotate
             notAnnotatedCount += 1
         elif (host != manual_accession_to_host[accession_id]) or (isolation_source != manual_accession_to_isolation_source[accession_id]):
             unstableAnnotationCount += 1
+            if annotation != manual_accession_to_annotation.get(accession_id):
+                print("ERROR: Unstable Annotation and annotation error.")
+                print("Accession ID: ", accession_id)
+                print("Host: ", host)
+                print("Isolation Source: ", isolation_source)
+                print("Manual annotation:", manual_accession_to_annotation.get(accession_id))
+                print("Computational annotation:", annotation)
+                print()
+            else:
+                print("ERROR: Unstable Annotation:")
+                print("Accession ID: ", accession_id)
+                print("Host: ", host)
+                print("Isolation Source: ", isolation_source)
+                print("Manual annotation:", manual_accession_to_annotation.get(accession_id))
+                print("Computational annotation:", annotation)
+                print()
+                
         elif annotation != manual_accession_to_annotation.get(accession_id):
             print("ERROR: Annotation Does Not Match.")
             print("Accession ID: ", accession_id)
@@ -60,5 +77,5 @@ unannotated_set = set(computational_accessions) - set([k for k in manual_accessi
 print("ERRORS:", errorCount)
 print("NOT MANUALLY ANNOTATED:", notAnnotatedCount)
 print("EXPECTED NUMBER THAT ARE NOT MANUALLY ANNOTATED:", len(unannotated_set))
-print("UNSTABLE ANNOTATIONS (probably upstream errors in gbk parsing):", unstableAnnotationCount)
+print("UNSTABLE ANNOTATIONS (probable upstream errors in gbk parsing):", unstableAnnotationCount)
 print("CORRECT:", correctCount)

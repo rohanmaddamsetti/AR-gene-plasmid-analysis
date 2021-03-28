@@ -15,6 +15,7 @@ with open("../results/AR-gene-duplication/gbk-annotation-table.csv","w") as out_
     out_fh.write(header)
 
     gbk_files = [x for x in os.listdir(gbk_annotation_dir) if x.endswith("_genomic.gbff.gz")]
+    
     for x in tqdm(gbk_files):
         gbk_path = gbk_annotation_dir + x
         annotation_accession = x.split("_genomic.gbff.gz")[0]
@@ -39,7 +40,7 @@ with open("../results/AR-gene-duplication/gbk-annotation-table.csv","w") as out_
                         host = line_annot
                     else: ## have to look at the next line too.
                         line_buffer.append(line_annot)
-                        is_host_field = True
+                        in_host_field = True
                 elif in_host_field and len(line_buffer):
                     line_annot = line.replace('\"','').replace(',',';')
                     line_buffer.append(line_annot)
@@ -65,10 +66,9 @@ with open("../results/AR-gene-duplication/gbk-annotation-table.csv","w") as out_
                 if (host != "NA") and (isolation_source != "NA"): break
                 ## also break if we're looking at gene annotation since
                 ## there's insufficient isolate annotation in this file.
-                if line.startswith("gene"): break ## NOTE: has to be 'gene'
+                if line.startswith("/gene"): break ## NOTE: has to be '/gene'
                 ## because we don't want to match the Genome Annotation Data in the
                 ## COMMENT field of the Genbank metadata.
                 if line.startswith("ORIGIN"): break ## break if we got to the first fasta seq
-                if line.startswith("1"): break ## break if we got into the first fasta seq
             row = ','.join([annotation_accession, host, isolation_source]) + '\n'
             out_fh.write(row)

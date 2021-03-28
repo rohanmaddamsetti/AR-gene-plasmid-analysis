@@ -1,6 +1,6 @@
-# AR-gene-plasmid-analysis by Rohan Maddamsetti
+# AR-gene-plasmid-analysis by Rohan Maddamsetti and Vincent Huang
 
-## requirements: Python 3.6, biopython, tqdm
+## Python requirements: Python 3.6, biopython, tqdm 
 
 First, download plasmids.txt and prokaryotes.txt into
 ../data/GENOME_REPORTS:
@@ -35,16 +35,27 @@ python make-gbk-annotation-table.py ## this runs for ~9 min on DCC.
 ## this runs for 2 min on DCC. 
 python count-cds.py > ../results/AR-gene-duplication/protein_db_CDS_counts.csv
 
-## this runs for ~2h on DCC.
+## this runs for ~2.5h on DCC.
 sbatch --mem=2G -t 6:00:00 --wrap="python count-duplicate-proteins.py" 
 
-## this runs for ~2h on DCC.
+## this runs for ~2.5h on DCC.
 sbatch --mem=2G -t 6:00:00 --wrap="python count-all-proteins.py"
 
-**** I have run my pipeline up to here.
+Then, copy the following files from the results/AR-gene-duplication
+directory onto my local machine (same directory name and file structure).
 
-TODO: document the files to download locally.
+duplicate-proteins.csv
+all-proteins.csv
+protein_db_CDS_counts.csv
+gbk-annotation-table.csv
+chromosome-plasmid-table.csv
+protein_db.faa
+prokaryotes-with-plasmids.txt
 
-TODO: document the following scripts:
-annotate-ecological-category.py
-check-ecological-annotation.py
+Then, run the follow scripts to annotate the genomes, and to cross-check
+the computational annotation against a subset of annotations that were conducted manually.
+
+python annotate-ecological-category.py > ../results/AR-gene-duplication/computationally-annotated-gbk-annotated-table.csv
+
+python check-ecological-annotation.py
+
