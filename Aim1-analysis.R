@@ -6,9 +6,6 @@
 ## TODO: add a scale to Figure 1C to interpret the size of the circles
 ## (percentage of duplicated ARGs on plasmids)
 
-## CRITICAL TODO: re-annotate manually-curated-gbk-annotation-table.csv
-## using the updated gbk-annotation table. This will add ~300 extra genomes
-## to the analysis.
 
 ## CRITICAL ANALYSIS TODO: look for evidence of recent diversification.
 ## In particular look more deeply at the result that AAA+ ATPases,
@@ -27,23 +24,14 @@ library(data.table)
 ## annotate source sequence as plasmid or chromosome.
 genome.database <- read.csv("../results/AR-gene-duplication/chromosome-plasmid-table.csv")
 
-raw.gbk.annotation <- as_tibble(read.csv("../results/AR-gene-duplication/gbk-annotation-table.csv")) %>% ## get species name annotation from genome.database.
-    left_join(genome.database)
-
-length(unique(genome.database$Annotation_Accession))
-
-## This uses the manually-annotated data that I have so far.
-## IMPORTANT TODO: update manual annotation version,
-## with a script that generates this file.
-gbk.annotation <- as_tibble(read.csv("../data/manually-curated-gbk-annotation-table.csv")) %>%
+## CRITICAL TODO: edit annotate-ecological-category.py to take care of the "blank" entries.
+gbk.annotation <- as_tibble(read.csv("../results/AR-gene-duplication/computationally-annotated-gbk-annotation-table.csv")) %>%
     ## refer to NA annotations as "Unannotated".
-    mutate(Manual_Annotation = replace_na(Manual_Annotation,"Unannotated")) %>%
+    mutate(Annotation = replace_na(Annotation,"Unannotated")) %>%
     ## get species name annotation from genome.database
     left_join(genome.database)
 
-########################
-## TEMPORARY HACK FOR SELF-CONSISTENCY:
-gbk.annotation <- gbk.annotation %>% filter(Annotation_Accession %in% genome.database$Annotation_Accession)
+
 ########################
 ## IMPORTANT NOTE: CHECK FOR CONSISTENCY IN protein_db_CDS_counts.csv!!!
 ## most importantly, examine replicons which are neither annotated as
@@ -57,13 +45,13 @@ protein.db.metadata <- genome.database %>%
 ## check out the different host and isolation source annotations.
 chromosome.annotation <- protein.db.metadata %>%
     filter(SequenceType == "chromosome") %>%
-    group_by(host, Manual_Annotation) %>%
+    group_by(host, Annotation) %>%
     summarize(number = n()) %>%
     arrange(desc(number))
 
 plasmid.annotation <- protein.db.metadata %>%
     filter(SequenceType == "plasmid") %>%
-    group_by(host, Manual_Annotation) %>%
+    group_by(host, Annotation) %>%
     summarize(number = n()) %>%
     arrange(desc(number))
 
@@ -102,17 +90,14 @@ antibiotic.keywords <- "lactamase|chloramphenicol|quinolone|antibiotic resistanc
 ## I want the sequence column for the duplicate genes,
 ## but not for the singletons, to save memory.
 
-## import the 12GB file containing all proteins, including singletons.
+## import the 15GB file containing all proteins, including singletons.
 ## I can save a ton of memory if I don't import the sequence column,
 ## and by using the data.table package for import.
 all.proteins <- data.table::fread("../results/AR-gene-duplication/all-proteins.csv",
                                   drop="sequence") %>%
-    ## now merge with gbk annotation.
-    ## I am doing a left_join here, because I want the NA Manual_Accessions
-    ## in order to predict where these unannotated strains come from.
-    left_join(gbk.annotation) ##%>%
-    ## refer to NA annotations as "Unannotated".
-    ##mutate(Manual_Annotation = replace_na(Manual_Annotation,"Unannotated"))
+        left_join(gbk.annotation)
+## I am doing a left_join here, because I eventually want to
+## predict where the unannotated strains come from.
 
 all.singleton.proteins <- all.proteins %>% filter(count == 1)
 
@@ -122,41 +107,31 @@ rm(all.proteins)
 gc()
 
 ## read in duplicate proteins with sequences, using a separate file.
-all.duplicate.proteins <- read.csv("../results/AR-gene-duplication/duplicate-proteins.csv") %>%
+all.duplicate.proteins <- read.csv("../results/AR-gene-duplication/duplicate-proteins.csv") %>% left_join(gbk.annotation)
     ## now merge with gbk annotation.
     ## I am doing a left_join here, because I want the NA Manual_Accessions
     ## in order to predict where these unannotated strains come from.
-    left_join(gbk.annotation) %>%
-    ## refer to NA annotations as "Unannotated".
-    mutate(Manual_Annotation = replace_na(Manual_Annotation,"Unannotated"))
 
 ## Some strains in chromosome-and-plasmid-table.csv and
 ## gbk-annotation-table.csv are missing from
 ## all-proteins.csv and duplicate-proteins.csv.
 ## These should be the genomes that do not have
 ## CDS annotated in their GFF annotation.
-## list the 634 strains missing from the singletons data.
-missing.ones <- raw.gbk.annotation %>%
+## list the 926 strains missing from the singletons data.
+missing.ones <- gbk.annotation %>%
     filter(!(Annotation_Accession %in% all.singleton.proteins$Annotation_Accession))
-
-#################
-## TEMPORARY HACK FOR SELF-CONSISTENCY:
-## I shouldn't have to do this, after updating the manual annotation.
-all.duplicate.proteins <- all.duplicate.proteins %>%
-    filter(Annotation_Accession %in% gbk.annotation$Annotation_Accession)
-
-all.singleton.proteins <- all.singleton.proteins %>%
-    filter(Annotation_Accession %in% gbk.annotation$Annotation_Accession)
-## call garbage collector to free up memory.
-gc()
 
 #################
 ## For the first part of the data analysis, ignore genes from Unannotated isolates.
 duplicate.proteins <- all.duplicate.proteins %>%
-    filter(Manual_Annotation != "Unannotated")
+    filter(Annotation != "Unannotated") %>%
+    ## TODO: in the future, there should not be any "blank" genomes.
+    filter(Annotation != "blank")
 
 singleton.proteins <- all.singleton.proteins %>%
-    filter(Manual_Annotation != "Unannotated")
+    filter(Annotation != "Unannotated") %>%
+    ## TODO: in the future, there should not be any "blank" genomes
+    filter(Annotation != "blank")
 
 ## for now, remove these data structures from memory, since they are not used
 ## in any analyses yet.
@@ -170,12 +145,7 @@ gc()
 ## CRITICAL BUG TO FIX:
 ## there are 7,910 isolates that have annotated proteins in their Genbank
 ## annotation. 634 are missing protein (CDS) annotation in their genome.
-## This difference is acceptable, but I need to fix the discrepancy in counts
-## caused by the manual annotation having been
-## constructed on an older version of the gbk_annotation.csv, which was
-## missing some strains.
 ## for now, I have restricted these data by filtering on Annotation_Accession--
-## see the temporary fixes in the code above.
 ###########################################################################
 ## Analysis for Figure 1C.
 
@@ -187,8 +157,9 @@ gc()
 make.isolate.totals.col <- function(gbk.annotation) {
     isolate.totals <- gbk.annotation %>%
         ## remove Unannotated isolates as we're working with gbk.annotation.
-        filter(Manual_Annotation != "Unannotated") %>%
-        group_by(Manual_Annotation) %>%
+        filter(Annotation != "Unannotated") %>%
+        filter(Annotation != "blank") %>%
+        group_by(Annotation) %>%
         summarize(total_isolates = n()) %>%
         arrange(desc(total_isolates))
     return(isolate.totals)
@@ -200,9 +171,9 @@ make.TableS1 <- function(gbk.annotation, duplicate.genes) {
     AR.category.counts <- duplicate.proteins %>%
         filter(str_detect(.$product,antibiotic.keywords)) %>%
         ## next two lines is to count isolates rather than genes
-        select(Annotation_Accession, Manual_Annotation) %>%
+        select(Annotation_Accession, Annotation) %>%
         distinct() %>%
-        group_by(Manual_Annotation) %>%
+        group_by(Annotation) %>%
         summarize(isolates_with_duplicated_ARGs = n()) %>%
         arrange(desc(isolates_with_duplicated_ARGs))
     
@@ -270,9 +241,9 @@ run.duplicate.gene.control <- function(gbk.annotation, duplicate.proteins) {
     ## count the number of isolates with duplications in each category.
     isolates.with.duplicate.genes <- duplicate.proteins %>%
         ## next two lines is to count isolates rather than genes
-        select(Annotation_Accession, Manual_Annotation) %>%
+        select(Annotation_Accession, Annotation) %>%
         distinct() %>%
-        group_by(Manual_Annotation) %>%
+        group_by(Annotation) %>%
         summarize(isolates_with_duplicate_genes = n()) %>%
         arrange(desc(isolates_with_duplicate_genes))
     
@@ -317,9 +288,9 @@ run.singleton.ARG.control <- function(gbk.annotation, singleton.proteins) {
     AR.singleton.category.counts <- singleton.proteins %>%
         filter(str_detect(.$product,antibiotic.keywords)) %>%
         ## next two lines is to count isolates rather than genes
-        select(Annotation_Accession, Manual_Annotation) %>%
+        select(Annotation_Accession, Annotation) %>%
         distinct() %>%
-        group_by(Manual_Annotation) %>%
+        group_by(Annotation) %>%
         summarize(isolates_with_singleton_ARGs = n()) %>%
         arrange(desc(isolates_with_singleton_ARGs))
     gc() ## free memory.
@@ -332,28 +303,28 @@ run.singleton.ARG.control <- function(gbk.annotation, singleton.proteins) {
         return(Table)
     }
 
-calc.isolate.singleton.ARG.enrichment.pvals <- function(raw.Table) {
+    calc.isolate.singleton.ARG.enrichment.pvals <- function(raw.Table) {
     
-    summed.isolates <- sum(raw.Table$total_isolates)
-    total.isolates.with.singleton.ARGs <- sum(raw.Table$isolates_with_singleton_ARGs)
+        summed.isolates <- sum(raw.Table$total_isolates)
+        total.isolates.with.singleton.ARGs <- sum(raw.Table$isolates_with_singleton_ARGs)
 
-    Table <- raw.Table %>%
-        rowwise() %>%
-        mutate(binom.test.pval = binom.test(
-                   x = isolates_with_singleton_ARGs,
-                   n = total.isolates.with.singleton.ARGs,
-                   p = total_isolates/summed.isolates
-               )$p.value) %>%
-        mutate(corrected.pval = p.adjust(binom.test.pval,"BH")) %>%
-        ## use Benjamini-Hochberg p-value correction.
-        select(-binom.test.pval) ## drop original p-value after the correction.
-    return(Table)
-}
+        Table <- raw.Table %>%
+            rowwise() %>%
+            mutate(binom.test.pval = binom.test(
+                       x = isolates_with_singleton_ARGs,
+                       n = total.isolates.with.singleton.ARGs,
+                       p = total_isolates/summed.isolates
+                   )$p.value) %>%
+            mutate(corrected.pval = p.adjust(binom.test.pval,"BH")) %>%
+            ## use Benjamini-Hochberg p-value correction.
+            select(-binom.test.pval) ## drop original p-value after the correction.
+        return(Table)
+    }
     
     Table <- make.isolate.totals.col(gbk.annotation) %>%
         left_join(AR.singleton.category.counts) %>%
         mutate(isolates_with_singleton_ARGs=replace_na(isolates_with_singleton_ARGs,0)) %>%
-    arrange(desc(isolates_with_singleton_ARGs)) %>%
+        arrange(desc(isolates_with_singleton_ARGs)) %>%
         calc.expected.isolates.with.singleton.ARGs() %>%
         calc.isolate.singleton.ARG.enrichment.pvals()
     
@@ -379,24 +350,24 @@ gc() ## free memory after dealing with singleton data.
 make.TableS2 <- function(duplicate.proteins) {
     ## Column 1
     duplicate.chromosome.genes.count <- duplicate.proteins %>%
-        group_by(Manual_Annotation) %>%
+        group_by(Annotation) %>%
         summarize(chromosomal_duplicate_genes = sum(chromosome_count))
     
     ## Column 2
     duplicate.plasmid.genes.count <- duplicate.proteins %>%
-        group_by(Manual_Annotation) %>%
+        group_by(Annotation) %>%
         summarize(plasmid_duplicate_genes = sum(plasmid_count))
     
     ## Column 3
     duplicate.chromosome.ARGs.count <- duplicate.proteins %>%
         filter(str_detect(.$product,antibiotic.keywords)) %>%
-        group_by(Manual_Annotation) %>%
+        group_by(Annotation) %>%
         summarize(chromosomal_duplicate_ARGs = sum(chromosome_count))
     
     ## Column 4
     duplicate.plasmid.ARGs.count <- duplicate.proteins %>%
         filter(str_detect(.$product,antibiotic.keywords)) %>%
-        group_by(Manual_Annotation) %>%
+        group_by(Annotation) %>%
         summarize(plasmid_duplicate_ARGs = sum(plasmid_count))
     
     Table <- duplicate.chromosome.genes.count %>%
@@ -420,7 +391,7 @@ write.csv(x=TableS2,file="../results/AR-gene-duplication/TableS2.csv")
 
 plasmid.chromosome.duplicate.ARG.contingency.test <- function(TableS2) {
     ## get values for Fisher's exact test.
-    total.chr.AR.duplicates <- sum(TableS2$chromosome_duplicate_ARGs)
+    total.chr.AR.duplicates <- sum(TableS2$chromosomal_duplicate_ARGs)
     total.plasmid.AR.duplicates <- sum(TableS2$plasmid_duplicate_ARGs)
 
     total.chr.duplicates <- sum(TableS2$chromosomal_duplicate_genes)
@@ -464,27 +435,27 @@ plasmid.chromosome.duplicate.ARG.contingency.test(TableS2)
 make.ControlTable2 <- function(singleton.proteins) {
     ## Column 1
     singleton.chromosome.genes.count <- singleton.proteins %>%
-        group_by(Manual_Annotation) %>%
+        group_by(Annotation) %>%
         summarize(chromosomal_singleton_genes = sum(chromosome_count))
     gc() ## free memory when dealing with singleton.proteins.
 
     ## Column 2
     singleton.plasmid.genes.count <- singleton.proteins %>%
-        group_by(Manual_Annotation) %>%
+        group_by(Annotation) %>%
         summarize(plasmid_singleton_genes = sum(plasmid_count))
     gc() ## free memory when dealing with singleton.proteins.
 
     ## Column 3
     singleton.chromosome.ARGs.count <- singleton.proteins %>%
         filter(str_detect(.$product,antibiotic.keywords)) %>%
-        group_by(Manual_Annotation) %>%
+        group_by(Annotation) %>%
         summarize(chromosomal_singleton_ARGs = sum(chromosome_count))
     gc() ## free memory when dealing with singleton.proteins.
     
     ## Column 4
     singleton.plasmid.ARGs.count <- singleton.proteins %>%
         filter(str_detect(.$product,antibiotic.keywords)) %>%
-        group_by(Manual_Annotation) %>%
+        group_by(Annotation) %>%
         summarize(plasmid_singleton_ARGs = sum(plasmid_count))
     gc() ## free memory when dealing with singleton.proteins.
     
@@ -535,8 +506,8 @@ plasmid.chromosome.singleton.ARG.contingency.test(ControlTable2)
 make.S1Fig <- function(ControlTable2,TableS2) {
 
     S1Fig.data <- full_join(ControlTable2, TableS2) %>%
-        mutate(Manual_Annotation = factor(
-                   Manual_Annotation,
+        mutate(Annotation = factor(
+                   Annotation,
                    levels = rev(c("Human-host","Livestock","Animal-host",
                                   "Anthropogenic-environment", "Food", "Freshwater",
                                   "Agriculture", "Sediment", "Soil", "Plant-host",
@@ -552,29 +523,29 @@ make.S1Fig <- function(ControlTable2,TableS2) {
         return(full.S1.panel)
     }
     
-    S1FigA <- ggplot(S1Fig.data, aes(y=Manual_Annotation, x=chromosomal_singleton_genes)) %>%
-        format.S1Fig.panel(30000000, "Chromosomal singleton genes")
+    S1FigA <- ggplot(S1Fig.data, aes(y=Annotation, x=chromosomal_singleton_genes)) %>%
+        format.S1Fig.panel(41000000, "Chromosomal singleton genes")
     
-    S1FigB <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=plasmid_singleton_genes)) %>%
-        format.S1Fig.panel(30000000, "Plasmid singleton genes")
+    S1FigB <- ggplot(S1Fig.data, aes(y=Annotation,x=plasmid_singleton_genes)) %>%
+        format.S1Fig.panel(41000000, "Plasmid singleton genes")
     
-    S1FigC <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=chromosomal_singleton_ARGs)) %>%
-        format.S1Fig.panel(30000, "Chromosomal singleton ARGs")
+    S1FigC <- ggplot(S1Fig.data, aes(y=Annotation,x=chromosomal_singleton_ARGs)) %>%
+        format.S1Fig.panel(50000, "Chromosomal singleton ARGs")
         
-    S1FigD <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=plasmid_singleton_ARGs)) %>%
-        format.S1Fig.panel(30000, "Plasmid singleton ARGs")
+    S1FigD <- ggplot(S1Fig.data, aes(y=Annotation,x=plasmid_singleton_ARGs)) %>%
+        format.S1Fig.panel(50000, "Plasmid singleton ARGs")
     
-    S1FigE <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=chromosomal_duplicate_genes)) %>%
-        format.S1Fig.panel(400000, "Chromosomal duplicate genes")
+    S1FigE <- ggplot(S1Fig.data, aes(y=Annotation,x=chromosomal_duplicate_genes)) %>%
+        format.S1Fig.panel(550000, "Chromosomal duplicate genes")
     
-    S1FigF <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=plasmid_duplicate_genes)) %>%
-        format.S1Fig.panel(400000,"Plasmid duplicate genes")
+    S1FigF <- ggplot(S1Fig.data, aes(y=Annotation,x=plasmid_duplicate_genes)) %>%
+        format.S1Fig.panel(550000,"Plasmid duplicate genes")
     
-    S1FigG <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=chromosomal_duplicate_ARGs)) %>%
-        format.S1Fig.panel(2000, "Chromosomal duplicate ARGs")
+    S1FigG <- ggplot(S1Fig.data, aes(y=Annotation,x=chromosomal_duplicate_ARGs)) %>%
+        format.S1Fig.panel(4000, "Chromosomal duplicate ARGs")
     
-    S1FigH <- ggplot(S1Fig.data, aes(y=Manual_Annotation,x=plasmid_duplicate_ARGs)) %>%
-        format.S1Fig.panel(2000, "Plasmid duplicate ARGs")
+    S1FigH <- ggplot(S1Fig.data, aes(y=Annotation,x=plasmid_duplicate_ARGs)) %>%
+        format.S1Fig.panel(4000, "Plasmid duplicate ARGs")
     
     S1Fig <- plot_grid(S1FigA, S1FigB, S1FigC, S1FigD,
                        S1FigE, S1FigF, S1FigG, S1FigH,
@@ -640,7 +611,7 @@ make.Fig1C <- function(Fig1C.df) {
 
     Fig1C <- ggplot(Fig1C.df, aes(x=total_isolates,
                                   y=isolates_with_duplicated_ARGs,
-                                  label=Manual_Annotation)) +
+                                  label=Annotation)) +
         theme_classic() +
         geom_point(aes(size = plasmid_AR_duplicate_percent * 0.5),
                    color=Fig1C.color.palette[1], alpha=0.2) +
@@ -692,32 +663,35 @@ ggsave(Fig1C,file="../results/AR-gene-duplication/Fig1C.pdf",width=4,height=4)
 ## The number of duplicated AR genes.
 duplicate.AR.genes.count <- duplicate.proteins %>%
     ## remove Unannotated isolates.
-    filter(Manual_Annotation != "Unannotated") %>%
+    filter(Annotation != "Unannotated") %>%
+    filter(Annotation != "blank") %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
-    group_by(Manual_Annotation) %>%
+    group_by(Annotation) %>%
     summarize(AR_duplicates = sum(count)) %>%
     arrange(desc(AR_duplicates))
 
 ## The number of duplicated MGE genes.
 duplicate.MGE.genes.count <- duplicate.proteins %>%
     ## remove Unannotated isolates.
-    filter(Manual_Annotation != "Unannotated") %>%
+    filter(Annotation != "Unannotated") %>%
+    filter(Annotation != "blank") %>%
     filter(str_detect(.$product,IS.keywords)) %>%
-    group_by(Manual_Annotation) %>%
+    group_by(Annotation) %>%
     summarize(MGE_duplicates = sum(count)) %>%
     arrange(desc(MGE_duplicates))
 
 ## The number of duplicated genes in each category.
 duplicate.genes.count <- duplicate.proteins %>%
     ## remove Unannotated isolates.
-    filter(Manual_Annotation != "Unannotated") %>%
-    group_by(Manual_Annotation) %>%
+    filter(Annotation != "Unannotated") %>%
+    filter(Annotation != "blank") %>%
+    group_by(Annotation) %>%
     summarize(duplicate_genes = sum(count)) %>%
     arrange(desc(duplicate_genes))
 
 ## The number of singleton genes in each category.
 singleton.genes.count <- singleton.proteins %>%
-    group_by(Manual_Annotation) %>%
+    group_by(Annotation) %>%
     summarize(singleton_genes = sum(count)) %>%
     arrange(desc(singleton_genes))
 gc() ## free memory
@@ -725,7 +699,7 @@ gc() ## free memory
 ## The number of singleton AR genes.
 singleton.AR.genes.count <- singleton.proteins %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
-    group_by(Manual_Annotation) %>%
+    group_by(Annotation) %>%
     summarize(AR_singletons = sum(count)) %>%
     arrange(desc(AR_singletons))
 gc() ## free memory
@@ -733,7 +707,7 @@ gc() ## free memory
 ## The number of singleton MGE genes.
 singleton.MGE.genes.count <- singleton.proteins %>%
     filter(str_detect(.$product,IS.keywords)) %>%
-    group_by(Manual_Annotation) %>%
+    group_by(Annotation) %>%
     summarize(MGE_singletons = sum(count)) %>%
     arrange(desc(MGE_singletons))
 gc() ## free memory
@@ -743,7 +717,7 @@ gc() ## free memory
 total.genes.count <- duplicate.genes.count %>%
     full_join(singleton.genes.count) %>%
     mutate(total_genes = duplicate_genes + singleton_genes) %>%
-    select(Manual_Annotation, total_genes)
+    select(Annotation, total_genes)
 
 big.gene.analysis.df <- duplicate.AR.genes.count %>%
     full_join(duplicate.MGE.genes.count) %>%
@@ -789,7 +763,7 @@ make.FigS2 <- function(FigS2.df) {
 
     FigS2 <- ggplot(FigS2.df, aes(x = total_genes,
                                   y = AR_duplicates,
-                                  label = Manual_Annotation)) +
+                                  label = Annotation)) +
         theme_classic() +
         scale_x_log10(
             breaks = scales::trans_breaks("log10", function(x) 10^x),
@@ -860,13 +834,13 @@ duplication.index.df <- big.gene.analysis.df %>%
     ## calculate the ratio of duplicated ARGs to singleton ARGs.
     mutate(DI.ARGs = AR_duplicates/AR_singletons)  %>%
     mutate(DI.all = duplicate_genes/singleton_genes) %>%
-    mutate(Manual_Annotation = factor(Manual_Annotation,
-                                      levels=rev(big.gene.analysis.df$Manual_Annotation))) %>%
+    mutate(Annotation = factor(Annotation,
+                                      levels=rev(big.gene.analysis.df$Annotation))) %>%
     ## make a bar graph comparing DI for ARGs to DI for all genes.
     pivot_longer(c(DI.ARGs, DI.all), names_to = "DI.type", values_to = "DI")
 
 DI.ARGs.to.all.fig <- ggplot(duplication.index.df,
-                       aes(x = Manual_Annotation, y = DI,fill=DI.type)) +
+                       aes(x = Annotation, y = DI,fill=DI.type)) +
     geom_bar(stat="identity", position=position_dodge()) +
     theme_classic() +
     ## make a better legend.
@@ -915,7 +889,7 @@ calc.AR.duplicate.enrichment.pvals <- function(raw.Table) {
 }
 
 TableS2 <- big.gene.analysis.df %>%
-    select(Manual_Annotation, AR_duplicates, total_genes) %>%
+    select(Annotation, AR_duplicates, total_genes) %>%
     calc.expected.AR.duplicates() %>% 
     calc.AR.duplicate.enrichment.pvals() %>%
     mutate(deviation.from.expected = AR_duplicates - expected_AR_duplicates) %>%
@@ -960,7 +934,7 @@ calc.AR.singleton.enrichment.pvals <- function(raw.Table) {
 }
 
 TableS3 <- big.gene.analysis.df %>%
-    select(Manual_Annotation, AR_singletons, total_genes) %>%
+    select(Annotation, AR_singletons, total_genes) %>%
     calc.expected.AR.singletons() %>%
     calc.AR.singleton.enrichment.pvals() %>%
     mutate(deviation.from.expected = AR_singletons - expected_AR_singletons) %>%
@@ -1004,7 +978,7 @@ calc.duplicate.enrichment.pvals <- function(raw.Table) {
 }
 
 duplicate.table.test <- big.gene.analysis.df %>%
-    select(Manual_Annotation, duplicate_genes, total_genes) %>%
+    select(Annotation, duplicate_genes, total_genes) %>%
     calc.expected.duplicated() %>%
     calc.duplicate.enrichment.pvals() %>%
     mutate(deviation.from.expected = duplicate_genes - expected_duplicates) %>%
@@ -1018,7 +992,7 @@ duplicate.table.test <- big.gene.analysis.df %>%
 
 ## the number of duplicate gene types.
 duplicated.gene.type.count <- duplicate.proteins %>%
-    group_by(Manual_Annotation) %>%
+    group_by(Annotation) %>%
     ## each row corresponds to a type of duplicated gene.
     summarize(duplicate_gene_types = n(),
               mean.duplicate.num = sum(count)/n()) %>%
@@ -1027,7 +1001,7 @@ duplicated.gene.type.count <- duplicate.proteins %>%
 ## the number of duplicated MGE gene types
 duplicated.MGE.type.count <- duplicate.proteins %>%
     filter(str_detect(.$product,IS.keywords)) %>%
-    group_by(Manual_Annotation) %>%
+    group_by(Annotation) %>%
     ## each row corresponds to a type of duplicated MGE.
     summarize(duplicate_MGE_types = n(),
               mean.MGE.duplicate.num = sum(count)/n()) %>%
@@ -1036,7 +1010,7 @@ duplicated.MGE.type.count <- duplicate.proteins %>%
 ## the number of duplicated AR gene types.
 duplicated.ARG.type.count <- duplicate.proteins %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
-    group_by(Manual_Annotation) %>%
+    group_by(Annotation) %>%
     ## each row corresponds to a type of duplicated ARG.
     summarize(duplicate_ARG_types = n(),
               mean.ARG.duplicate.num = sum(count)/n()) %>%
@@ -1147,7 +1121,7 @@ no.MGE.seq.freq.table <- duplicate.proteins %>%
 ## supplied as an argument, and summarizes by count of product annotation strings.
 make.annotation.freq.table <- function(manual.annot.string) {
     duplicate.proteins %>%
-    filter(Manual_Annotation == manual.annot.string) %>%
+    filter(Annotation == manual.annot.string) %>%
     filter(!str_detect(.$product,IS.keywords)) %>%
     group_by(product) %>%
     summarize(annotation.count = n()) %>%
@@ -1170,11 +1144,11 @@ terrestrial.annotation.freq.table <- make.annotation.freq.table("Terrestrial")
 plant.host.annotation.freq.table <- make.annotation.freq.table("Plant-host")
 fungal.host.annotation.freq.table <- make.annotation.freq.table("Fungal-host")
 
-## this function filters duplicate proteins by manual annotation category,
+## this function filters duplicate proteins by annotation category,
 ## supplied as an argument, and summarizes by count of product annotation strings.
-make.seq.freq.table <- function(manual.annot.string) {
+make.seq.freq.table <- function(annot.string) {
     duplicate.proteins %>%
-    filter(Manual_Annotation == manual.annot.string) %>%
+    filter(Annotation == annot.string) %>%
     filter(!str_detect(.$product,IS.keywords)) %>%
     group_by(sequence,product) %>%
     summarize(seq.count = n()) %>%
@@ -1237,10 +1211,10 @@ on.plas.no.MGE.seq.freq.table <- duplicate.proteins %>%
     arrange(desc(seq.count))
 
 ####################
-make.plas.annotation.freq.table <- function(manual.annot.string) {
+make.plas.annotation.freq.table <- function(annot.string) {
     duplicate.proteins %>%
         filter(plasmid_count >= 1) %>%
-        filter(Manual_Annotation == manual.annot.string) %>%
+        filter(Annotation == annot.string) %>%
         filter(!str_detect(.$product,IS.keywords)) %>%
         group_by(product) %>%
         summarize(annotation.count = n()) %>%
@@ -1263,12 +1237,12 @@ terrestrial.plas.annotation.freq.table <- make.plas.annotation.freq.table("Terre
 plant.host.plas.annotation.freq.table <- make.plas.annotation.freq.table("Plant-host")
 fungal.host.plas.annotation.freq.table <- make.plas.annotation.freq.table("Fungal-host")
 
-## this function filters duplicate proteins by manual annotation category,
+## this function filters duplicate proteins by annotation category,
 ## supplied as an argument, and summarizes by count of product annotation strings.
-make.on.plas.seq.freq.table <- function(manual.annot.string) {
+make.on.plas.seq.freq.table <- function(annot.string) {
     duplicate.proteins %>%
         filter(plasmid_count >= 1) %>%
-        filter(Manual_Annotation == manual.annot.string) %>%
+        filter(Annotation == annot.string) %>%
         filter(!str_detect(.$product,IS.keywords)) %>%
         group_by(sequence,product) %>%
         summarize(seq.count = n()) %>%

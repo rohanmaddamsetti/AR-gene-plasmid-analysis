@@ -11,7 +11,7 @@ agriculture, on the other hand, refers strictly to crop plants-- soil is not inc
 
 In addition, "rhizosphere" always maps to the Soil annotation.
 
-Usage: python annotate-ecological-category.py > ../results/AR-gene-duplication/computationally-annotated-gbk-annotated-table.csv
+Usage: python annotate-ecological-category.py > ../results/AR-gene-duplication/computationally-annotated-gbk-annotation-table.csv
 '''
 
 ########################################################################################################################
