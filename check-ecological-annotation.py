@@ -6,15 +6,14 @@ check-ecological-annotation.py by Vincent Huang and Rohan Maddamsetti.
 This script compares the output of annotate-ecological-category.py
 to the manual annotation in manually-curately-gbk-annotation.table.csv.
 
-Usage: 
+Usage: python check-ecological-annotation.py
 
 '''
 
 manual_accession_to_host = {}
 manual_accession_to_isolation_source = {}
 manual_accession_to_annotation = {}
-with open("../data/manually-curated-gbk-annotation-table.csv") as fh: ## This is for Rohan's computer.
-##with open("manually-curated-gbk-annotation-table.csv") as fh: ## This is for Vincent's computer.
+with open("../data/manually-curated-gbk-annotation-table.csv") as fh:
     for i, line in enumerate(fh):  # iterates through every line in file, i is a counter
         if i == 0: continue
         line = line.strip()  # trims leading and ending whitespaces
@@ -25,13 +24,13 @@ with open("../data/manually-curated-gbk-annotation-table.csv") as fh: ## This is
         manual_accession_to_annotation[accession] = annotation
 
 notAnnotatedCount = 0
+blankCount = 0
 errorCount = 0
 correctCount = 0
 unstableAnnotationCount = 0
 computational_accessions = [] ## for error checking.
 
-with open("../results/AR-gene-duplication/computationally-annotated-gbk-annotated-table.csv") as fh: ## for Rohan's computer.
-##with open("output.csv") as fh: ## for Vincent's computer
+with open("../results/AR-gene-duplication/computationally-annotated-gbk-annotation-table.csv") as fh:
     for i, line in enumerate(fh):
         if i == 0: continue ## skip the header.
         line = line.strip()
@@ -40,6 +39,14 @@ with open("../results/AR-gene-duplication/computationally-annotated-gbk-annotate
         computational_accessions.append(accession_id)
         if accession_id not in manual_accession_to_annotation:
             notAnnotatedCount += 1
+            if annotation == "blank":
+                blankCount += 1
+                print("ERROR: blank annotation.")
+                print("Accession ID: ", accession_id)
+                print("Host: ", host)
+                print("Isolation Source: ", isolation_source)
+                print("Computational annotation:", annotation)
+                print()
         elif (host != manual_accession_to_host[accession_id]) or (isolation_source != manual_accession_to_isolation_source[accession_id]):
             unstableAnnotationCount += 1
             if annotation != manual_accession_to_annotation.get(accession_id):
@@ -77,5 +84,6 @@ unannotated_set = set(computational_accessions) - set([k for k in manual_accessi
 print("ERRORS:", errorCount)
 print("NOT MANUALLY ANNOTATED:", notAnnotatedCount)
 print("EXPECTED NUMBER THAT ARE NOT MANUALLY ANNOTATED:", len(unannotated_set))
+print("BLANK COUNT:", blankCount)
 print("UNSTABLE ANNOTATIONS (probable upstream errors in gbk parsing):", unstableAnnotationCount)
 print("CORRECT:", correctCount)
