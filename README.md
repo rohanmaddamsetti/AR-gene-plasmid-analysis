@@ -2,6 +2,7 @@
 
 ## Python requirements: Python 3.6, biopython, tqdm 
 
+
 First, download plasmids.txt and prokaryotes.txt into
 ../data/GENOME_REPORTS:
 
