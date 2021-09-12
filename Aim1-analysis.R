@@ -95,7 +95,7 @@ antibiotic.keywords <- "lactamase|chloramphenicol|quinolone|antibiotic resistanc
 ## and by using the data.table package for import.
 all.proteins <- data.table::fread("../results/AR-gene-duplication/all-proteins.csv",
                                   drop="sequence") %>%
-        left_join(gbk.annotation)
+    left_join(gbk.annotation)
 ## I am doing a left_join here, because I eventually want to
 ## predict where the unannotated strains come from.
 

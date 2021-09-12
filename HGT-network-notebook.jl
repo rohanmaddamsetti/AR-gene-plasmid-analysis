@@ -1,14 +1,18 @@
 ### A Pluto.jl notebook ###
-# v0.14.8
+# v0.14.7
 
 using Markdown
 using InteractiveUtils
 
 # ╔═╡ 1ba467c8-5a15-4342-adca-486c970a0c0f
-using CSV, DataFrames, Plots, LightGraphs, SparseArrays, Distances, Clustering
+using CSV, DataFrames, Plots, LightGraphs, SparseArrays, LinearAlgebra, Distances, Clustering, MinHash
 
 # ╔═╡ 73979b34-caea-11eb-3431-8d722c6416b9
-md""" ### HGT-network-notebook.jl by Rohan Maddamsetti 
+md""" ### HGT-network-notebook.jl by Rohan Maddamsetti
+
+## Fast gene flow network inference from copy number variation in bacterial genomes
+
+#### Rohan Maddamsetti  
 
 The initial goal of this notebook is to draft matrix and graph visualizations of how identical protein sequences are shared across strains in my dataset.
 
@@ -17,10 +21,7 @@ I will do analyses that focus just on duplicated genes, as well as singleton gen
 """
 
 # ╔═╡ 0c0a7d17-44a2-4ec7-aa83-b1d52920cd2f
-md""" IMPORTANT TODO!!! Use MinHash algorithm (Mash software) in order to rapidly estimate distances and cluster genes and strains. I need something that scales!!! """
-
-# ╔═╡ e523bcbb-fc4f-4683-a1df-5d2e93f2cf8a
-md""" potential TODOs: """
+md""" IMPORTANT TODO!!! Use MinHash algorithm (Mash or Sourmash software) in order to rapidly estimate distances and cluster genes and strains. I need something that scales!!! """
 
 # ╔═╡ cf2d881b-0502-4ee0-8b49-94c33427c263
 md""" let's look at the duplicate proteins, first."""
@@ -39,12 +40,12 @@ md"""
 now, let's visualize a graph between these duplicate sequences, and the genomes that they come from. We can use a matrix "heatmap" to do this visualization, as well as a network visualization of the graph.
 """
 
-# ╔═╡ b1509dee-b5a0-4dd2-a1eb-60a82bf21866
-begin
+# ╔═╡ 25f6e9b8-a433-4eb1-92f2-91aad7c65e87
+function ProteinToAccession(protein_df)
 	## make a dictionary of protein sequence to Annotation_Accession.
 	protseq_to_accession = Dict()
 	
-	for row in eachrow(dup_protein_df)
+	for row in eachrow(protein_df)
 		accession = row.Annotation_Accession
 		sequence = row.sequence
 
@@ -55,18 +56,60 @@ begin
 		end
 	end
 	
+	return protseq_to_accession
 end
 
-# ╔═╡ 121b2a92-3867-4ec8-a507-01b6451ed33e
-begin
-	## let's filter for sequences that are present in multiple genomes.
+# ╔═╡ d492149c-2fe7-4992-a0bb-3c81f27b1b30
+function SharedProteinToAccession(protseq_to_accession)
+	## filter for sequences that are present in multiple genomes.
 	HGT_protseq_to_accession = Dict()
 	for (k,v) in protseq_to_accession
 		if length(v) > 1
 			HGT_protseq_to_accession[k] = v
 		end
 	end
+	return HGT_protseq_to_accession
 end
+
+# ╔═╡ 463fea4c-ccd1-4b70-9e38-0d8f31a523e1
+function AccessionToProtein(protein_df)
+	## make a dictionary of Annotation_Accession to protein sequence.
+	accession_to_protseq = Dict()
+	
+	for row in eachrow(protein_df)
+		accession = row.Annotation_Accession
+		sequence = row.sequence
+
+		if haskey(accession_to_protseq, accession)
+			push!(accession_to_protseq[accession], sequence)
+		else
+			accession_to_protseq[accession] = [sequence]
+		end
+	end
+	
+	return accession_to_protseq
+end
+
+# ╔═╡ f96f9c72-f05a-4998-8588-555120dc61e9
+function FilterAccessionToProteinDictForSharedSequences(accession_to_protseq, HGT_protseq_to_accession)
+	## filter for sequences that are present in multiple genomes.
+	filtered_accession_to_protseq = Dict()
+	
+	for (accession,protvec) in accession_to_protseq
+		for prot in protvec
+			if prot in keys(HGT_protseq_to_accession)
+				filtered_accession_to_protseq[accession] = protvec
+			end
+		end
+	end
+
+	return filtered_accession_to_protseq
+end
+
+# ╔═╡ b1509dee-b5a0-4dd2-a1eb-60a82bf21866
+## make a dictionary of protein sequence to Annotation_Accession.
+HGT_dup_protseq_to_accession = dup_protein_df |>
+ProteinToAccession |> SharedProteinToAccession
 
 # ╔═╡ 6b5ef553-0bb4-47d1-b6cf-c6fb898675f3
 md"""
@@ -76,10 +119,14 @@ A good heuristic for relatedness is whether two organisms have identical copies 
 """
 
 # ╔═╡ 86fc624f-4874-4aa4-acd7-6d70ff9c927f
-HGT_dup_protein_df = filter(row -> haskey(HGT_protseq_to_accession,row.sequence), dup_protein_df);
+HGT_dup_protein_df = filter(row -> haskey(HGT_dup_protseq_to_accession,row.sequence), dup_protein_df)
+
+# ╔═╡ d63763c7-ce0d-4f7d-b7d9-2e9b5a8a5fa9
+## make a dictionary of Annotation_Accession to protein sequence.
+HGT_dup_accession_to_protseq = AccessionToProtein(HGT_dup_protein_df)
 
 # ╔═╡ e75548f9-60ba-41c5-ad83-c3a1061b4177
-plasmid_HGT_dup_protein_df = filter(row -> row.plasmid_count > 1, HGT_dup_protein_df);
+plasmid_HGT_dup_protein_df = filter(row -> row.plasmid_count > 1, HGT_dup_protein_df)
 
 # ╔═╡ 8cfe264a-187f-4c63-b5e0-80cdaa284896
 md"""
@@ -140,40 +187,105 @@ md"""  Cluster the rows, and cluster the columns.
  sort and update the seq to index and accession to index mappings
  by getting the permutation of columns and rows returned by the clustering.
 
- I could potentially speed up these pairwise calculations by parallelizing and/or running on a GPU on the Duke Compute Cluster."""
+ Speed up these pairwise calculations by using MinHash! See implementation at:
+https://jakobnissen.github.io/MinHash.jl"""
 
-# ╔═╡ 22d9667e-b208-4840-b1d2-43c6cf755a24
-function SortAccessionSeqMatrix(accessions_seq_matrix)
+# ╔═╡ 2c068fa2-83a9-466a-be31-3d480e18aa21
+function unionlength(x::MinHashSketch, y::MinHashSketch)
+
+    xi, yi = 1, 1
+    n = 0
+
+    @inbounds while (xi ≤ length(x.hashes)) & (yi ≤ length(y.hashes))
+        xv, yv = x.hashes[xi], y.hashes[yi]
+        n += 1
+        xi += xv ≤ yv
+        yi += yv ≤ xv
+    end
+
+    return n
+
+end
+
+# ╔═╡ 3736e126-ebb4-4949-83a9-14d7922dc3d3
+function unionlength_vec(hash_vec)
+	union_count_matrix = zeros(Int32, length(hash_vec), length(hash_vec))
+	for i in 1:length(hash_vec)
+		for j in 1:length(hash_vec)
+			if i >= j
+				union_count_matrix[i,j] = unionlength(hash_vec[i], hash_vec[j])
+			end
+		end
+	end
 	
-	row_dist_matrix = pairwise(CosineDist(), accessions_seq_matrix, dims=1)
-	col_dist_matrix = pairwise(CosineDist(), accessions_seq_matrix, dims=2)
+	return union_count_matrix
+			
+end
+
+# ╔═╡ c8c5417f-e7c4-4e68-874f-5ed9d15139da
+function SortAccessionSeqMatrix(protseq_to_accession, accession_to_protseq)
 	
-	row_hclust = hclust(row_dist_matrix, linkage=:ward, branchorder = :optimal)
-	col_hclust = hclust(col_dist_matrix, linkage=:ward, branchorder = :optimal)
+	accessions_seq_matrix = ProteinToAccessionMatrix(protseq_to_accession)
 	
-	sorted_accessions_seq_matrix = accessions_seq_matrix[row_hclust.order,col_hclust.order]
+	## use MinHash to calculate the Jaccard similarity of the columns (genes).
+	genome_hashes = [MinHash.sketch(accession_to_protseq[k], 500) for k in sort([x for x in keys(accession_to_protseq)])]
+	
+	genome_intersection_matrix = intersectionlength(genome_hashes)
+	
+	## use MinHash to calculate the Jaccard similarity of the columns (genes).
+	gene_hashes = [MinHash.sketch(protseq_to_accession[k], 500) for k in sort([x for x in keys(protseq_to_accession)])]
+	
+	gene_intersection_matrix = intersectionlength(gene_hashes)
+	
+	genome_union_matrix = unionlength_vec(genome_hashes)
+	gene_union_matrix = unionlength_vec(gene_hashes)
+	
+	genome_distance_matrix = 1 .- (genome_intersection_matrix./genome_union_matrix) - I ## subtract identity matrix
+	replace!(genome_distance_matrix, NaN=>0)
+	
+	gene_distance_matrix = 1 .- (gene_intersection_matrix./gene_union_matrix) - I ## subtract identity matrix
+	replace!(gene_distance_matrix, NaN=>0)
+	
+	gene_distance_matrix = triu(gene_distance_matrix') + gene_distance_matrix
+	genome_distance_matrix = triu(genome_distance_matrix') + genome_distance_matrix
+	
+	row_hclust = hclust(genome_distance_matrix, branchorder = :optimal)
+	col_hclust = hclust(gene_distance_matrix, branchorder = :optimal)
+	
+	sorted_accessions_seq_matrix = accessions_seq_matrix[row_hclust.order, col_hclust.order]
 	
 	return sorted_accessions_seq_matrix
 	
 end
 
-# ╔═╡ 63bc0a20-26d2-40f3-a2c6-594c597ac1a6
+# ╔═╡ ed6bff37-2f4f-4e17-9209-24ba7c900165
+accessions_seq_matrix = ProteinToAccessionMatrix(HGT_dup_protseq_to_accession)
+
+# ╔═╡ 306ad03e-6ef6-4964-8ab1-9c51a02c2319
+md""" 
+
+after using MinHashing, calculate 1 - Jaccard similarity to get a distance matrix, and 
+use this to cluster the rows and then cluster the columns using hierarchical clustering.
+
+Then, use the order of rows and the order of columns returned by hierarchical clustering to sort the rows and columns. Then, visualize the original matrix.
+
+
+"""
+
+# ╔═╡ c0aaa528-b72c-40fd-a76d-d1aef3a41fa9
 begin
 	
-	## NOTE: SortAccessionSeqMatrix() crashes the worker process,
-	## if run using protseq_to_accession as input.
-	sparse_accessions_seq_matrix = HGT_protseq_to_accession |>
-	ProteinToAccessionMatrix |>
-	SortAccessionSeqMatrix |>
+	HGT_dup_accessions_seq_matrix = SortAccessionSeqMatrix(HGT_dup_protseq_to_accession, HGT_dup_accession_to_protseq) |>
 	sparse
 	
-	spy(sparse_accessions_seq_matrix) ## plot the sorted sparse matrix.
+	spy(HGT_dup_accessions_seq_matrix)
+	
 end
 
 # ╔═╡ 23217fb2-5a00-4cdc-8191-8b0d4a23e0e0
 begin
 	
-	genomes_sharing_dups_matrix = sparse_accessions_seq_matrix * 	sparse_accessions_seq_matrix'
+	genomes_sharing_dups_matrix = HGT_dup_accessions_seq_matrix * 	HGT_dup_accessions_seq_matrix'
 	
 	spy(genomes_sharing_dups_matrix)
 	
@@ -354,44 +466,31 @@ begin
 	
 end
 
-# ╔═╡ ea5a9e72-034f-407a-905a-424cc9069293
-begin
-	
-	## for comparison, let's look at singletons.
-	
-	all_protein_fpath = "../results/AR-gene-duplication/all-proteins.csv"
-	## get all proteins, then filter for singletons in-place.
-	singleton_df = DataFrame(CSV.File(all_protein_fpath))
-	filter!(row -> row.count == 1, singleton_df)
-
-end
-
-# ╔═╡ 1a3a4c97-a28c-4749-b500-93a2b521e25b
-begin
-	
-	## make the appropriate data structure for the network plot.	
-	## plot the network.
-	
-end
-
 # ╔═╡ Cell order:
-# ╟─73979b34-caea-11eb-3431-8d722c6416b9
+# ╠═73979b34-caea-11eb-3431-8d722c6416b9
 # ╠═0c0a7d17-44a2-4ec7-aa83-b1d52920cd2f
-# ╠═e523bcbb-fc4f-4683-a1df-5d2e93f2cf8a
 # ╠═1ba467c8-5a15-4342-adca-486c970a0c0f
 # ╟─cf2d881b-0502-4ee0-8b49-94c33427c263
 # ╠═ec356b3d-18a3-4977-8fba-2ca9ee7524a7
 # ╟─2afb1c61-50a2-4521-8018-9cc5e9b014b6
+# ╠═25f6e9b8-a433-4eb1-92f2-91aad7c65e87
+# ╠═d492149c-2fe7-4992-a0bb-3c81f27b1b30
+# ╠═463fea4c-ccd1-4b70-9e38-0d8f31a523e1
+# ╠═f96f9c72-f05a-4998-8588-555120dc61e9
 # ╠═b1509dee-b5a0-4dd2-a1eb-60a82bf21866
-# ╠═121b2a92-3867-4ec8-a507-01b6451ed33e
 # ╟─6b5ef553-0bb4-47d1-b6cf-c6fb898675f3
 # ╠═86fc624f-4874-4aa4-acd7-6d70ff9c927f
+# ╠═d63763c7-ce0d-4f7d-b7d9-2e9b5a8a5fa9
 # ╠═e75548f9-60ba-41c5-ad83-c3a1061b4177
 # ╟─8cfe264a-187f-4c63-b5e0-80cdaa284896
 # ╠═d495cb9f-02e0-45eb-b5d8-0a091faf9d8e
 # ╟─196b9ad6-5251-4534-bb7b-185130589ffb
-# ╠═22d9667e-b208-4840-b1d2-43c6cf755a24
-# ╠═63bc0a20-26d2-40f3-a2c6-594c597ac1a6
+# ╠═2c068fa2-83a9-466a-be31-3d480e18aa21
+# ╠═3736e126-ebb4-4949-83a9-14d7922dc3d3
+# ╠═c8c5417f-e7c4-4e68-874f-5ed9d15139da
+# ╠═ed6bff37-2f4f-4e17-9209-24ba7c900165
+# ╠═306ad03e-6ef6-4964-8ab1-9c51a02c2319
+# ╠═c0aaa528-b72c-40fd-a76d-d1aef3a41fa9
 # ╠═23217fb2-5a00-4cdc-8191-8b0d4a23e0e0
 # ╠═07084ba8-0dbf-4a3e-abd0-83d4a43f2540
 # ╠═454af6f7-0751-4828-a659-224da4793ec0
@@ -410,5 +509,3 @@ end
 # ╠═3ad92137-7f06-4305-99b7-07b4fcdc9fe8
 # ╠═4d5f0b2a-8012-468c-9817-d4301ae13841
 # ╠═aaf162c4-6e58-4ed4-9361-0b40d8a9a3d2
-# ╠═ea5a9e72-034f-407a-905a-424cc9069293
-# ╠═1a3a4c97-a28c-4749-b500-93a2b521e25b
