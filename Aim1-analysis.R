@@ -6,7 +6,6 @@
 ## TODO: add a scale to Figure 1C to interpret the size of the circles
 ## (percentage of duplicated ARGs on plasmids)
 
-
 ## CRITICAL ANALYSIS TODO: look for evidence of recent diversification.
 ## In particular look more deeply at the result that AAA+ ATPases,
 ## and ATPases in general seem to be enriched in gene duplications.
@@ -22,10 +21,10 @@ library(ggrepel)
 library(data.table)
 
 ## annotate source sequence as plasmid or chromosome.
-genome.database <- read.csv("../results/AR-gene-duplication/chromosome-plasmid-table.csv")
+genome.database <- read.csv("../results/chromosome-plasmid-table.csv")
 
 ## CRITICAL TODO: edit annotate-ecological-category.py to take care of the "blank" entries.
-gbk.annotation <- as_tibble(read.csv("../results/AR-gene-duplication/computationally-annotated-gbk-annotation-table.csv")) %>%
+gbk.annotation <- as_tibble(read.csv("../results/computationally-annotated-gbk-annotation-table.csv")) %>%
     ## refer to NA annotations as "Unannotated".
     mutate(Annotation = replace_na(Annotation,"Unannotated")) %>%
     ## get species name annotation from genome.database
@@ -36,7 +35,7 @@ gbk.annotation <- as_tibble(read.csv("../results/AR-gene-duplication/computation
 ## IMPORTANT NOTE: CHECK FOR CONSISTENCY IN protein_db_CDS_counts.csv!!!
 ## most importantly, examine replicons which are neither annotated as
 ## chromosomes or plasmids.
-cds.counts <- read.csv("../results/AR-gene-duplication/protein_db_CDS_counts.csv")
+cds.counts <- read.csv("../results/protein_db_CDS_counts.csv")
 
 protein.db.metadata <- genome.database %>%
     left_join(gbk.annotation) %>%
@@ -75,7 +74,10 @@ Conlan.strains %in% protein.db.metadata$Strain
 ## chromosome and plasmids.
 
 ## remove all genes with the following keywords in the "product" annotation
-IS.keywords <- "IS|transposon|Transposase|transposase|hypothetical protein|Phage|phage|integrase|Integrase|tail|intron|Mobile|mobile|antitoxin|toxin|capsid|plasmid|Plasmid"
+IS.keywords <- "IS|transposon|Transposase|transposase|hypothetical protein|Phage|phage|integrase|Integrase|tail|intron|Mobile|mobile|antitoxin|toxin|capsid|plasmid|Plasmid|conjug"
+
+## remove all genes that match Elongation Factor Tu (2 copies in most bacteria).
+EFTu.keywords <- "Tu | Tu|-Tu"
 
 ## now look at a few antibiotic-specific annotations.
 antibiotic.keywords <- "lactamase|chloramphenicol|quinolone|antibiotic resistance|tetracycline|VanZ"
@@ -93,7 +95,7 @@ antibiotic.keywords <- "lactamase|chloramphenicol|quinolone|antibiotic resistanc
 ## import the 15GB file containing all proteins, including singletons.
 ## I can save a ton of memory if I don't import the sequence column,
 ## and by using the data.table package for import.
-all.proteins <- data.table::fread("../results/AR-gene-duplication/all-proteins.csv",
+all.proteins <- data.table::fread("../results/all-proteins.csv",
                                   drop="sequence") %>%
     left_join(gbk.annotation)
 ## I am doing a left_join here, because I eventually want to
@@ -107,7 +109,7 @@ rm(all.proteins)
 gc()
 
 ## read in duplicate proteins with sequences, using a separate file.
-all.duplicate.proteins <- read.csv("../results/AR-gene-duplication/duplicate-proteins.csv") %>% left_join(gbk.annotation)
+all.duplicate.proteins <- read.csv("../results/duplicate-proteins.csv") %>% left_join(gbk.annotation)
     ## now merge with gbk annotation.
     ## I am doing a left_join here, because I want the NA Manual_Accessions
     ## in order to predict where these unannotated strains come from.
@@ -135,7 +137,6 @@ singleton.proteins <- all.singleton.proteins %>%
 
 ## for now, remove these data structures from memory, since they are not used
 ## in any analyses yet.
-rm(all.duplicate.proteins)
 rm(all.singleton.proteins)
 
 ## call garbage collector to free up memory.
@@ -224,7 +225,7 @@ make.TableS1 <- function(gbk.annotation, duplicate.genes) {
 
 TableS1 <- make.TableS1(gbk.annotation, duplicate.genes)
 ## write Supplementary Table S1 to file.
-write.csv(x=TableS1, file="../results/AR-gene-duplication/TableS1.csv")
+write.csv(x=TableS1, file="../results/TableS1.csv")
 
 ######################
 ## Control: does the number of isolates with duplicate genes
@@ -334,7 +335,7 @@ run.singleton.ARG.control <- function(gbk.annotation, singleton.proteins) {
 ## This data frame will be used for Figure 1C.
 ControlTable1 <- run.singleton.ARG.control(gbk.annotation, singleton.proteins)
 ## write Control 1 to file.
-write.csv(x=ControlTable1, file="../results/AR-gene-duplication/ControlTable1.csv")
+write.csv(x=ControlTable1, file="../results/ControlTable1.csv")
 
 gc() ## free memory after dealing with singleton data.
 ###################################
@@ -384,7 +385,7 @@ make.TableS2 <- function(duplicate.proteins) {
 
 TableS2 <- make.TableS2(duplicate.proteins)
 ## write Table S2 to file.
-write.csv(x=TableS2,file="../results/AR-gene-duplication/TableS2.csv")
+write.csv(x=TableS2,file="../results/TableS2.csv")
 
 ################
 ## Analysis of Table S2: Duplicate ARGs are associated with plasmids.
@@ -554,7 +555,7 @@ make.S1Fig <- function(ControlTable2,TableS2) {
 }
 
 S1Fig <- make.S1Fig(ControlTable2,TableS2)
-ggsave("../results/AR-gene-duplication/S1Fig.pdf",S1Fig,width=9,height=11)
+ggsave("../results/S1Fig.pdf",S1Fig,width=9,height=11)
 
 ##################################################################################
 ## Figure 1 A & B: Diagram of the analysis workflow, made in Inkscape/Illustrator.
@@ -649,7 +650,71 @@ make.Fig1C <- function(Fig1C.df) {
 }
 
 Fig1C <- make.Fig1C(Fig1C.df)
-ggsave(Fig1C,file="../results/AR-gene-duplication/Fig1C.pdf",width=4,height=4)
+ggsave(Fig1C,file="../results/Fig1C.pdf",width=4,height=4)
+
+
+make.grant.Fig1C <- function(Fig1C.df) {
+
+    ## simplify the labels.
+    grant.Fig1C.df <- Fig1C.df %>%
+        mutate(Annotation = sapply(Annotation, function (x)
+            str_replace_all(x, c("Human-host" = "Human",
+                                 "Anthropogenic-environment" = "Cities",
+                                 "Animal-host" = "Animal",
+                                 "Plant-host" = "Plant",
+                                 "Fungal-host" = "Fungi"))))
+            
+        
+    
+    total_isolates.sum <- sum(grant.Fig1C.df$total_isolates)
+    isolates_with_duplicated_ARGs.sum <- sum(grant.Fig1C.df$isolates_with_duplicated_ARGs)
+    isolates_with_singleton_ARGs.sum <- sum(grant.Fig1C.df$isolates_with_singleton_ARGs)
+    isolates_with_duplicate_genes.sum <- sum(grant.Fig1C.df$isolates_with_duplicate_genes)
+    
+    Fig1C.color.palette <- scales::viridis_pal()(3)
+
+    Fig1C <- ggplot(grant.Fig1C.df, aes(x=total_isolates,
+                                  y=isolates_with_duplicated_ARGs,
+                                  label=Annotation)) +
+        theme_classic() +
+        geom_point(aes(size = plasmid_AR_duplicate_percent * 0.5),
+                   color=Fig1C.color.palette[1], alpha=0.2) +
+        geom_point(aes(y=isolates_with_singleton_ARGs,
+                       size=plasmid_AR_singleton_percent * 0.5),
+                   color=Fig1C.color.palette[2],alpha=0.2) +
+        geom_point(aes(y=isolates_with_duplicate_genes,
+                       size=plasmid_duplicate_percent * 0.5),color="gray",alpha=0.2) +
+        geom_line(aes(y=yvals.for.isolates_with_duplicated_ARGs.line),
+                  color=Fig1C.color.palette[1]) +
+        geom_line(aes(y=yvals.for.isolates_with_singleton_ARGs.line),
+                  color=Fig1C.color.palette[2]) +
+        geom_line(aes(y=yvals.for.isolates_with_duplicate_genes.line),
+                  color="gray") +
+        geom_text_repel(size=3) +
+        scale_x_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        scale_y_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        xlab("Total Isolates") +
+        ylab("Isolates in given class") +
+        annotate("text", x = 85, y = 3, label = "duplicated ARGs",
+                 angle = 30, color = Fig1C.color.palette[1],size=3) +
+        annotate("text", x = 85, y = 14.5, label = "singleton ARGs",
+                 angle = 30, color = Fig1C.color.palette[2],size=3) +
+        annotate("text", x = 85, y = 30, label = "duplicated genes",
+                 angle = 30, color = "gray",size=3) +
+        guides(size=FALSE) 
+        
+    return(Fig1C)
+}
+
+grant.Fig1C <- make.grant.Fig1C(Fig1C.df)
+ggsave(grant.Fig1C,file="../results/grant_Fig1C.pdf",width=3,height=2)
+
 
 ################################################################################
 ## Make a figure similar to Fig1C, using total number of genes as the baseline.
@@ -825,7 +890,7 @@ make.FigS2 <- function(FigS2.df) {
 
 FigS2.df <- make.FigS2.df(big.gene.analysis.df)
 FigS2 <- make.FigS2(FigS2.df)
-ggsave(FigS2,file="../results/AR-gene-duplication/FigS2.pdf",width=6,height=6)
+ggsave(FigS2,file="../results/FigS2.pdf",width=6,height=6)
 
 #############################
 ## Duplication Index Ratio calculations.
@@ -852,7 +917,7 @@ DI.ARGs.to.all.fig <- ggplot(duplication.index.df,
     theme(legend.position="top") +
     xlab("Annotation")
 
-ggsave("../results/AR-gene-duplication/DI-index.pdf", DI.ARGs.to.all.fig)
+ggsave("../results/DI-index.pdf", DI.ARGs.to.all.fig)
 
 #############################
 ## Supplementary Table S2.
@@ -898,7 +963,7 @@ TableS2 <- big.gene.analysis.df %>%
 
 
 ## write Supplementary Table S2 to file.
-write.csv(x=TableS2,file="../results/AR-gene-duplication/TableS2.csv")
+write.csv(x=TableS2,file="../results/TableS2.csv")
 
 ############################################################
 ## Positive control: Examine the distribution of ARGs that have NOT duplicated.
@@ -941,7 +1006,7 @@ TableS3 <- big.gene.analysis.df %>%
     arrange(desc(deviation.from.expected)) %>%
     select(-deviation.from.expected)
 
-write.csv(x=TableS3, file="../results/AR-gene-duplication/TableS3.csv")
+write.csv(x=TableS3, file="../results/TableS3.csv")
 ############################################################
 ## Positive control: Examine the distribution of duplicated genes.
 
@@ -1049,8 +1114,15 @@ just.plasmid.cases <- duplicate.proteins %>%
 ## get the match between sequences and product annotations.
 duplicate.protein.annotations <- all.duplicate.proteins %>%
     select(product, sequence) %>%
-    distinct()
-
+    distinct() %>%
+## PROBLEM: often, an IDENTICAL protein sequence will have multiple 'product'
+## annotations! See the solution here.
+## https://stackoverflow.com/questions/19944334/extract-rows-for-the-first-occurrence-of-a-variable-in-a-data-frame
+group_by(sequence) %>% 
+  filter(product == max(product)) %>% 
+  slice(1) %>% # takes the first occurrence if there is a tie
+  ungroup()
+    
 HGT.candidates <- all.duplicate.proteins %>%
     group_by(sequence) %>%
     summarize(number.of.genomes = n(),
@@ -1058,8 +1130,8 @@ HGT.candidates <- all.duplicate.proteins %>%
               chromosome.copies = sum(chromosome_count),
               plasmid.copies = sum(plasmid_count)) %>%
     filter(number.of.genomes > 1) %>%
-    arrange(desc(number.of.genomes)) %>%
-    left_join(duplicate.protein.annotations)
+    left_join(duplicate.protein.annotations) %>%
+    arrange(desc(number.of.genomes))
 
 HGT.candidate.summary <- HGT.candidates %>%
     select(-sequence)
@@ -1115,18 +1187,19 @@ no.MGE.seq.freq.table <- duplicate.proteins %>%
     arrange(desc(seq.count))
 
 ## let's look at the annotations and sequences of high frequency duplicated
-## proteins in each environment, after removing MGEs.
+## proteins in each environment, after removing MGEs, and EF-Tu.
 
 ## this function filters duplicate proteins by manual annotation category,
 ## supplied as an argument, and summarizes by count of product annotation strings.
 make.annotation.freq.table <- function(manual.annot.string) {
     duplicate.proteins %>%
-    filter(Annotation == manual.annot.string) %>%
-    filter(!str_detect(.$product,IS.keywords)) %>%
-    group_by(product) %>%
-    summarize(annotation.count = n()) %>%
-    filter(annotation.count > 1) %>%
-    arrange(desc(annotation.count))
+        filter(Annotation == manual.annot.string) %>%
+        filter(!str_detect(.$product,IS.keywords)) %>%
+        filter(!str_detect(.$product, EFTu.keywords)) %>%
+        group_by(product) %>%
+        summarize(annotation.count = n()) %>%
+        filter(annotation.count > 1) %>%
+        arrange(desc(annotation.count))
 }
 
 animal.host.annotation.freq.table <- make.annotation.freq.table("Animal-host")
@@ -1148,12 +1221,13 @@ fungal.host.annotation.freq.table <- make.annotation.freq.table("Fungal-host")
 ## supplied as an argument, and summarizes by count of product annotation strings.
 make.seq.freq.table <- function(annot.string) {
     duplicate.proteins %>%
-    filter(Annotation == annot.string) %>%
-    filter(!str_detect(.$product,IS.keywords)) %>%
-    group_by(sequence,product) %>%
-    summarize(seq.count = n()) %>%
-    filter(seq.count > 1) %>%
-    arrange(desc(seq.count))
+        filter(Annotation == annot.string) %>%
+        filter(!str_detect(.$product,IS.keywords)) %>%
+        filter(!str_detect(.$product, EFTu.keywords)) %>%
+        group_by(sequence,product) %>%
+        summarize(seq.count = n()) %>%
+        filter(seq.count > 1) %>%
+        arrange(desc(seq.count))
 }
 
 animal.host.seq.freq.table <- make.seq.freq.table("Animal-host")
@@ -1267,6 +1341,17 @@ fungal.host.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Fungal-host")
 
 ##########################################
 ## NOTES AND IDEAS
+
+## TODO: calculate TF.IDF (Term Frequency times Inverse Document Frequency)
+## for each ecological category, using both protein sequence and annotation terms.
+## see description in "Mining of Massive Datasets" for details.
+
+## see if TF.IDF is better at finding proteins/terms that are specific to particular
+## ecological annotations.
+
+## also see: https://en.wikipedia.org/wiki/Tf%E2%80%93idf, and
+## https://www.tidytextmining.com/tfidf.html
+
 ## signal decomposition algorithms: non-negative matrix factorization,
 ## ICA, etc.
 ## represent strains by duplicated genes. Then factorize those strains

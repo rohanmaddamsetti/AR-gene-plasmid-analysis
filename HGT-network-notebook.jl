@@ -21,7 +21,7 @@ I will do analyses that focus just on duplicated genes, as well as singleton gen
 """
 
 # ╔═╡ 0c0a7d17-44a2-4ec7-aa83-b1d52920cd2f
-md""" IMPORTANT TODO!!! Use MinHash algorithm (Mash or Sourmash software) in order to rapidly estimate distances and cluster genes and strains. I need something that scales!!! """
+md""" IMPORTANT NOTE!!! Use MinHash algorithm (Mash or Sourmash software) in order to rapidly estimate distances and cluster genes and strains. I need something that scales!!! Since I'm not aware of any mature implementations of MinHash in Julia, I rewrote this code in python, using the DataSketch module to use MinHash. """
 
 # ╔═╡ cf2d881b-0502-4ee0-8b49-94c33427c263
 md""" let's look at the duplicate proteins, first."""
@@ -291,9 +291,6 @@ begin
 	
 end
 
-# ╔═╡ 07084ba8-0dbf-4a3e-abd0-83d4a43f2540
-md""" TODO: let's make a similar matrix plot, but only with MGE."""
-
 # ╔═╡ 454af6f7-0751-4828-a659-224da4793ec0
 ## This regex is used in multiple blocks of code.
 IS_regex = r"IS|transposon|Transposase|transposase|hypothetical protein|Phage|phage|integrase|Integrase|tail|intron|Mobile|mobile|antitoxin|toxin|capsid|plasmid|Plasmid"
@@ -324,11 +321,14 @@ end
 # ╔═╡ d37d69d2-9d9c-40aa-bf16-c7e4eecda90b
 only_MGE_HGT_dup_protein_df = filter(row -> occursin(IS_regex, row.product),  HGT_dup_protein_df)
 
-# ╔═╡ a3aa8cf4-bbb0-42c6-af0f-01ce063aa487
-begin
+# ╔═╡ 630ee5a6-e1be-4b74-acb3-b13640119e22
+## make a dictionary of Annotation_Accession to protein sequence.
+only_MGE_HGT_dup_accession_to_protseq = AccessionToProtein(only_MGE_HGT_dup_protein_df)
 
-	sparse_only_MGE_accessions_seq_matrix = only_MGE_protseq_to_accession |> ProteinToAccessionMatrix |> 
-	SortAccessionSeqMatrix |>
+# ╔═╡ a3aa8cf4-bbb0-42c6-af0f-01ce063aa487
+begin	
+	
+	sparse_only_MGE_accessions_seq_matrix = SortAccessionSeqMatrix(only_MGE_protseq_to_accession, only_MGE_HGT_dup_accession_to_protseq) |>
 	sparse
 	
 	spy(sparse_only_MGE_accessions_seq_matrix)
@@ -385,11 +385,15 @@ end
 # ╔═╡ 0ed7ead1-b66f-4a75-bdce-97ff3fbe74a7
 no_MGE_HGT_dup_protein_df = filter(row -> !occursin(IS_regex, row.product),  HGT_dup_protein_df)
 
+# ╔═╡ fabb3528-65ee-4ee7-95e1-aa1528043553
+## make a dictionary of Annotation_Accession to protein sequence.
+no_MGE_HGT_dup_accession_to_protseq = AccessionToProtein(no_MGE_HGT_dup_protein_df)
+
 # ╔═╡ f2855669-0695-45ed-9d8c-633c415dc458
 begin
 
-	sparse_no_MGE_accessions_seq_matrix = no_MGE_protseq_to_accession |> 	 ProteinToAccessionMatrix |>
-	SortAccessionSeqMatrix |>
+	sparse_no_MGE_accessions_seq_matrix = SortAccessionSeqMatrix(no_MGE_protseq_to_accession,
+		no_MGE_HGT_dup_accession_to_protseq) |>
 	sparse
 	
 	spy(sparse_no_MGE_accessions_seq_matrix)
@@ -417,6 +421,10 @@ end
 # ╔═╡ d9a9ccc0-c5bf-4a07-8e22-f5bfe7ea149d
 md""" let's make a similar matrix plot, but only for ARGs. """
 
+# ╔═╡ 4de58977-1b4d-4d50-93e9-df92c87075b8
+## This regex is used in multiple blocks of code.
+ARG_regex = r"lactamase|chloramphenicol|quinolone|antibiotic resistance|tetracycline|VanZ"
+
 # ╔═╡ 3ad92137-7f06-4305-99b7-07b4fcdc9fe8
 begin
 	## make a dictionary of protein sequence to Annotation_Accession.
@@ -429,8 +437,7 @@ begin
 		accession = row.Annotation_Accession
 		sequence = row.sequence
 		annotation = row.product
-		
-		ARG_regex = r"lactamase|chloramphenicol|quinolone|antibiotic resistance|tetracycline|VanZ"
+
 		
 		if !occursin(ARG_regex, annotation) ## then skip.
 			continue
@@ -445,14 +452,18 @@ begin
 	
 end
 
+# ╔═╡ 651429ba-342f-41d8-be01-2f027e3105eb
+ARG_HGT_dup_protein_df = filter(row -> occursin(ARG_regex, row.product),  HGT_dup_protein_df)
+
+# ╔═╡ 785a9f69-bfe9-4941-af60-fe4bd0cac639
+## make a dictionary of Annotation_Accession to protein sequence.
+ARG_HGT_dup_accession_to_protseq = AccessionToProtein(ARG_HGT_dup_protein_df)
+
 # ╔═╡ 4d5f0b2a-8012-468c-9817-d4301ae13841
 begin
 	
-	ARG_accessions_seq_matrix = ProteinToAccessionMatrix(ARG_protseq_to_accession)
+	sparse_ARG_accessions_seq_matrix = SortAccessionSeqMatrix(ARG_protseq_to_accession, ARG_HGT_dup_accession_to_protseq) |> sparse
 	
-	ARG_sorted_accessions_seq_matrix = SortAccessionSeqMatrix(ARG_accessions_seq_matrix)
-	
-	sparse_ARG_accessions_seq_matrix = sparse(ARG_sorted_accessions_seq_matrix)
 	spy(sparse_ARG_accessions_seq_matrix)
 	
 end
@@ -467,8 +478,8 @@ begin
 end
 
 # ╔═╡ Cell order:
-# ╠═73979b34-caea-11eb-3431-8d722c6416b9
-# ╠═0c0a7d17-44a2-4ec7-aa83-b1d52920cd2f
+# ╟─73979b34-caea-11eb-3431-8d722c6416b9
+# ╟─0c0a7d17-44a2-4ec7-aa83-b1d52920cd2f
 # ╠═1ba467c8-5a15-4342-adca-486c970a0c0f
 # ╟─cf2d881b-0502-4ee0-8b49-94c33427c263
 # ╠═ec356b3d-18a3-4977-8fba-2ca9ee7524a7
@@ -489,23 +500,27 @@ end
 # ╠═3736e126-ebb4-4949-83a9-14d7922dc3d3
 # ╠═c8c5417f-e7c4-4e68-874f-5ed9d15139da
 # ╠═ed6bff37-2f4f-4e17-9209-24ba7c900165
-# ╠═306ad03e-6ef6-4964-8ab1-9c51a02c2319
+# ╟─306ad03e-6ef6-4964-8ab1-9c51a02c2319
 # ╠═c0aaa528-b72c-40fd-a76d-d1aef3a41fa9
 # ╠═23217fb2-5a00-4cdc-8191-8b0d4a23e0e0
-# ╠═07084ba8-0dbf-4a3e-abd0-83d4a43f2540
 # ╠═454af6f7-0751-4828-a659-224da4793ec0
 # ╠═531d4292-596d-47c5-a1cb-fb89e01eefca
 # ╠═d37d69d2-9d9c-40aa-bf16-c7e4eecda90b
+# ╠═630ee5a6-e1be-4b74-acb3-b13640119e22
 # ╠═a3aa8cf4-bbb0-42c6-af0f-01ce063aa487
 # ╠═39f04c76-c9db-4c76-80db-43ac22e02909
 # ╠═33b1cd3c-b926-457d-b2ab-0506c128446a
 # ╠═f04c8c61-c9e7-4671-93b8-649ba0b39bb0
 # ╠═8651d0e3-e7d0-45e3-b6c5-83bcf179a1d1
 # ╠═0ed7ead1-b66f-4a75-bdce-97ff3fbe74a7
+# ╠═fabb3528-65ee-4ee7-95e1-aa1528043553
 # ╠═f2855669-0695-45ed-9d8c-633c415dc458
 # ╠═b40bd7bc-597b-4f49-bdc7-eda138cb1d12
 # ╠═f5accd22-4b48-46ea-9be3-50b97719618f
 # ╟─d9a9ccc0-c5bf-4a07-8e22-f5bfe7ea149d
+# ╠═4de58977-1b4d-4d50-93e9-df92c87075b8
 # ╠═3ad92137-7f06-4305-99b7-07b4fcdc9fe8
+# ╠═651429ba-342f-41d8-be01-2f027e3105eb
+# ╠═785a9f69-bfe9-4941-af60-fe4bd0cac639
 # ╠═4d5f0b2a-8012-468c-9817-d4301ae13841
 # ╠═aaf162c4-6e58-4ed4-9361-0b40d8a9a3d2
