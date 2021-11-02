@@ -19,6 +19,8 @@ library(tidyverse)
 library(cowplot)
 library(ggrepel)
 library(data.table)
+library(tidytext) ## for text mining with R.
+library(forcats)
 
 ## annotate source sequence as plasmid or chromosome.
 genome.database <- read.csv("../results/chromosome-plasmid-table.csv")
@@ -29,7 +31,6 @@ gbk.annotation <- as_tibble(read.csv("../results/computationally-annotated-gbk-a
     mutate(Annotation = replace_na(Annotation,"Unannotated")) %>%
     ## get species name annotation from genome.database
     left_join(genome.database)
-
 
 ########################
 ## IMPORTANT NOTE: CHECK FOR CONSISTENCY IN protein_db_CDS_counts.csv!!!
@@ -1153,70 +1154,169 @@ non.MGE.plasmid.only.HGT.candidates <- plasmid.only.HGT.candidates %>%
 
 ################################################################################
 
-## do a simple analysis of the frequency of different annotations overall,
-## and in different ecological annotation categories.
+## Calculate TF-IDF (Term Frequency times Inverse Document Frequency)
+## for each ecological category, using protein sequences.
+## see "Mining of Massive Datasets"
+## and https://en.wikipedia.org/wiki/Tf%E2%80%93idf.
 
-total.annotation.freq.table <- duplicate.proteins %>%
-    group_by(product) %>%
-    summarize(annotation.count = n()) %>%
-    filter(annotation.count > 1) %>%
-    arrange(desc(annotation.count))
+## References for R package tidytext:
+## https://www.tidytextmining.com/
+## https://www.tidytextmining.com/tfidf.html
 
-## remove MGE associations.
-no.MGE.annotation.freq.table <- duplicate.proteins %>%
-    filter(!str_detect(.$product,IS.keywords)) %>%
-    group_by(product) %>%
-    summarize(annotation.count = n()) %>%
-    filter(annotation.count > 1) %>%
-    arrange(desc(annotation.count))
+## TF-IDF is good at finding proteins/terms that are
+## specific to particular ecological annotations.
 
-## do similar analyses based on sequence identity.
 
-total.seq.freq.table <- duplicate.proteins %>%
-    group_by(sequence, product) %>%
-    summarize(seq.count = n()) %>%
-    filter(seq.count > 1) %>%
-    arrange(desc(seq.count))
-
-## remove MGE associations.
-no.MGE.seq.freq.table <- duplicate.proteins %>%
-    filter(!str_detect(.$product,IS.keywords)) %>%
-    group_by(sequence, product) %>%
-    summarize(seq.count = n()) %>%
-    filter(seq.count > 1) %>%
-    arrange(desc(seq.count))
 
 ## let's look at the annotations and sequences of high frequency duplicated
 ## proteins in each environment, after removing MGEs, and EF-Tu.
 
-## this function filters duplicate proteins by manual annotation category,
+## this function filters proteins by manual annotation category,
 ## supplied as an argument, and summarizes by count of product annotation strings.
-make.annotation.freq.table <- function(manual.annot.string) {
-    duplicate.proteins %>%
+.make.annotation.freq.table <- function(data.df, manual.annot.string, remove.MGEs = TRUE) {
+    df <- data.df %>%
         filter(Annotation == manual.annot.string) %>%
-        filter(!str_detect(.$product,IS.keywords)) %>%
-        filter(!str_detect(.$product, EFTu.keywords)) %>%
-        group_by(product) %>%
+        filter(!str_detect(.$product, EFTu.keywords))
+
+    if (remove.MGEs)
+        df <- df %>% filter(!str_detect(.$product,IS.keywords))
+    
+    df %>% group_by(Annotation, product) %>%
         summarize(annotation.count = n()) %>%
-        filter(annotation.count > 1) %>%
-        arrange(desc(annotation.count))
+        arrange(desc(annotation.count)) %>%
+        ungroup() %>%
+        mutate(total.duplicate.proteins = sum(annotation.count))
 }
 
-animal.host.annotation.freq.table <- make.annotation.freq.table("Animal-host")
-anthropogenic.annotation.freq.table <- make.annotation.freq.table("Anthropogenic-environment")
-human.host.annotation.freq.table <- make.annotation.freq.table("Human-host")
-food.annotation.freq.table <- make.annotation.freq.table("Food")
-agriculture.annotation.freq.table <- make.annotation.freq.table("Agriculture")
-unannotated.annotation.freq.table <- make.annotation.freq.table("Unannotated")
-marine.annotation.freq.table <- make.annotation.freq.table("Marine")
-sediment.annotation.freq.table <- make.annotation.freq.table("Sediment")
-livestock.annotation.freq.table <- make.annotation.freq.table("Livestock")
-soil.annotation.freq.table <- make.annotation.freq.table("Soil")
-freshwater.annotation.freq.table <- make.annotation.freq.table("Freshwater")
-terrestrial.annotation.freq.table <- make.annotation.freq.table("Terrestrial")
-plant.host.annotation.freq.table <- make.annotation.freq.table("Plant-host")
-fungal.host.annotation.freq.table <- make.annotation.freq.table("Fungal-host")
+## IMPORTANT: These are the functions that are actually used.
+make.dup.annotation.freq.table <- partial(.f = .make.annotation.freq.table, duplicate.proteins)
+make.sing.annotation.freq.table <- partial(.f = .make.annotation.freq.table, singleton.proteins)
 
+make.dup.with.MGEs.annotation.freq.table <- partial(.f = .make.annotation.freq.table,
+                                                    duplicate.proteins, remove.MGEs = FALSE)
+
+make.sing.with.MGEs.annotation.freq.table <- partial(.f = .make.annotation.freq.table,
+                                                     singleton.proteins, remove.MGEs = FALSE)
+
+
+## let's make a big table of product annotations per annotation category,
+## for TF-IDF analysis.
+
+## The analysis here closely follows the text mining example here:
+## https://www.tidytextmining.com/tfidf.html
+
+big.dup.prot.annotation.freq.table <- map_dfr(unique(duplicate.proteins$Annotation),
+                                              .f = make.dup.annotation.freq.table) %>%
+    ungroup() %>% ## have to ungroup before summing up all annotations in the table.
+    mutate(total.annotation.count = sum(annotation.count))
+
+dup.prot.annotation.tf_idf <- big.dup.prot.annotation.freq.table %>%
+  bind_tf_idf(product, Annotation, annotation.count) %>%
+  arrange(desc(tf_idf))
+
+top.dup.prot.annotation.tf_idf <- dup.prot.annotation.tf_idf %>%
+    group_by(Annotation) %>%
+    slice_max(tf_idf, n = 10) %>%
+    ungroup()
+
+dup.prot.annotation.tf_idf.plot <- top.dup.prot.annotation.tf_idf %>%
+    ggplot(aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
+  geom_col(show.legend = TRUE) +
+  facet_wrap(~Annotation, ncol = 2, scales = "free") +
+  labs(x = "tf-idf", y = NULL)
+
+ggsave("../results/duplicate-protein-annotation-TF-IDF.pdf",
+       dup.prot.annotation.tf_idf.plot,
+       height=21,width=21)
+
+
+## repeat the analysis, but keep MGE sequences this time.
+## this is a valuable comparison, because it shows how MGEs completely dominate the
+## functional annotation of multicopy proteins across ecological categories.
+
+big.dup.with.MGEs.prot.annotation.freq.table <- map_dfr(unique(duplicate.proteins$Annotation),
+                                              .f = make.dup.with.MGEs.annotation.freq.table) %>%
+    ungroup() %>% ## have to ungroup before summing up all annotations in the table.
+    mutate(total.annotation.count = sum(annotation.count))
+
+dup.with.MGEs.prot.annotation.tf_idf <- big.dup.with.MGEs.prot.annotation.freq.table %>%
+  bind_tf_idf(product, Annotation, annotation.count) %>%
+  arrange(desc(tf_idf))
+
+top.dup.with.MGEs.prot.annotation.tf_idf <- dup.with.MGEs.prot.annotation.tf_idf %>%
+    group_by(Annotation) %>%
+    slice_max(tf_idf, n = 10) %>%
+    ungroup()
+
+dup.with.MGEs.prot.annotation.tf_idf.plot <- top.dup.with.MGEs.prot.annotation.tf_idf %>%
+    ggplot(aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
+  geom_col(show.legend = TRUE) +
+  facet_wrap(~Annotation, ncol = 2, scales = "free") +
+  labs(x = "tf-idf", y = NULL)
+
+ggsave("../results/duplicate-with-MGEs-protein-annotation-TF-IDF.pdf",
+       dup.with.MGEs.prot.annotation.tf_idf.plot,
+       height=21,width=21)
+
+
+
+#### Now repeat this analysis, but with singleton proteins.
+#### This is a really valuable comparison. It is clear that
+#### the annotations of duplicate proteins carry far more ecological information
+#### than the annotations of singleton proteins.
+
+big.sing.prot.annotation.freq.table <- map_dfr(unique(singleton.proteins$Annotation),
+                                              .f = make.sing.annotation.freq.table) %>%
+    ungroup() %>% ## have to ungroup before summing up all annotations in the table.
+    mutate(total.annotation.count = sum(annotation.count))
+
+sing.prot.annotation.tf_idf <- big.sing.prot.annotation.freq.table %>%
+  bind_tf_idf(product, Annotation, annotation.count) %>%
+  arrange(desc(tf_idf))
+
+top.sing.prot.annotation.tf_idf <- sing.prot.annotation.tf_idf %>%
+    group_by(Annotation) %>%
+    slice_max(tf_idf, n = 10) %>%
+    ungroup()
+
+sing.prot.annotation.tf_idf.plot <- top.sing.prot.annotation.tf_idf %>%
+    ggplot(aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
+  geom_col(show.legend = TRUE) +
+  facet_wrap(~Annotation, ncol = 2, scales = "free") +
+  labs(x = "tf-idf", y = NULL)
+
+ggsave("../results/singleton-protein-annotation-TF-IDF.pdf",
+       sing.prot.annotation.tf_idf.plot,
+       height=21,width=21)
+
+## now repeat the singleton analysis, keeping MGEs.
+
+big.sing.with.MGEs.prot.annotation.freq.table <- map_dfr(unique(singleton.proteins$Annotation),
+                                              .f = make.sing.with.MGEs.annotation.freq.table) %>%
+    ungroup() %>% ## have to ungroup before summing up all annotations in the table.
+    mutate(total.annotation.count = sum(annotation.count))
+
+sing.with.MGEs.prot.annotation.tf_idf <- big.sing.with.MGEs.prot.annotation.freq.table %>%
+  bind_tf_idf(product, Annotation, annotation.count) %>%
+  arrange(desc(tf_idf))
+
+top.sing.with.MGEs.prot.annotation.tf_idf <- sing.with.MGEs.prot.annotation.tf_idf %>%
+    group_by(Annotation) %>%
+    slice_max(tf_idf, n = 10) %>%
+    ungroup()
+
+sing.with.MGEs.prot.annotation.tf_idf.plot <- top.sing.with.MGEs.prot.annotation.tf_idf %>%
+    ggplot(aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
+  geom_col(show.legend = TRUE) +
+  facet_wrap(~Annotation, ncol = 2, scales = "free") +
+  labs(x = "tf-idf", y = NULL)
+
+ggsave("../results/singleton-with-MGEs-protein-annotation-TF-IDF.pdf",
+       sing.with.MGEs.prot.annotation.tf_idf.plot,
+       height=21,width=21)
+
+
+#########
 ## this function filters duplicate proteins by annotation category,
 ## supplied as an argument, and summarizes by count of product annotation strings.
 make.seq.freq.table <- function(annot.string) {
@@ -1224,26 +1324,52 @@ make.seq.freq.table <- function(annot.string) {
         filter(Annotation == annot.string) %>%
         filter(!str_detect(.$product,IS.keywords)) %>%
         filter(!str_detect(.$product, EFTu.keywords)) %>%
-        group_by(sequence,product) %>%
+        group_by(Annotation, sequence) %>%
         summarize(seq.count = n()) %>%
-        filter(seq.count > 1) %>%
-        arrange(desc(seq.count))
+        arrange(desc(seq.count)) %>%
+        ungroup() %>%
+        mutate(total.annotation.duplicate.seqs = sum(seq.count))
 }
 
-animal.host.seq.freq.table <- make.seq.freq.table("Animal-host")
-anthropogenic.seq.freq.table <- make.seq.freq.table("Anthropogenic-environment")
-human.host.seq.freq.table <- make.seq.freq.table("Human-host")
-food.seq.freq.table <- make.seq.freq.table("Food")
-agriculture.seq.freq.table <- make.seq.freq.table("Agriculture")
-unannotated.seq.freq.table <- make.seq.freq.table("Unannotated")
-marine.seq.freq.table <- make.seq.freq.table("Marine")
-sediment.seq.freq.table <- make.seq.freq.table("Sediment")
-livestock.seq.freq.table <- make.seq.freq.table("Livestock")
-soil.seq.freq.table <- make.seq.freq.table("Soil")
-freshwater.seq.freq.table <- make.seq.freq.table("Freshwater")
-terrestrial.seq.freq.table <- make.seq.freq.table("Terrestrial")
-plant.host.seq.freq.table <- make.seq.freq.table("Plant-host")
-fungal.host.seq.freq.table <- make.seq.freq.table("Fungal-host")
+## let's make a big table of product annotations per annotation category,
+## for TF-IDF analysis.
+
+## The analysis here closely follows the text mining example here:
+## https://www.tidytextmining.com/tfidf.html
+
+big.dup.prot.seq.freq.table <- map_dfr(unique(duplicate.proteins$Annotation),
+                                              .f = make.seq.freq.table) %>%
+    ungroup() %>% ## have to ungroup before summing up all seqs in the table.
+    mutate(total.seqs = sum(seq.count))
+
+## let's make canonical protein annotations (allow only one annotation per sequence).
+canonical.dup.prot.seq.annotations <- duplicate.proteins %>%
+    select(sequence, product) %>%
+    group_by(sequence) %>%
+    ## take the first product annotation as the canonical annotation.
+    filter(row_number() == 1) %>%
+    ungroup()
+
+dup.prot.seq.tf_idf <- big.dup.prot.seq.freq.table %>%
+  bind_tf_idf(sequence, Annotation, seq.count) %>%
+    arrange(desc(tf_idf)) %>%
+    ## now merge the canonical sequence annotations
+    left_join(canonical.dup.prot.seq.annotations)
+
+top.dup.prot.seq.tf_idf <- dup.prot.seq.tf_idf %>%
+    group_by(Annotation) %>%
+    slice_max(tf_idf, n = 10) %>%
+    ungroup()
+
+dup.prot.seq.tf_idf.plot <- top.dup.prot.seq.tf_idf %>%
+    ggplot(aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
+    geom_col(show.legend = TRUE) +
+    facet_wrap(~Annotation, ncol = 2, scales = "free") +
+    labs(x = "tf-idf", y = NULL)
+
+ggsave("../results/duplicate-protein-seq-TF-IDF.pdf",
+       dup.prot.seq.tf_idf.plot,
+       height=21,width=21)
 
 ##########################################
 
@@ -1290,26 +1416,36 @@ make.plas.annotation.freq.table <- function(annot.string) {
         filter(plasmid_count >= 1) %>%
         filter(Annotation == annot.string) %>%
         filter(!str_detect(.$product,IS.keywords)) %>%
-        group_by(product) %>%
+        group_by(Annotation, product) %>%
         summarize(annotation.count = n()) %>%
-        filter(annotation.count > 1) %>%
         arrange(desc(annotation.count))
 }
 
-animal.host.plas.annotation.freq.table <- make.plas.annotation.freq.table("Animal-host")
-anthropogenic.plas.annotation.freq.table <- make.plas.annotation.freq.table("Anthropogenic-environment")
-human.host.plas.annotation.freq.table <- make.plas.annotation.freq.table("Human-host")
-food.plas.annotation.freq.table <- make.plas.annotation.freq.table("Food")
-agriculture.plas.annotation.freq.table <- make.plas.annotation.freq.table("Agriculture")
-unannotated.plas.annotation.freq.table <- make.plas.annotation.freq.table("Unannotated")
-marine.plas.annotation.freq.table <- make.plas.annotation.freq.table("Marine")
-sediment.plas.annotation.freq.table <- make.plas.annotation.freq.table("Sediment")
-livestock.plas.annotation.freq.table <- make.plas.annotation.freq.table("Livestock")
-soil.plas.annotation.freq.table <- make.plas.annotation.freq.table("Soil")
-freshwater.plas.annotation.freq.table <- make.plas.annotation.freq.table("Freshwater")
-terrestrial.plas.annotation.freq.table <- make.plas.annotation.freq.table("Terrestrial")
-plant.host.plas.annotation.freq.table <- make.plas.annotation.freq.table("Plant-host")
-fungal.host.plas.annotation.freq.table <- make.plas.annotation.freq.table("Fungal-host")
+
+big.dup.plas.annotation.freq.table <- map_dfr(unique(duplicate.proteins$Annotation),
+                                              .f = make.plas.annotation.freq.table) %>%
+    ungroup() %>% ## have to ungroup before summing up all annotations in the table.
+    mutate(total.annotation.count = sum(annotation.count))
+
+dup.plas.annotation.tf_idf <- big.dup.plas.annotation.freq.table %>%
+  bind_tf_idf(product, Annotation, annotation.count) %>%
+    arrange(desc(tf_idf))
+
+top.dup.plas.annotation.tf_idf <- dup.plas.annotation.tf_idf %>%
+    group_by(Annotation) %>%
+    slice_max(tf_idf, n = 10) %>%
+    ungroup()
+
+dup.plas.annotation.tf_idf.plot <- top.dup.plas.annotation.tf_idf %>%
+    ggplot(aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
+  geom_col(show.legend = TRUE) +
+  facet_wrap(~Annotation, ncol = 2, scales = "free") +
+  labs(x = "tf-idf", y = NULL)
+
+ggsave("../results/duplicate-plasmid-protein-annotation-TF-IDF.pdf",
+       dup.plas.annotation.tf_idf.plot,
+       height=21,width=21)
+
 
 ## this function filters duplicate proteins by annotation category,
 ## supplied as an argument, and summarizes by count of product annotation strings.
@@ -1318,39 +1454,41 @@ make.on.plas.seq.freq.table <- function(annot.string) {
         filter(plasmid_count >= 1) %>%
         filter(Annotation == annot.string) %>%
         filter(!str_detect(.$product,IS.keywords)) %>%
-        group_by(sequence,product) %>%
+        group_by(Annotation, sequence) %>%
         summarize(seq.count = n()) %>%
         filter(seq.count > 1) %>%
         arrange(desc(seq.count))
 }
 
-animal.host.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Animal-host")
-anthropogenic.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Anthropogenic-environment")
-human.host.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Human-host")
-food.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Food")
-agriculture.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Agriculture")
-unannotated.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Unannotated")
-marine.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Marine")
-sediment.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Sediment")
-livestock.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Livestock")
-soil.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Soil")
-freshwater.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Freshwater")
-terrestrial.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Terrestrial")
-plant.host.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Plant-host")
-fungal.host.on.plas.seq.freq.table <- make.on.plas.seq.freq.table("Fungal-host")
+
+big.dup.plas.seq.freq.table <- map_dfr(unique(duplicate.proteins$Annotation),
+                                              .f = make.on.plas.seq.freq.table) %>%
+    ungroup() %>% ## have to ungroup before summing up all seqs in the table.
+    mutate(total.seqs = sum(seq.count))
+
+dup.plas.seq.tf_idf <- big.dup.plas.seq.freq.table %>%
+  bind_tf_idf(sequence, Annotation, seq.count) %>%
+    arrange(desc(tf_idf)) %>%
+    ## now merge the canonical sequence annotations
+    left_join(canonical.dup.prot.seq.annotations)
+
+top.dup.plas.seq.tf_idf <- dup.plas.seq.tf_idf %>%
+    group_by(Annotation) %>%
+    slice_max(tf_idf, n = 10) %>%
+    ungroup()
+
+dup.plas.seq.tf_idf.plot <- top.dup.plas.seq.tf_idf %>%
+    ggplot(aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
+    geom_col(show.legend = TRUE) +
+    facet_wrap(~Annotation, ncol = 2, scales = "free") +
+    labs(x = "tf-idf", y = NULL)
+
+ggsave("../results/duplicate-plasmid-seq-TF-IDF.pdf",
+       dup.plas.seq.tf_idf.plot,
+       height=21,width=21)
 
 ##########################################
 ## NOTES AND IDEAS
-
-## TODO: calculate TF.IDF (Term Frequency times Inverse Document Frequency)
-## for each ecological category, using both protein sequence and annotation terms.
-## see description in "Mining of Massive Datasets" for details.
-
-## see if TF.IDF is better at finding proteins/terms that are specific to particular
-## ecological annotations.
-
-## also see: https://en.wikipedia.org/wiki/Tf%E2%80%93idf, and
-## https://www.tidytextmining.com/tfidf.html
 
 ## signal decomposition algorithms: non-negative matrix factorization,
 ## ICA, etc.
