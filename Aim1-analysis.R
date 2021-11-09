@@ -995,6 +995,126 @@ make.FigS2 <- function(FigS2.df) {
 FigS2.df <- make.FigS2.df(big.gene.analysis.df)
 FigS2 <- make.FigS2(FigS2.df)
 ggsave(FigS2,file="../results/FigS2.pdf",width=6,height=6)
+#############################
+
+## Use the data in Figure S1 to make Figure 3.
+## The point of this figure is to show that ARGs are generally
+## enriched on plasmids, especially multi-copy ARGs.
+
+make.Fig3.df <- function(ControlTable2, TableS2) {
+
+    Fig3.data <- full_join(ControlTable2, TableS2) %>%
+        mutate(Annotation = factor(
+                   Annotation,
+                   levels = rev(c("Human-host","Livestock","Animal-host",
+                                  "Anthropogenic-environment", "Food", "Freshwater",
+                                  "Agriculture", "Sediment", "Soil", "Plant-host",
+                                  "Marine","Terrestrial", "Fungal-host"))))
+
+    ## This follows the logic in the function make.FigS2.df--
+    ## See Figure 1B for the intuitive explanation.
+    ## basically, calculate the expected fraction in the given category,
+    ## based on the slope, which is the (genes in category)/(total genes in category),
+    ## under the null hypothesis that ARGs follow the slope (the sampling distribution).
+    chromosomal_duplicates.sum <- sum(Fig3.data$chromosomal_duplicate_genes)
+    chromosomal_ARG_duplicates.sum <- sum(Fig3.data$chromosomal_duplicate_ARGs)
+    plasmid_duplicates.sum <- sum(Fig3.data$plasmid_duplicate_genes)
+    plasmid_ARG_duplicates.sum <- sum(Fig3.data$plasmid_duplicate_ARGs)
+
+    chromosomal_singleton.sum <- sum(Fig3.data$chromosomal_singleton_genes)
+    chromosomal_ARG_singleton.sum <- sum(Fig3.data$chromosomal_singleton_ARGs)
+    plasmid_singleton.sum <- sum(Fig3.data$plasmid_singleton_genes)
+    plasmid_ARG_singleton.sum <- sum(Fig3.data$plasmid_singleton_ARGs)
+
+    Fig3.df <- Fig3.data %>%
+        ## calculate y-ccordinates for chromosomal duplicate ARGs.
+        mutate(yvals.for.chromosomal_ARG_duplicates.line = exp(log(chromosomal_ARG_duplicates.sum) + log(chromosomal_duplicate_genes) - log(chromosomal_duplicates.sum))) %>%
+        ## calculate y-ccordinates for plasmid duplicate ARGs.
+        mutate(yvals.for.plasmid_ARG_duplicates.line = exp(log(plasmid_ARG_duplicates.sum) + log(plasmid_duplicate_genes) - log(plasmid_duplicates.sum))) %>%
+        ## calculate y-ccordinates for chromosomal singleton ARGs.
+        mutate(yvals.for.chromosomal_ARG_singletons.line = exp(log(chromosomal_ARG_singleton.sum) + log(chromosomal_singleton_genes) - log(chromosomal_singleton.sum))) %>%
+        ## calculate y-ccordinates for plasmid singleton ARGs.
+        mutate(yvals.for.plasmid_ARG_singletons.line = exp(log(plasmid_ARG_singleton.sum) + log(plasmid_singleton_genes) - log(plasmid_singleton.sum)))
+
+    return(Fig3.df)
+}
+
+Fig3.df <- make.Fig3.df(ControlTable2, TableS2)
+
+Fig3A <- ggplot(Fig3.df, aes(x=chromosomal_duplicate_genes,
+                                  y=chromosomal_duplicate_ARGs,
+                                  label=Annotation)) +
+        theme_classic() +
+        geom_point(alpha=0.2) +                  
+        geom_line(aes(y=yvals.for.chromosomal_ARG_duplicates.line)) +
+        geom_text_repel(size=3) +
+        scale_x_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        scale_y_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        xlab("Chromosomal multi-copy proteins") +
+        ylab("Chromosomal multi-copy ARGs")
+
+Fig3B <- ggplot(Fig3.df, aes(x=plasmid_duplicate_genes,
+                                  y=plasmid_duplicate_ARGs,
+                                  label=Annotation)) +
+        theme_classic() +
+        geom_point(alpha=0.2) +                  
+        geom_line(aes(y=yvals.for.plasmid_ARG_duplicates.line)) +
+        geom_text_repel(size=3) +
+        scale_x_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        scale_y_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        xlab("Plasmid multi-copy proteins") +
+        ylab("Plasmid multi-copy ARGs")
+
+Fig3C <- ggplot(Fig3.df, aes(x=chromosomal_singleton_genes,
+                                  y=chromosomal_singleton_ARGs,
+                                  label=Annotation)) +
+        theme_classic() +
+        geom_point(alpha=0.2) +                  
+        geom_line(aes(y=yvals.for.chromosomal_ARG_singletons.line)) +
+        geom_text_repel(size=3) +
+        scale_x_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        scale_y_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        xlab("Chromosomal single-copy proteins") +
+        ylab("Chromosomal single-copy ARGs")
+
+Fig3D <- ggplot(Fig3.df, aes(x=plasmid_singleton_genes,
+                                  y=plasmid_singleton_ARGs,
+                                  label=Annotation)) +
+        theme_classic() +
+        geom_point(alpha=0.2) +                  
+        geom_line(aes(y=yvals.for.plasmid_ARG_singletons.line)) +
+        geom_text_repel(size=3) +
+        scale_x_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        scale_y_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        xlab("Plasmid single-copy proteins") +
+        ylab("Plasmid single-copy ARGs")
+
+Fig3 <- plot_grid(Fig3A, Fig3B, Fig3C, Fig3D, labels = c("A","B","C","D"), nrow=2)
+ggsave("../results/Fig3.pdf", Fig3)
 
 #############################
 ## Duplication Index Ratio calculations.
