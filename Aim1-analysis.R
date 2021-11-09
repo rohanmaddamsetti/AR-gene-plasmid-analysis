@@ -6,14 +6,15 @@
 ## TODO: add a scale to Figure 1C to interpret the size of the circles
 ## (percentage of duplicated ARGs on plasmids)
 
-## CRITICAL ANALYSIS TODO: look for evidence of recent diversification.
-## In particular look more deeply at the result that AAA+ ATPases,
-## and ATPases in general seem to be enriched in gene duplications.
-
 ## CRITICAL ANALYSIS TODO: Make sure numbers in genome.database,
 ## gbk.annotation, and all.proteins, duplicate.proteins, and
 ## singleton.proteins, in terms of number of isolates in each
 ## category, are COMPLETELY consistent with each other.
+
+## CRITICAL ANALYSIS TODO FOR A FOLLOW UP PAPER:
+## look for evidence of recent diversification.
+## In particular look more deeply at the result that AAA+ ATPases,
+## and ATPases in general seem to be enriched in gene duplications.
 
 library(tidyverse)
 library(cowplot)
@@ -21,6 +22,15 @@ library(ggrepel)
 library(data.table)
 library(tidytext) ## for text mining with R.
 library(forcats)
+
+
+fancy_scientific <- function(x) {
+    ## function for plotting better y-axis labels.
+    ## see solution here for nice scientific notation on axes.
+    ## https://stackoverflow.com/questions/10762287/how-can-i-format-axis-labels-with-exponents-with-ggplot2-and-scales
+    ifelse(x==0, "0", parse(text=gsub("[+]", "", gsub("e", " %*% 10^", scales::scientific_format()(x)))))
+}
+
 
 ## annotate source sequence as plasmid or chromosome.
 genome.database <- read.csv("../results/chromosome-plasmid-table.csv")
@@ -558,6 +568,82 @@ make.S1Fig <- function(ControlTable2,TableS2) {
 S1Fig <- make.S1Fig(ControlTable2,TableS2)
 ggsave("../results/S1Fig.pdf",S1Fig,width=9,height=11)
 
+#######################
+## Figure 2: stacked bar plot version of S1Fig.
+
+## Make Figure 2A:
+## Stacked bar chart of multi-copy proteins
+## on chromosomes and plasmids.
+
+categorize.as.MGE.ARG.or.other <- function(product) {
+    if (is.na(product))
+        return("Other function")
+    else if (str_detect(product, antibiotic.keywords))
+        return("ARG")
+    else if (str_detect(product, EFTu.keywords))
+        return("EF-Tu")
+    else if (str_detect(product, IS.keywords))
+        return("MGE")
+    else
+        return("Other function")
+}
+
+Fig2A.data <- duplicate.proteins %>%
+    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
+    group_by(Annotation, Category) %>%
+    summarize(Plasmid = sum(plasmid_count), Chromosome = sum(chromosome_count)) %>%
+    pivot_longer(cols = c("Plasmid", "Chromosome"),
+                 names_to = "Episome",
+                 values_to = "Count") %>%
+    mutate(Annotation = factor(
+               Annotation,
+               levels = rev(c("Human-host","Livestock","Animal-host",
+                              "Anthropogenic-environment", "Food", "Freshwater",
+                              "Agriculture", "Sediment", "Soil", "Plant-host",
+                              "Marine","Terrestrial", "Fungal-host"))))
+
+Fig2B.data <- singleton.proteins %>%
+    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
+    group_by(Annotation, Category) %>%
+    summarize(Plasmid = sum(plasmid_count), Chromosome = sum(chromosome_count)) %>%
+    pivot_longer(cols = c("Plasmid", "Chromosome"),
+                 names_to = "Episome",
+                 values_to = "Count") %>%
+    mutate(Annotation = factor(
+               Annotation,
+               levels = rev(c("Human-host","Livestock","Animal-host",
+                              "Anthropogenic-environment", "Food", "Freshwater",
+                              "Agriculture", "Sediment", "Soil", "Plant-host",
+                              "Marine","Terrestrial", "Fungal-host"))))
+
+
+Fig2A <- ggplot(Fig2A.data, aes(y = Annotation, x = Count, fill = Category)) +
+    geom_bar(stat="identity") +
+    facet_wrap(.~Episome) +
+    theme_classic() +
+    ggtitle("Distribution of multi-copy proteins") +
+    scale_x_continuous(labels=fancy_scientific)
+
+Fig2.legend <- cowplot::get_legend(Fig2A)
+
+## now remove the legend from Fig. 2A.
+Fig2A <- Fig2A + guides(fill = FALSE)
+
+Fig2B <- ggplot(Fig2B.data, aes(y = Annotation, x = Count, fill = Category)) +
+    geom_bar(stat="identity") +
+    facet_wrap(.~Episome) +
+    theme_classic() +
+    ggtitle("Distribution of single-copy proteins") +
+    guides(fill = FALSE) +
+    scale_x_continuous(labels=fancy_scientific)
+
+rm(Fig2A.data) ## to save memory.
+rm(Fig2B.data) ## to save memory.
+gc() ## run garbage collection.
+
+Fig2 <- plot_grid(Fig2A, Fig2B, labels = c("A", "B"), ncol = 1)
+ggsave("../results/Fig2.pdf", Fig2)
+
 ##################################################################################
 ## Figure 1 A & B: Diagram of the analysis workflow, made in Inkscape/Illustrator.
 ##################################################################################
@@ -604,6 +690,13 @@ Fig1C.df <- make.Fig1C.df(TableS1, ControlTable1, TableS2, ControlTable2,duplica
 
 make.Fig1C <- function(Fig1C.df) {
 
+    ## This is for adding a scale for the percent of ARGs on plasmids to Fig1C.
+    plasmid_legend_df <- data.frame(plasmid_legend_percent = c(0, 0.25, 0.5, 0.75, 1),
+                                    total_isolates = c(10000,10000,10000,10000,10000),
+                                    y_pos = c(10^-0.5, 10^-0.25, 10^0, 10^0.25, 10^0.5),
+                                    Annotation = c("0%", "25%", "50%", "75%", "100%"))
+
+    
     total_isolates.sum <- sum(Fig1C.df$total_isolates)
     isolates_with_duplicated_ARGs.sum <- sum(Fig1C.df$isolates_with_duplicated_ARGs)
     isolates_with_singleton_ARGs.sum <- sum(Fig1C.df$isolates_with_singleton_ARGs)
@@ -645,20 +738,30 @@ make.Fig1C <- function(Fig1C.df) {
                  angle = 34, color = Fig1C.color.palette[2],size=3) +
         annotate("text", x = 65, y = 22, label = "Isolates with duplicated genes",
                  angle = 34, color = "gray",size=3) +
-        guides(size=FALSE) 
-        
+        guides(size=FALSE) +
+        ## Add the scale for the percent of the given gene class on plasmids.
+        geom_point(data = plasmid_legend_df,
+                   aes(y=y_pos,
+                       size=plasmid_legend_percent * 0.5),
+                   color="black",alpha=0.2) +
+        annotate("text", x = 10000, y = 10^0.75, size = 3, label = "Percent on\nplasmids") +
+        annotate("text", x = 10000, y = 10^0.5, size = 2, label = "100") +
+        annotate("text", x = 10000, y = 10^0.25, size = 2, label = "75") +
+        annotate("text", x = 10000, y = 10^0, size = 2, label = "50") +
+        annotate("text", x = 10000, y = 10^-0.25, size = 2, label = "25")
+    
     return(Fig1C)
 }
 
 Fig1C <- make.Fig1C(Fig1C.df)
-ggsave(Fig1C,file="../results/Fig1C.pdf",width=4,height=4)
+ggsave(Fig1C,file="../results/Fig1C.pdf",width=6,height=6)
 
 
 make.grant.Fig1C <- function(Fig1C.df) {
 
     ## simplify the labels.
     grant.Fig1C.df <- Fig1C.df %>%
-        mutate(Annotation = sapply(Annotation, function (x)
+        mutate(Annotation = sapply(Annotation, function(x)
             str_replace_all(x, c("Human-host" = "Human",
                                  "Anthropogenic-environment" = "Cities",
                                  "Animal-host" = "Animal",
@@ -1166,8 +1269,6 @@ non.MGE.plasmid.only.HGT.candidates <- plasmid.only.HGT.candidates %>%
 ## TF-IDF is good at finding proteins/terms that are
 ## specific to particular ecological annotations.
 
-
-
 ## let's look at the annotations and sequences of high frequency duplicated
 ## proteins in each environment, after removing MGEs, and EF-Tu.
 
@@ -1486,6 +1587,48 @@ dup.plas.seq.tf_idf.plot <- top.dup.plas.seq.tf_idf %>%
 ggsave("../results/duplicate-plasmid-seq-TF-IDF.pdf",
        dup.plas.seq.tf_idf.plot,
        height=21,width=21)
+
+## Figure 4. annotations of multi-copy proteins are more informative
+## about ecology than the annotations of single-copy proteins.
+
+best.dup.prot.annotation.tf_idf <- dup.prot.annotation.tf_idf %>%
+    filter(Annotation %in% c("Agriculture", "Anthropogenic-environment",
+                             "Human-host")) %>%
+    group_by(Annotation) %>%
+    slice_max(tf_idf, n = 5) %>%
+    ungroup()
+
+best.sing.prot.annotation.tf_idf <- sing.prot.annotation.tf_idf %>%
+    filter(Annotation %in% c("Agriculture", "Anthropogenic-environment",
+                             "Human-host")) %>%
+    group_by(Annotation) %>%
+    slice_max(tf_idf, n = 5) %>%
+    ungroup()
+
+
+Fig4A <- ggplot(best.dup.prot.annotation.tf_idf,
+                aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
+    geom_col(show.legend = FALSE) +
+    labs(x = "tf-idf", y = NULL) +
+    theme_classic() +
+    xlim(0,0.04) +
+    facet_wrap(.~Annotation, ncol=1, scales = "free_y") +
+    ggtitle("Most informative multi-copy protein annotations")
+
+Fig4B <- ggplot(best.sing.prot.annotation.tf_idf,
+                aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
+    geom_col(show.legend = FALSE) +
+    labs(x = "tf-idf", y = NULL) +
+    theme_classic() +
+    xlim(0,0.04) +
+    facet_wrap(.~Annotation, ncol=1, scales = "free_y") +
+    ggtitle("Most informative single-copy protein annotations")
+
+
+Fig4 <- plot_grid(Fig4A, Fig4B, ncol = 1, labels = c('A','B'), align = "v")
+
+ggsave("../results/Fig4.pdf", Fig4, width=8, height = 8)
+
 
 ##########################################
 ## NOTES AND IDEAS
