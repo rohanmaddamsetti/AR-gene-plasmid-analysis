@@ -3,9 +3,6 @@
 ## analyse the distribution of AR genes on chromosomes versus plasmids in
 ## fully-sequenced genomes and plasmids in the NCBI Nucleotide database.
 
-## TODO: add a scale to Figure 1C to interpret the size of the circles
-## (percentage of duplicated ARGs on plasmids)
-
 ## CRITICAL ANALYSIS TODO: Make sure numbers in genome.database,
 ## gbk.annotation, and all.proteins, duplicate.proteins, and
 ## singleton.proteins, in terms of number of isolates in each
@@ -353,13 +350,13 @@ gc() ## free memory after dealing with singleton data.
 ###################################
 ## Tables to plot percentage of genes on plasmids, for Figure 1C.
 
-## Table S2. Show number of duplicated genes on chromosomes, and number of
+## Table 2. Show number of duplicated genes on chromosomes, and number of
 ## duplicate genes on plasmids, for each category, for duplicated genes
 ## and duplicated AR genes. This table of raw data goes into the text. Then,
 ## sum over all categories for a 2x2 contingency table and report the result of a
 ## Fisher's exact test for asssociation between duplicated AR genes and plasmids.
 
-make.TableS2 <- function(duplicate.proteins) {
+make.Table2 <- function(duplicate.proteins) {
     ## Column 1
     duplicate.chromosome.genes.count <- duplicate.proteins %>%
         group_by(Annotation) %>%
@@ -394,20 +391,20 @@ make.TableS2 <- function(duplicate.proteins) {
     return(Table)
 }
 
-TableS2 <- make.TableS2(duplicate.proteins)
-## write Table S2 to file.
-write.csv(x=TableS2,file="../results/TableS2.csv")
+Table2 <- make.Table2(duplicate.proteins)
+## write Table 2 to file.
+write.csv(x=Table2,file="../results/Table2.csv")
 
 ################
 ## Analysis of Table S2: Duplicate ARGs are associated with plasmids.
 
-plasmid.chromosome.duplicate.ARG.contingency.test <- function(TableS2) {
+plasmid.chromosome.duplicate.ARG.contingency.test <- function(Table2) {
     ## get values for Fisher's exact test.
-    total.chr.AR.duplicates <- sum(TableS2$chromosomal_duplicate_ARGs)
-    total.plasmid.AR.duplicates <- sum(TableS2$plasmid_duplicate_ARGs)
+    total.chr.AR.duplicates <- sum(Table2$chromosomal_duplicate_ARGs)
+    total.plasmid.AR.duplicates <- sum(Table2$plasmid_duplicate_ARGs)
 
-    total.chr.duplicates <- sum(TableS2$chromosomal_duplicate_genes)
-    total.plasmid.duplicates <- sum(TableS2$plasmid_duplicate_genes)
+    total.chr.duplicates <- sum(Table2$chromosomal_duplicate_genes)
+    total.plasmid.duplicates <- sum(Table2$plasmid_duplicate_genes)
 
     total.nonAR.chr.duplicates <- total.chr.duplicates - total.chr.AR.duplicates
     total.nonAR.plasmid.duplicates <- total.plasmid.duplicates - total.plasmid.AR.duplicates
@@ -426,7 +423,7 @@ plasmid.chromosome.duplicate.ARG.contingency.test <- function(TableS2) {
     return(contingency.table)
 }
 
-plasmid.chromosome.duplicate.ARG.contingency.test(TableS2)
+plasmid.chromosome.duplicate.ARG.contingency.test(Table2)
 
 ####################
 ## Control Table 2: look at distribution of singleton AR genes on
@@ -515,9 +512,9 @@ plasmid.chromosome.singleton.ARG.contingency.test(ControlTable2)
 ## Supplementary Figure S1:
 ## Histogram visualization of ARGs on plasmids and chromosomes.
 
-make.S1Fig <- function(ControlTable2,TableS2) {
+make.S1Fig <- function(ControlTable2,Table2) {
 
-    S1Fig.data <- full_join(ControlTable2, TableS2) %>%
+    S1Fig.data <- full_join(ControlTable2, Table2) %>%
         mutate(Annotation = factor(
                    Annotation,
                    levels = rev(c("Human-host","Livestock","Animal-host",
@@ -565,7 +562,7 @@ make.S1Fig <- function(ControlTable2,TableS2) {
     return(S1Fig)
 }
 
-S1Fig <- make.S1Fig(ControlTable2,TableS2)
+S1Fig <- make.S1Fig(ControlTable2,Table2)
 ggsave("../results/S1Fig.pdf",S1Fig,width=9,height=11)
 
 #######################
@@ -650,7 +647,7 @@ ggsave("../results/Fig2.pdf", Fig2)
 ## Figure 1C: main figure, showing enrichment of AR duplicates
 ## in human hosts and livestock.
 
-make.Fig1C.df <- function(TableS1, ControlTable1, TableS2, ControlTable2, duplicate.gene.control.df) {
+make.Fig1C.df <- function(TableS1, ControlTable1, Table2, ControlTable2, duplicate.gene.control.df) {
     ## join duplicate and singleton tables to make Fig 1C.
 
     ## have to remove p-values from the two tables, because
@@ -661,7 +658,7 @@ make.Fig1C.df <- function(TableS1, ControlTable1, TableS2, ControlTable2, duplic
     
     Fig1C.df <- no.pval.TableS1 %>%
         full_join(no.pval.ControlTable1) %>%
-        full_join(TableS2) %>%
+        full_join(Table2) %>%
         full_join(ControlTable2) %>%
         full_join(duplicate.gene.control.df)
     
@@ -686,7 +683,7 @@ make.Fig1C.df <- function(TableS1, ControlTable1, TableS2, ControlTable2, duplic
     return(Fig1C.df)
 }
 
-Fig1C.df <- make.Fig1C.df(TableS1, ControlTable1, TableS2, ControlTable2,duplicate.gene.control.df)
+Fig1C.df <- make.Fig1C.df(TableS1, ControlTable1, Table2, ControlTable2,duplicate.gene.control.df)
 
 make.Fig1C <- function(Fig1C.df) {
 
@@ -1001,9 +998,9 @@ ggsave(FigS2,file="../results/FigS2.pdf",width=6,height=6)
 ## The point of this figure is to show that ARGs are generally
 ## enriched on plasmids, especially multi-copy ARGs.
 
-make.Fig3.df <- function(ControlTable2, TableS2) {
+make.Fig3.df <- function(ControlTable2, Table2) {
 
-    Fig3.data <- full_join(ControlTable2, TableS2) %>%
+    Fig3.data <- full_join(ControlTable2, Table2) %>%
         mutate(Annotation = factor(
                    Annotation,
                    levels = rev(c("Human-host","Livestock","Animal-host",
@@ -1039,7 +1036,7 @@ make.Fig3.df <- function(ControlTable2, TableS2) {
     return(Fig3.df)
 }
 
-Fig3.df <- make.Fig3.df(ControlTable2, TableS2)
+Fig3.df <- make.Fig3.df(ControlTable2, Table2)
 
 Fig3A <- ggplot(Fig3.df, aes(x=chromosomal_duplicate_genes,
                                   y=chromosomal_duplicate_ARGs,
