@@ -396,7 +396,7 @@ Table2 <- make.Table2(duplicate.proteins)
 write.csv(x=Table2,file="../results/Table2.csv")
 
 ################
-## Analysis of Table S2: Duplicate ARGs are associated with plasmids.
+## Analysis of Table 2: Duplicate ARGs are associated with plasmids.
 
 plasmid.chromosome.duplicate.ARG.contingency.test <- function(Table2) {
     ## get values for Fisher's exact test.
@@ -647,6 +647,8 @@ ggsave("../results/Fig2.pdf", Fig2)
 ## Figure 1C: main figure, showing enrichment of AR duplicates
 ## in human hosts and livestock.
 
+
+
 make.Fig1C.df <- function(TableS1, ControlTable1, Table2, ControlTable2, duplicate.gene.control.df) {
     ## join duplicate and singleton tables to make Fig 1C.
 
@@ -668,7 +670,7 @@ make.Fig1C.df <- function(TableS1, ControlTable1, Table2, ControlTable2, duplica
     isolates_with_duplicated_ARGs.sum <- sum(Fig1C.df$isolates_with_duplicated_ARGs)
     
     Fig1C.df <- Fig1C.df %>%
-        ## calculate y-coordinates for line for duplicate genes.
+    ## calculate y-coordinates for line for duplicate genes.
         mutate(yvals.for.isolates_with_duplicate_genes.line = total_isolates * isolates_with_duplicate_genes.sum/total_isolates.sum) %>%
         ## calculate y-coordinates for line for singleton ARGs.
         mutate(yvals.for.isolates_with_singleton_ARGs.line = total_isolates * isolates_with_singleton_ARGs.sum/total_isolates.sum) %>%
@@ -678,8 +680,11 @@ make.Fig1C.df <- function(TableS1, ControlTable1, Table2, ControlTable2, duplica
         ## add a pseudocount of 0.1 denominator to avoid division by zero.
         mutate(plasmid_duplicate_percent = plasmid_duplicate_genes/(plasmid_duplicate_genes+chromosomal_duplicate_genes + 0.1)) %>%
         mutate(plasmid_AR_singleton_percent = plasmid_singleton_ARGs/(plasmid_singleton_ARGs+chromosomal_singleton_ARGs + 0.1)) %>%
-        mutate(plasmid_AR_duplicate_percent = plasmid_duplicate_ARGs/(plasmid_duplicate_ARGs + chromosomal_duplicate_ARGs + 0.1))
-
+        mutate(plasmid_AR_duplicate_percent = plasmid_duplicate_ARGs/(plasmid_duplicate_ARGs + chromosomal_duplicate_ARGs + 0.1)) %>%
+        ## add a column for label colors in the Figure.
+        mutate(annotation_label_color = ifelse(isolates_with_duplicated_ARGs >
+                                               expected_isolates_with_duplicated_ARGs,
+                                               "red", "black"))
     return(Fig1C.df)
 }
 
@@ -718,7 +723,9 @@ make.Fig1C <- function(Fig1C.df) {
                   color=Fig1C.color.palette[2]) +
         geom_line(aes(y=yvals.for.isolates_with_duplicate_genes.line),
                   color="gray") +
-        geom_text_repel(size=3) +
+        ##        geom_text_repel(size=3) +
+        geom_text_repel(size=3,aes(color=annotation_label_color)) +
+        scale_color_identity() +
         scale_x_log10(
             breaks = scales::trans_breaks("log10", function(x) 10^x),
             labels = scales::trans_format("log10", scales::math_format(10^.x))
@@ -998,6 +1005,130 @@ ggsave(FigS2,file="../results/FigS2.pdf",width=6,height=6)
 ## The point of this figure is to show that ARGs are generally
 ## enriched on plasmids, especially multi-copy ARGs.
 
+## helper functions to calculate statistics of enrichment on
+## chromosomes and plasmids, separately.
+
+calc.chromosomal.ARG.duplicate.enrichment.pvals <- function(raw.Table,
+                                                            pval.threshold = 0.01) {
+
+    chromosomal_duplicates.sum <- sum(raw.Table$chromosomal_duplicate_genes)
+    chromosomal_ARG_duplicates.sum <- sum(raw.Table$chromosomal_duplicate_ARGs)
+
+    Table <- raw.Table %>%
+        rowwise() %>%
+        mutate(binom.test.pval = binom.test(
+                   x = chromosomal_duplicate_ARGs,
+                   n = chromosomal_ARG_duplicates.sum,
+                   p = chromosomal_duplicate_genes/chromosomal_duplicates.sum
+               )$p.value) %>%
+        mutate(corrected.pval = p.adjust(binom.test.pval,"BH")) %>%
+        mutate(expected_chromosomal_duplicate_ARGs = exp(log(chromosomal_ARG_duplicates.sum) + log(chromosomal_duplicate_genes) - log(chromosomal_duplicates.sum))) %>%
+        ## use Benjamini-Hochberg p-value correction,
+        ## and only keep relevant columns.
+        select(Annotation,
+               chromosomal_duplicate_genes,
+               chromosomal_duplicate_ARGs,
+               expected_chromosomal_duplicate_ARGs,
+               corrected.pval) %>%
+        ## add a column for label colors in the Figure.
+        mutate(annotation_label_color = ifelse(corrected.pval < pval.threshold &&
+                                               (chromosomal_duplicate_ARGs >
+                                                expected_chromosomal_duplicate_ARGs),
+                                               "red", "black"))
+    return(Table)
+}
+
+calc.plasmid.ARG.duplicate.enrichment.pvals <- function(raw.Table,
+                                                        pval.threshold = 0.01) {
+
+    plasmid_duplicates.sum <- sum(raw.Table$plasmid_duplicate_genes)
+    plasmid_ARG_duplicates.sum <- sum(raw.Table$plasmid_duplicate_ARGs)
+
+    Table <- raw.Table %>%
+        rowwise() %>%
+        mutate(binom.test.pval = binom.test(
+                   x = plasmid_duplicate_ARGs,
+                   n = plasmid_ARG_duplicates.sum,
+                   p = plasmid_duplicate_genes/plasmid_duplicates.sum
+               )$p.value) %>%
+        mutate(corrected.pval = p.adjust(binom.test.pval,"BH")) %>%
+        mutate(expected_plasmid_duplicate_ARGs = exp(log(plasmid_ARG_duplicates.sum) + log(plasmid_duplicate_genes) - log(plasmid_duplicates.sum))) %>%
+        ## use Benjamini-Hochberg p-value correction,
+        ## and only keep relevant columns.
+        select(Annotation,
+               plasmid_duplicate_genes,
+               plasmid_duplicate_ARGs,
+               expected_plasmid_duplicate_ARGs,
+               corrected.pval) %>%
+        ## add a column for label colors in the Figure.
+        mutate(annotation_label_color = ifelse(corrected.pval < pval.threshold &&
+                                               (plasmid_duplicate_ARGs >
+                                                expected_plasmid_duplicate_ARGs),
+                                               "red", "black"))    
+    return(Table)
+}
+
+calc.chromosomal.ARG.singleton.enrichment.pvals <- function(raw.Table,
+                                                            pval.threshold = 0.01) {
+
+    chromosomal_singleton.sum <- sum(raw.Table$chromosomal_singleton_genes)
+    chromosomal_ARG_singleton.sum <- sum(raw.Table$chromosomal_singleton_ARGs)
+
+    Table <- raw.Table %>%
+        rowwise() %>%
+        mutate(binom.test.pval = binom.test(
+                   x = chromosomal_singleton_ARGs,
+                   n = chromosomal_ARG_singleton.sum,
+                   p = chromosomal_singleton_genes/chromosomal_singleton.sum
+               )$p.value) %>%
+        mutate(corrected.pval = p.adjust(binom.test.pval,"BH")) %>%
+        mutate(expected_chromosomal_singleton_ARGs = exp(log(chromosomal_ARG_singleton.sum) + log(chromosomal_singleton_genes) - log(chromosomal_singleton.sum))) %>%
+        ## use Benjamini-Hochberg p-value correction,
+        ## and only keep relevant columns.
+        select(Annotation,
+               chromosomal_singleton_genes,
+               chromosomal_singleton_ARGs,
+               expected_chromosomal_singleton_ARGs,
+               corrected.pval) %>%
+        ## add a column for label colors in the Figure.
+        mutate(annotation_label_color = ifelse(corrected.pval < pval.threshold &&
+                                               (chromosomal_singleton_ARGs >
+                                                expected_chromosomal_singleton_ARGs),
+                                               "red", "black"))
+    return(Table)
+}
+
+calc.plasmid.ARG.singleton.enrichment.pvals <- function(raw.Table,
+                                                        pval.threshold = 0.01) {
+
+    plasmid_singleton.sum <- sum(raw.Table$plasmid_singleton_genes)
+    plasmid_ARG_singleton.sum <- sum(raw.Table$plasmid_singleton_ARGs)
+
+    Table <- raw.Table %>%
+        rowwise() %>%
+        mutate(binom.test.pval = binom.test(
+                   x = plasmid_singleton_ARGs,
+                   n = plasmid_ARG_singleton.sum,
+                   p = plasmid_singleton_genes/plasmid_singleton.sum
+               )$p.value) %>%
+        mutate(corrected.pval = p.adjust(binom.test.pval,"BH")) %>%
+        mutate(expected_plasmid_singleton_ARGs = exp(log(plasmid_ARG_singleton.sum) + log(plasmid_singleton_genes) - log(plasmid_singleton.sum))) %>%
+        ## use Benjamini-Hochberg p-value correction,
+        ## and only keep relevant columns.
+        select(Annotation,
+               plasmid_singleton_genes,
+               plasmid_singleton_ARGs,
+               expected_plasmid_singleton_ARGs,
+               corrected.pval) %>%
+        ## add a column for label colors in the Figure.
+        mutate(annotation_label_color = ifelse(corrected.pval < pval.threshold &&
+                                               (plasmid_singleton_ARGs >
+                                                expected_plasmid_singleton_ARGs),
+                                               "red", "black"))
+    return(Table)
+}
+
+
 make.Fig3.df <- function(ControlTable2, Table2) {
 
     Fig3.data <- full_join(ControlTable2, Table2) %>%
@@ -1013,6 +1144,7 @@ make.Fig3.df <- function(ControlTable2, Table2) {
     ## basically, calculate the expected fraction in the given category,
     ## based on the slope, which is the (genes in category)/(total genes in category),
     ## under the null hypothesis that ARGs follow the slope (the sampling distribution).
+    
     chromosomal_duplicates.sum <- sum(Fig3.data$chromosomal_duplicate_genes)
     chromosomal_ARG_duplicates.sum <- sum(Fig3.data$chromosomal_duplicate_ARGs)
     plasmid_duplicates.sum <- sum(Fig3.data$plasmid_duplicate_genes)
@@ -1024,19 +1156,30 @@ make.Fig3.df <- function(ControlTable2, Table2) {
     plasmid_ARG_singleton.sum <- sum(Fig3.data$plasmid_singleton_ARGs)
 
     Fig3.df <- Fig3.data %>%
-        ## calculate y-ccordinates for chromosomal duplicate ARGs.
+        ## calculate y-coordinates for chromosomal duplicate ARGs.
         mutate(yvals.for.chromosomal_ARG_duplicates.line = exp(log(chromosomal_ARG_duplicates.sum) + log(chromosomal_duplicate_genes) - log(chromosomal_duplicates.sum))) %>%
-        ## calculate y-ccordinates for plasmid duplicate ARGs.
+        ## calculate y-coordinates for plasmid duplicate ARGs.
         mutate(yvals.for.plasmid_ARG_duplicates.line = exp(log(plasmid_ARG_duplicates.sum) + log(plasmid_duplicate_genes) - log(plasmid_duplicates.sum))) %>%
-        ## calculate y-ccordinates for chromosomal singleton ARGs.
+        ## calculate y-coordinates for chromosomal singleton ARGs.
         mutate(yvals.for.chromosomal_ARG_singletons.line = exp(log(chromosomal_ARG_singleton.sum) + log(chromosomal_singleton_genes) - log(chromosomal_singleton.sum))) %>%
-        ## calculate y-ccordinates for plasmid singleton ARGs.
+        ## calculate y-coordinates for plasmid singleton ARGs.
         mutate(yvals.for.plasmid_ARG_singletons.line = exp(log(plasmid_ARG_singleton.sum) + log(plasmid_singleton_genes) - log(plasmid_singleton.sum)))
-
+    
     return(Fig3.df)
 }
 
+
 Fig3.df <- make.Fig3.df(ControlTable2, Table2)
+
+## calculate formal statistics, and use to add columns for coloring annotations.
+chromosome.ARG.duplicate.pvals <- Fig3.df %>%
+    calc.chromosomal.ARG.duplicate.enrichment.pvals()    
+plasmid.ARG.duplicate.pvals <- Fig3.df %>%
+    calc.plasmid.ARG.duplicate.enrichment.pvals()
+chromosome.ARG.singleton.pvals <- Fig3.df %>%
+    calc.chromosomal.ARG.singleton.enrichment.pvals()
+plasmid.ARG.singleton.pvals <- Fig3.df %>%
+    calc.plasmid.ARG.singleton.enrichment.pvals()
 
 Fig3A <- ggplot(Fig3.df, aes(x=chromosomal_duplicate_genes,
                                   y=chromosomal_duplicate_ARGs,
@@ -1044,7 +1187,9 @@ Fig3A <- ggplot(Fig3.df, aes(x=chromosomal_duplicate_genes,
         theme_classic() +
         geom_point(alpha=0.2) +                  
         geom_line(aes(y=yvals.for.chromosomal_ARG_duplicates.line)) +
-        geom_text_repel(size=3) +
+    geom_text_repel(data=chromosome.ARG.duplicate.pvals,
+                    aes(color=annotation_label_color), size=3) +
+    scale_color_identity() +
         scale_x_log10(
             breaks = scales::trans_breaks("log10", function(x) 10^x),
             labels = scales::trans_format("log10", scales::math_format(10^.x))
@@ -1059,59 +1204,67 @@ Fig3A <- ggplot(Fig3.df, aes(x=chromosomal_duplicate_genes,
 Fig3B <- ggplot(Fig3.df, aes(x=plasmid_duplicate_genes,
                                   y=plasmid_duplicate_ARGs,
                                   label=Annotation)) +
-        theme_classic() +
-        geom_point(alpha=0.2) +                  
-        geom_line(aes(y=yvals.for.plasmid_ARG_duplicates.line)) +
-        geom_text_repel(size=3) +
-        scale_x_log10(
-            breaks = scales::trans_breaks("log10", function(x) 10^x),
-            labels = scales::trans_format("log10", scales::math_format(10^.x))
-        ) +
-        scale_y_log10(
-            breaks = scales::trans_breaks("log10", function(x) 10^x),
-            labels = scales::trans_format("log10", scales::math_format(10^.x))
-        ) +
-        xlab("Plasmid multi-copy proteins") +
-        ylab("Plasmid multi-copy ARGs")
+    theme_classic() +
+    geom_point(alpha=0.2) +                  
+    geom_line(aes(y=yvals.for.plasmid_ARG_duplicates.line)) +
+    geom_text_repel(data=plasmid.ARG.duplicate.pvals,
+                    aes(color=annotation_label_color), size=3) +
+    scale_color_identity() +
+    scale_x_log10(
+        breaks = scales::trans_breaks("log10", function(x) 10^x),
+        labels = scales::trans_format("log10", scales::math_format(10^.x))
+    ) +
+    scale_y_log10(
+        breaks = scales::trans_breaks("log10", function(x) 10^x),
+        labels = scales::trans_format("log10", scales::math_format(10^.x))
+    ) +
+    xlab("Plasmid multi-copy proteins") +
+    ylab("Plasmid multi-copy ARGs")
 
 Fig3C <- ggplot(Fig3.df, aes(x=chromosomal_singleton_genes,
-                                  y=chromosomal_singleton_ARGs,
-                                  label=Annotation)) +
-        theme_classic() +
-        geom_point(alpha=0.2) +                  
-        geom_line(aes(y=yvals.for.chromosomal_ARG_singletons.line)) +
-        geom_text_repel(size=3) +
-        scale_x_log10(
-            breaks = scales::trans_breaks("log10", function(x) 10^x),
-            labels = scales::trans_format("log10", scales::math_format(10^.x))
-        ) +
-        scale_y_log10(
-            breaks = scales::trans_breaks("log10", function(x) 10^x),
-            labels = scales::trans_format("log10", scales::math_format(10^.x))
-        ) +
-        xlab("Chromosomal single-copy proteins") +
-        ylab("Chromosomal single-copy ARGs")
+                             y=chromosomal_singleton_ARGs,
+                             label=Annotation)) +
+    theme_classic() +
+    geom_point(alpha=0.2) +                  
+    geom_line(aes(y=yvals.for.chromosomal_ARG_singletons.line)) +
+    geom_text_repel(data=chromosome.ARG.singleton.pvals,
+                    aes(color=annotation_label_color), size=3) +
+    scale_color_identity() +
+    scale_x_log10(
+        breaks = scales::trans_breaks("log10", function(x) 10^x),
+        labels = scales::trans_format("log10", scales::math_format(10^.x))
+    ) +
+    scale_y_log10(
+        breaks = scales::trans_breaks("log10", function(x) 10^x),
+        labels = scales::trans_format("log10", scales::math_format(10^.x))
+    ) +
+    xlab("Chromosomal single-copy proteins") +
+    ylab("Chromosomal single-copy ARGs")
 
 Fig3D <- ggplot(Fig3.df, aes(x=plasmid_singleton_genes,
-                                  y=plasmid_singleton_ARGs,
-                                  label=Annotation)) +
-        theme_classic() +
-        geom_point(alpha=0.2) +                  
-        geom_line(aes(y=yvals.for.plasmid_ARG_singletons.line)) +
-        geom_text_repel(size=3) +
-        scale_x_log10(
-            breaks = scales::trans_breaks("log10", function(x) 10^x),
-            labels = scales::trans_format("log10", scales::math_format(10^.x))
-        ) +
-        scale_y_log10(
-            breaks = scales::trans_breaks("log10", function(x) 10^x),
-            labels = scales::trans_format("log10", scales::math_format(10^.x))
-        ) +
-        xlab("Plasmid single-copy proteins") +
-        ylab("Plasmid single-copy ARGs")
+                             y=plasmid_singleton_ARGs,
+                             label=Annotation)) +
+    theme_classic() +
+    geom_point(alpha=0.2) +                  
+    geom_line(aes(y=yvals.for.plasmid_ARG_singletons.line)) +
+    geom_text_repel(data=plasmid.ARG.singleton.pvals,
+                    aes(color=annotation_label_color), size=3) +
+    scale_color_identity() +    
+    scale_x_log10(
+        breaks = scales::trans_breaks("log10", function(x) 10^x),
+        labels = scales::trans_format("log10", scales::math_format(10^.x))
+    ) +
+    scale_y_log10(
+        breaks = scales::trans_breaks("log10", function(x) 10^x),
+        labels = scales::trans_format("log10", scales::math_format(10^.x))
+    ) +
+    xlab("Plasmid single-copy proteins") +
+    ylab("Plasmid single-copy ARGs")
 
 Fig3 <- plot_grid(Fig3A, Fig3B, Fig3C, Fig3D, labels = c("A","B","C","D"), nrow=2)
 ggsave("../results/Fig3.pdf", Fig3)
+
+
 
 #############################
 ## Duplication Index Ratio calculations.
