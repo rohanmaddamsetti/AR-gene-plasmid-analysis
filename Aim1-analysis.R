@@ -613,20 +613,23 @@ Fig2B.data <- singleton.proteins %>%
                               "Agriculture", "Sediment", "Soil", "Plant-host",
                               "Marine","Terrestrial", "Fungal-host"))))
 
-
-Fig2A <- ggplot(Fig2A.data, aes(y = Annotation, x = Count, fill = Category)) +
+stackedbar.Fig2A <- ggplot(Fig2A.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity") +
     facet_wrap(.~Episome) +
     theme_classic() +
     ggtitle("Distribution of multi-copy proteins") +
     scale_x_continuous(labels=fancy_scientific)
 
-Fig2.legend <- cowplot::get_legend(Fig2A)
 
-## now remove the legend from Fig. 2A.
-Fig2A <- Fig2A + guides(fill = FALSE)
+Fig2A <- ggplot(Fig2A.data, aes(x = Count, y = Annotation, fill = Category)) +
+    geom_bar(stat="identity", position = "fill", width = 0.95) + coord_polar() +
+    facet_wrap(.~Episome) +
+    theme_classic() +
+    ggtitle("Distribution of multi-copy proteins") +
+    xlab("Proportion of genes") +
+    guides(fill = FALSE)
 
-Fig2B <- ggplot(Fig2B.data, aes(y = Annotation, x = Count, fill = Category)) +
+stackedbar.Fig2B <- ggplot(Fig2B.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity") +
     facet_wrap(.~Episome) +
     theme_classic() +
@@ -634,12 +637,20 @@ Fig2B <- ggplot(Fig2B.data, aes(y = Annotation, x = Count, fill = Category)) +
     guides(fill = FALSE) +
     scale_x_continuous(labels=fancy_scientific)
 
+Fig2B <- ggplot(Fig2B.data, aes(x = Count, y = Annotation, fill = Category)) +
+    geom_bar(stat="identity", position = "fill", width = 0.95) + coord_polar() +
+    facet_wrap(.~Episome) +
+    theme_classic() +
+    ggtitle("Distribution of single-copy proteins") +
+    xlab("Proportion of genes") +
+    guides(fill = FALSE)
+
 rm(Fig2A.data) ## to save memory.
 rm(Fig2B.data) ## to save memory.
 gc() ## run garbage collection.
 
 Fig2 <- plot_grid(Fig2A, Fig2B, labels = c("A", "B"), ncol = 1)
-ggsave("../results/Fig2.pdf", Fig2)
+ggsave("../results/Fig2.pdf", Fig2, height = 9, width = 9)
 
 ##################################################################################
 ## Figure 1 A & B: Diagram of the analysis workflow, made in Inkscape/Illustrator.
@@ -694,7 +705,7 @@ make.Fig1C <- function(Fig1C.df) {
 
     ## This is for adding a scale for the percent of ARGs on plasmids to Fig1C.
     plasmid_legend_df <- data.frame(plasmid_legend_percent = c(0, 0.25, 0.5, 0.75, 1),
-                                    total_isolates = c(10000,10000,10000,10000,10000),
+                                    total_isolates = c(8000, 8000, 8000, 8000, 8000),
                                     y_pos = c(10^-0.5, 10^-0.25, 10^0, 10^0.25, 10^0.5),
                                     Annotation = c("0%", "25%", "50%", "75%", "100%"))
 
@@ -748,17 +759,17 @@ make.Fig1C <- function(Fig1C.df) {
                    aes(y=y_pos,
                        size=plasmid_legend_percent * 0.5),
                    color="black",alpha=0.2) +
-        annotate("text", x = 10000, y = 10^0.75, size = 3, label = "Percent on\nplasmids") +
-        annotate("text", x = 10000, y = 10^0.5, size = 2, label = "100") +
-        annotate("text", x = 10000, y = 10^0.25, size = 2, label = "75") +
-        annotate("text", x = 10000, y = 10^0, size = 2, label = "50") +
-        annotate("text", x = 10000, y = 10^-0.25, size = 2, label = "25")
+        annotate("text", x = 8000, y = 10^0.75, size = 3, label = "Percent on\nplasmids") +
+        annotate("text", x = 8000, y = 10^0.5, size = 2, label = "100") +
+        annotate("text", x = 8000, y = 10^0.25, size = 2, label = "75") +
+        annotate("text", x = 8000, y = 10^0, size = 2, label = "50") +
+        annotate("text", x = 8000, y = 10^-0.25, size = 2, label = "25")
     
     return(Fig1C)
 }
 
 Fig1C <- make.Fig1C(Fig1C.df)
-ggsave(Fig1C,file="../results/Fig1C.pdf",width=6,height=6)
+ggsave(Fig1C,file="../results/Fig1C.pdf",width=4.5,height=4.5)
 
 
 make.grant.Fig1C <- function(Fig1C.df) {
