@@ -36,8 +36,15 @@ genome.database <- read.csv("../results/chromosome-plasmid-table.csv")
 gbk.annotation <- as_tibble(read.csv("../results/computationally-annotated-gbk-annotation-table.csv")) %>%
     ## refer to NA annotations as "Unannotated".
     mutate(Annotation = replace_na(Annotation,"Unannotated")) %>%
-    ## get species name annotation from genome.database
-    left_join(genome.database)
+    ## get species name annotation from genome.database.
+    left_join(genome.database) %>%
+    ## CRITICAL STEP: remove the NCBI_Nucleotide_Accession and SequenceType columns.
+    ## This is absolutely critical, otherwise each row is duplicated for every
+    ## chromosome and plasmid, breaking the invariant that each row refers to one sequence,
+    ## when we add this annotation to duplicate.proteins and singleton.proteins.
+    select(-NCBI_Nucleotide_Accession, -SequenceType) %>%
+    ## and we have to explicitly remove redundant rows now.
+    distinct()
 
 ########################
 ## IMPORTANT NOTE: CHECK FOR CONSISTENCY IN protein_db_CDS_counts.csv!!!
@@ -82,13 +89,15 @@ Conlan.strains %in% protein.db.metadata$Strain
 ## chromosome and plasmids.
 
 ## remove all genes with the following keywords in the "product" annotation
-IS.keywords <- "IS|transposon|Transposase|transposase|hypothetical protein|Phage|phage|integrase|Integrase|tail|intron|Mobile|mobile|antitoxin|toxin|capsid|plasmid|Plasmid|conjug"
+IS.keywords <- "IS|transposon|Transposase|transposase|Transposable|transposable|hypothetical protein|Phage|phage|integrase|Integrase|tail|intron|Mobile|mobile|antitoxin|toxin|capsid|plasmid|Plasmid|conjug"
 
 ## remove all genes that match Elongation Factor Tu (2 copies in most bacteria).
 EFTu.keywords <- "Tu | Tu|-Tu"
 
 ## now look at a few antibiotic-specific annotations.
 antibiotic.keywords <- "lactamase|chloramphenicol|quinolone|antibiotic resistance|tetracycline|VanZ"
+
+unknown.protein.keywords <- "unknown|Unknown|hypothetical|Hypothetical|Uncharacterized|Uncharacterised|uncharacterized|uncharacterised|DUF|unknow|putative protein in bacteria|Unassigned|unassigned"
 
 ## Potential TODO: Use the same regular expressions used by Zeevi et al. (2019).
 ## Transposon: ‘transpos\S*|insertion|Tra[A-Z]|Tra[0-9]|IS[0-9]|conjugate transposon’
@@ -613,14 +622,6 @@ Fig2B.data <- singleton.proteins %>%
                               "Agriculture", "Sediment", "Soil", "Plant-host",
                               "Marine","Terrestrial", "Fungal-host"))))
 
-stackedbar.Fig2A <- ggplot(Fig2A.data, aes(x = Count, y = Annotation, fill = Category)) +
-    geom_bar(stat="identity") +
-    facet_wrap(.~Episome) +
-    theme_classic() +
-    ggtitle("Distribution of multi-copy proteins") +
-    scale_x_continuous(labels=fancy_scientific)
-
-
 Fig2A <- ggplot(Fig2A.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) + coord_polar() +
     facet_wrap(.~Episome) +
@@ -628,14 +629,6 @@ Fig2A <- ggplot(Fig2A.data, aes(x = Count, y = Annotation, fill = Category)) +
     ggtitle("Distribution of multi-copy proteins") +
     xlab("Proportion of genes") +
     guides(fill = FALSE)
-
-stackedbar.Fig2B <- ggplot(Fig2B.data, aes(x = Count, y = Annotation, fill = Category)) +
-    geom_bar(stat="identity") +
-    facet_wrap(.~Episome) +
-    theme_classic() +
-    ggtitle("Distribution of single-copy proteins") +
-    guides(fill = FALSE) +
-    scale_x_continuous(labels=fancy_scientific)
 
 Fig2B <- ggplot(Fig2B.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) + coord_polar() +
@@ -645,12 +638,33 @@ Fig2B <- ggplot(Fig2B.data, aes(x = Count, y = Annotation, fill = Category)) +
     xlab("Proportion of genes") +
     guides(fill = FALSE)
 
+stackedbar.Fig2A <- ggplot(Fig2A.data, aes(x = Count, y = Annotation, fill = Category)) +
+    geom_bar(stat="identity") +
+    facet_wrap(.~Episome) +
+    theme_classic() +
+    ggtitle("Distribution of multi-copy proteins") +
+    scale_x_continuous(labels=fancy_scientific)
+
+stackedbar.Fig2B <- ggplot(Fig2B.data, aes(x = Count, y = Annotation, fill = Category)) +
+    geom_bar(stat="identity") +
+    facet_wrap(.~Episome) +
+    theme_classic() +
+    ggtitle("Distribution of single-copy proteins") +
+    guides(fill = FALSE) +
+    scale_x_continuous(labels=fancy_scientific)
+
+
 rm(Fig2A.data) ## to save memory.
 rm(Fig2B.data) ## to save memory.
 gc() ## run garbage collection.
 
 Fig2 <- plot_grid(Fig2A, Fig2B, labels = c("A", "B"), ncol = 1)
 ggsave("../results/Fig2.pdf", Fig2, height = 9, width = 9)
+
+## This visualization is also useful.
+stackedbar.Fig2 <- plot_grid(stackedbar.Fig2A,
+                             stackedbar.Fig2B, labels = c("A", "B"), ncol = 1)
+ggsave("../results/stackedbar-Fig2.pdf", stackedbar.Fig2, height = 9, width = 9)
 
 ##################################################################################
 ## Figure 1 A & B: Diagram of the analysis workflow, made in Inkscape/Illustrator.
@@ -1551,14 +1565,18 @@ non.MGE.plasmid.only.HGT.candidates <- plasmid.only.HGT.candidates %>%
 ## specific to particular ecological annotations.
 
 ## let's look at the annotations and sequences of high frequency duplicated
-## proteins in each environment, after removing MGEs, and EF-Tu.
+## proteins in each environment, after removing MGEs, EF-Tu, and unknown,
+## hypothetical, or uncharacterized proteins (since many different protein families
+## can be described this way).
 
 ## this function filters proteins by manual annotation category,
 ## supplied as an argument, and summarizes by count of product annotation strings.
 .make.annotation.freq.table <- function(data.df, manual.annot.string, remove.MGEs = TRUE) {
+
     df <- data.df %>%
         filter(Annotation == manual.annot.string) %>%
-        filter(!str_detect(.$product, EFTu.keywords))
+        filter(!str_detect(.$product, EFTu.keywords)) %>%
+        filter(!str_detect(.$product, unknown.protein.keywords))
 
     if (remove.MGEs)
         df <- df %>% filter(!str_detect(.$product,IS.keywords))
@@ -1611,7 +1629,6 @@ ggsave("../results/duplicate-protein-annotation-TF-IDF.pdf",
        dup.prot.annotation.tf_idf.plot,
        height=21,width=21)
 
-
 ## repeat the analysis, but keep MGE sequences this time.
 ## this is a valuable comparison, because it shows how MGEs completely dominate the
 ## functional annotation of multicopy proteins across ecological categories.
@@ -1641,14 +1658,15 @@ ggsave("../results/duplicate-with-MGEs-protein-annotation-TF-IDF.pdf",
        height=21,width=21)
 
 
-
 #### Now repeat this analysis, but with singleton proteins.
-#### This is a really valuable comparison. It is clear that
-#### the annotations of duplicate proteins carry far more ecological information
-#### than the annotations of singleton proteins.
+#### This is a really valuable comparison. It seems that
+#### the annotations of duplicate proteins carry more ecological information
+#### than the annotations of singleton proteins, but I have not examined this
+#### rigorously.
 
-big.sing.prot.annotation.freq.table <- map_dfr(unique(singleton.proteins$Annotation),
-                                              .f = make.sing.annotation.freq.table) %>%
+big.sing.prot.annotation.freq.table <- map_dfr(
+    unique(singleton.proteins$Annotation),
+    .f = make.sing.annotation.freq.table) %>%
     ungroup() %>% ## have to ungroup before summing up all annotations in the table.
     mutate(total.annotation.count = sum(annotation.count))
 
@@ -1673,8 +1691,9 @@ ggsave("../results/singleton-protein-annotation-TF-IDF.pdf",
 
 ## now repeat the singleton analysis, keeping MGEs.
 
-big.sing.with.MGEs.prot.annotation.freq.table <- map_dfr(unique(singleton.proteins$Annotation),
-                                              .f = make.sing.with.MGEs.annotation.freq.table) %>%
+big.sing.with.MGEs.prot.annotation.freq.table <- map_dfr(
+    unique(singleton.proteins$Annotation),
+    .f = make.sing.with.MGEs.annotation.freq.table) %>%
     ungroup() %>% ## have to ungroup before summing up all annotations in the table.
     mutate(total.annotation.count = sum(annotation.count))
 
@@ -1697,6 +1716,142 @@ ggsave("../results/singleton-with-MGEs-protein-annotation-TF-IDF.pdf",
        sing.with.MGEs.prot.annotation.tf_idf.plot,
        height=21,width=21)
 
+#########
+
+ranked.dup.prot.annotation.tf_idf <- dup.prot.annotation.tf_idf %>%
+    group_by(Annotation) %>%
+    mutate(Rank = rank(desc(tf_idf))) %>%
+    ungroup()
+
+ranked.sing.prot.annotation.tf_idf <- sing.prot.annotation.tf_idf %>%
+    group_by(Annotation) %>%
+    mutate(Rank = rank(desc(tf_idf))) %>%
+    ungroup()
+
+## let's plot the tf_idf distributions per Annotation.
+dup.prot.annotation.tf_idf.dist.plot <- ranked.dup.prot.annotation.tf_idf %>%
+    ggplot(aes(x=Rank, y = tf_idf)) +
+    geom_line() +
+    facet_wrap(.~Annotation)
+
+sing.prot.annotation.tf_idf.dist.plot <- ranked.sing.prot.annotation.tf_idf %>%
+    ggplot(aes(x=Rank, y = tf_idf)) +
+    geom_line() +
+    facet_wrap(.~Annotation)
+
+## now make eCDF plots.
+dup.prot.annotation.tf_idf.cdf.plot <- ranked.dup.prot.annotation.tf_idf %>%
+    ggplot(aes(x = tf_idf)) +
+    stat_ecdf(geom = "step") +
+    facet_wrap(.~Annotation)
+
+sing.prot.annotation.tf_idf.cdf.plot <- ranked.sing.prot.annotation.tf_idf %>%
+    ggplot(aes(x = tf_idf)) +
+    stat_ecdf(geom = "step") +
+    facet_wrap(.~Annotation)
+
+## I have two ideas for analysis here.
+## First, take the first n terms for each category, and calculate recall and precision.
+## Second, take the the first p percentile tf-idf for each category, and calculate
+## recall and precision.
+
+## precision := (# of relevant & retrieved genomes)/(# of retrieved genomes).
+## recall := (# of retrieved & relevant genomes)/(# of relevant genomes).
+
+## Then, compare duplicates to singletons to see which "has more ecological information"
+## for each category.
+
+## first start with top 10 annotations for each category.
+## Calculate recall and precision.
+
+retrieve.genomes.by.term <- function(tf_idf.df, annotated.proteins) {
+    ## map each query term to genome accessions and annotations.
+    retrieved.genomes <- tf_idf.df$product %>%
+        map_dfr(.f = ~filter(annotated.proteins, product == .x)) %>%
+        select(Annotation_Accession, host, isolation_source,
+               Annotation, Organism, Strain) %>%
+                distinct()
+}
+
+
+calc.precision <- function(retrieved.genomes, true.Annotation) {
+    ## precision := (# of relevant & retrieved genomes)/(# of retrieved genomes).
+    relevant.retrieved.genomes <- retrieved.genomes %>%
+        filter(Annotation == true.Annotation)
+    precision <- nrow(relevant.retrieved.genomes)/nrow(retrieved.genomes)
+    return(precision)
+}
+
+
+calc.recall <- function(gbk.annotation, retrieved.genomes, true.Annotation) {
+    ## recall := (# of retrieved & relevant genomes)/(# of relevant genomes).
+    retrieved.relevant.genomes <- retrieved.genomes %>%
+        filter(Annotation == true.Annotation)
+    relevant.genomes <- filter(gbk.annotation, Annotation == true.Annotation)
+    recall <- nrow(retrieved.relevant.genomes)/nrow(relevant.genomes)
+    return(recall)
+}
+
+
+make.precision.recall.df <- function(gbk.annotation, annotated.proteins, tf_idf.df) {
+    ## for each Annotation category, get the terms of interest,
+    ## calculate precision for the category,
+    ## calculate recall for the category,
+    ## and return a dataframe of the results.
+   
+    precision.recall.helper.func <- function(true.Annotation) {
+        queries <- filter(tf_idf.df, Annotation == true.Annotation)
+        retrieved.genomes <- retrieve.genomes.by.term(queries, annotated.proteins)
+        
+        precision <- calc.precision(retrieved.genomes, true.Annotation)
+        recall <- calc.recall(gbk.annotation, retrieved.genomes, true.Annotation)
+        ret.df <- data.frame(Annotation = true.Annotation,
+                             Precision = precision,
+                             Recall = recall)
+        return(ret.df)
+    }
+
+
+    all.annotations.vec <- unique(tf_idf.df$Annotation)
+
+    precision.recall.df <- map_dfr(
+        .x = all.annotations.vec,
+        .f = precision.recall.helper.func)
+
+    return(precision.recall.df)
+}
+
+top.dup.tf_idf_precision.recall.df <- make.precision.recall.df(
+    gbk.annotation,
+    duplicate.proteins,
+    top.dup.prot.annotation.tf_idf) %>%
+    mutate(class = "Multicopy")
+
+top.sing.tf_idf_precision.recall.df <- make.precision.recall.df(
+    gbk.annotation,
+    singleton.proteins,
+    top.sing.prot.annotation.tf_idf) %>%
+    mutate(class = "Single-copy")
+
+combined.tf_idf_precision.recall.df <- rbind(
+    top.dup.tf_idf_precision.recall.df,
+    top.sing.tf_idf_precision.recall.df) %>%
+    mutate(F1_score = 2*(Precision*Recall)/(Precision+Recall))
+
+precision.plot <- combined.tf_idf_precision.recall.df %>%
+    ggplot(aes(x=Annotation, y = Precision, color = class)) +
+    geom_point() +
+    theme_classic() + ggtitle("Precision")
+
+recall.plot <- combined.tf_idf_precision.recall.df %>%
+    ggplot(aes(x=Annotation, y = Recall, color = class)) +
+    geom_point() +
+    theme_classic() + ggtitle("Recall")
+
+F1_score.plot <- combined.tf_idf_precision.recall.df %>%
+    ggplot(aes(x=Annotation, y = F1_score, color = class)) +
+    geom_point() +
+    theme_classic() + ggtitle("F1 score")
 
 #########
 ## this function filters duplicate proteins by annotation category,
@@ -1927,3 +2082,12 @@ ggsave("../results/Fig4.pdf", Fig4, width=8, height = 8)
 ## assume that gene flow networks are more tightly connected within a niche
 ## in comparison to between niches (since higher probability of interaction).
 ## This idea goes back at least to Smillie et al. 2011 in Nature from Eric Alm's group.
+
+## Use Multinomial (softmax) regression on best TF-IDF terms for singletons
+## and duplicate genes to make a classifier to see which is better
+## at classifying strains, using precision and recall and other metrics.
+## This may be an overly complicated strategy to build up the hypothesized
+## argument that duplicate sequences carry more ecological information than
+## singleton arguments. Also, this may not necessarily be the case in general.
+## For instance, the nod family of LysR regulators has diversified in Rhizobia,
+## and so LysR regulators are enriched in the "Agricultural" class.
