@@ -1575,8 +1575,8 @@ non.MGE.plasmid.only.HGT.candidates <- plasmid.only.HGT.candidates %>%
 
     df <- data.df %>%
         filter(Annotation == manual.annot.string) %>%
-        filter(!str_detect(.$product, EFTu.keywords)) %>%
-        filter(!str_detect(.$product, unknown.protein.keywords))
+        filter(!str_detect(.$product, unknown.protein.keywords)) %>%
+        filter(!str_detect(.$product, EFTu.keywords))
 
     if (remove.MGEs)
         df <- df %>% filter(!str_detect(.$product,IS.keywords))
