@@ -1616,7 +1616,7 @@ dup.prot.annotation.tf_idf <- big.dup.prot.annotation.freq.table %>%
 
 top.dup.prot.annotation.tf_idf <- dup.prot.annotation.tf_idf %>%
     group_by(Annotation) %>%
-    slice_max(tf_idf, n = 10) %>%
+    slice_max(tf_idf, n = 100) %>%
     ungroup()
 
 dup.prot.annotation.tf_idf.plot <- top.dup.prot.annotation.tf_idf %>%
@@ -1629,40 +1629,10 @@ ggsave("../results/duplicate-protein-annotation-TF-IDF.pdf",
        dup.prot.annotation.tf_idf.plot,
        height=21,width=21)
 
-## repeat the analysis, but keep MGE sequences this time.
-## this is a valuable comparison, because it shows how MGEs completely dominate the
-## functional annotation of multicopy proteins across ecological categories.
-
-big.dup.with.MGEs.prot.annotation.freq.table <- map_dfr(unique(duplicate.proteins$Annotation),
-                                              .f = make.dup.with.MGEs.annotation.freq.table) %>%
-    ungroup() %>% ## have to ungroup before summing up all annotations in the table.
-    mutate(total.annotation.count = sum(annotation.count))
-
-dup.with.MGEs.prot.annotation.tf_idf <- big.dup.with.MGEs.prot.annotation.freq.table %>%
-  bind_tf_idf(product, Annotation, annotation.count) %>%
-  arrange(desc(tf_idf))
-
-top.dup.with.MGEs.prot.annotation.tf_idf <- dup.with.MGEs.prot.annotation.tf_idf %>%
-    group_by(Annotation) %>%
-    slice_max(tf_idf, n = 10) %>%
-    ungroup()
-
-dup.with.MGEs.prot.annotation.tf_idf.plot <- top.dup.with.MGEs.prot.annotation.tf_idf %>%
-    ggplot(aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
-  geom_col(show.legend = TRUE) +
-  facet_wrap(~Annotation, ncol = 2, scales = "free") +
-  labs(x = "tf-idf", y = NULL)
-
-ggsave("../results/duplicate-with-MGEs-protein-annotation-TF-IDF.pdf",
-       dup.with.MGEs.prot.annotation.tf_idf.plot,
-       height=21,width=21)
-
-
 #### Now repeat this analysis, but with singleton proteins.
-#### This is a really valuable comparison. It seems that
-#### the annotations of duplicate proteins carry more ecological information
-#### than the annotations of singleton proteins, but I have not examined this
-#### rigorously.
+#### This is a really valuable comparison.
+#### Do annotations of duplicate proteins carry more ecological information
+#### than the annotations of singleton proteins?
 
 big.sing.prot.annotation.freq.table <- map_dfr(
     unique(singleton.proteins$Annotation),
@@ -1676,7 +1646,7 @@ sing.prot.annotation.tf_idf <- big.sing.prot.annotation.freq.table %>%
 
 top.sing.prot.annotation.tf_idf <- sing.prot.annotation.tf_idf %>%
     group_by(Annotation) %>%
-    slice_max(tf_idf, n = 10) %>%
+    slice_max(tf_idf, n = 100) %>%
     ungroup()
 
 sing.prot.annotation.tf_idf.plot <- top.sing.prot.annotation.tf_idf %>%
@@ -1689,34 +1659,7 @@ ggsave("../results/singleton-protein-annotation-TF-IDF.pdf",
        sing.prot.annotation.tf_idf.plot,
        height=21,width=21)
 
-## now repeat the singleton analysis, keeping MGEs.
-
-big.sing.with.MGEs.prot.annotation.freq.table <- map_dfr(
-    unique(singleton.proteins$Annotation),
-    .f = make.sing.with.MGEs.annotation.freq.table) %>%
-    ungroup() %>% ## have to ungroup before summing up all annotations in the table.
-    mutate(total.annotation.count = sum(annotation.count))
-
-sing.with.MGEs.prot.annotation.tf_idf <- big.sing.with.MGEs.prot.annotation.freq.table %>%
-  bind_tf_idf(product, Annotation, annotation.count) %>%
-  arrange(desc(tf_idf))
-
-top.sing.with.MGEs.prot.annotation.tf_idf <- sing.with.MGEs.prot.annotation.tf_idf %>%
-    group_by(Annotation) %>%
-    slice_max(tf_idf, n = 10) %>%
-    ungroup()
-
-sing.with.MGEs.prot.annotation.tf_idf.plot <- top.sing.with.MGEs.prot.annotation.tf_idf %>%
-    ggplot(aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
-  geom_col(show.legend = TRUE) +
-  facet_wrap(~Annotation, ncol = 2, scales = "free") +
-  labs(x = "tf-idf", y = NULL)
-
-ggsave("../results/singleton-with-MGEs-protein-annotation-TF-IDF.pdf",
-       sing.with.MGEs.prot.annotation.tf_idf.plot,
-       height=21,width=21)
-
-#########
+#################
 
 ranked.dup.prot.annotation.tf_idf <- dup.prot.annotation.tf_idf %>%
     group_by(Annotation) %>%
@@ -1821,21 +1764,21 @@ make.precision.recall.df <- function(gbk.annotation, annotated.proteins, tf_idf.
     return(precision.recall.df)
 }
 
-top.dup.tf_idf_precision.recall.df <- make.precision.recall.df(
+dup.tf_idf_precision.recall.df <- make.precision.recall.df(
     gbk.annotation,
     duplicate.proteins,
     top.dup.prot.annotation.tf_idf) %>%
     mutate(class = "Multicopy")
 
-top.sing.tf_idf_precision.recall.df <- make.precision.recall.df(
+sing.tf_idf_precision.recall.df <- make.precision.recall.df(
     gbk.annotation,
     singleton.proteins,
     top.sing.prot.annotation.tf_idf) %>%
     mutate(class = "Single-copy")
 
 combined.tf_idf_precision.recall.df <- rbind(
-    top.dup.tf_idf_precision.recall.df,
-    top.sing.tf_idf_precision.recall.df) %>%
+    dup.tf_idf_precision.recall.df,
+    sing.tf_idf_precision.recall.df) %>%
     mutate(F1_score = 2*(Precision*Recall)/(Precision+Recall))
 
 precision.plot <- combined.tf_idf_precision.recall.df %>%
