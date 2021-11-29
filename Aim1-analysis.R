@@ -80,9 +80,6 @@ Conlan.strains <- c("KPNIH1","KPNIH10","ECNIH3","ECNIH5","KPNIH27",
                     "KPNIH33","ECONIH1","KPNIH30","KPNIH29","KPNIH31")
 
 Conlan.strains %in% protein.db.metadata$Strain
-## PSNIH2 is missing, but the others are in genome.database
-## and AR.results. PSNIH2 is not in the original
-## prokaryotes.txt genome reports file.
 ################################################################################
 
 ## Simple analysis of recent protein duplications and HGT between
@@ -99,7 +96,8 @@ antibiotic.keywords <- "lactamase|chloramphenicol|quinolone|antibiotic resistanc
 
 unknown.protein.keywords <- "unknown|Unknown|hypothetical|Hypothetical|Uncharacterized|Uncharacterised|uncharacterized|uncharacterised|DUF|unknow|putative protein in bacteria|Unassigned|unassigned"
 
-## Potential TODO: Use the same regular expressions used by Zeevi et al. (2019).
+## The regular expressions used by Zeevi et al. (2019).
+## These are not used in this analysis, but nice to have on hand.
 ## Transposon: ‘transpos\S*|insertion|Tra[A-Z]|Tra[0-9]|IS[0-9]|conjugate transposon’
 ## plasmid: ‘relax\S*|conjug\S*|mob\S*|plasmid|type IV|chromosome partitioning|chromosome segregation’
 ## phage: ‘capsid|phage|tail|head|tape measure|antiterminatio’
@@ -244,6 +242,9 @@ TableS1 <- make.TableS1(gbk.annotation, duplicate.genes)
 ## write Supplementary Table S1 to file.
 write.csv(x=TableS1, file="../results/TableS1.csv")
 
+## Use the total isolate order in TableS1 for organizing the pie chart figures.
+order.by.total_isolates.vec <- TableS1$Annotation
+
 ######################
 ## Control: does the number of isolates with duplicate genes
 ## follow the sampling distribution of isolates?
@@ -355,7 +356,7 @@ ControlTable1 <- run.singleton.ARG.control(gbk.annotation, singleton.proteins)
 write.csv(x=ControlTable1, file="../results/ControlTable1.csv")
 
 gc() ## free memory after dealing with singleton data.
-###################################
+
 ###################################
 ## Tables to plot percentage of genes on plasmids, for Figure 1C.
 
@@ -518,68 +519,7 @@ plasmid.chromosome.singleton.ARG.contingency.test <- function(ControlTable2) {
 plasmid.chromosome.singleton.ARG.contingency.test(ControlTable2)
 
 ################################################################################
-## Supplementary Figure S1:
-## Histogram visualization of ARGs on plasmids and chromosomes.
-
-make.S1Fig <- function(ControlTable2,Table2) {
-
-    S1Fig.data <- full_join(ControlTable2, Table2) %>%
-        mutate(Annotation = factor(
-                   Annotation,
-                   levels = rev(c("Human-host","Livestock","Animal-host",
-                                  "Anthropogenic-environment", "Food", "Freshwater",
-                                  "Agriculture", "Sediment", "Soil", "Plant-host",
-                                  "Marine","Terrestrial", "Fungal-host"))))
-
-    format.S1Fig.panel <- function(S1.panel, xlim.max, my.title) {
-        full.S1.panel <- S1.panel +
-            geom_bar(stat="identity") +
-            theme_classic() + xlab("Count") +
-            ylab("Isolate annotation") +
-            xlim(0, xlim.max) +
-            ggtitle(my.title)
-        return(full.S1.panel)
-    }
-    
-    S1FigA <- ggplot(S1Fig.data, aes(y=Annotation, x=chromosomal_singleton_genes)) %>%
-        format.S1Fig.panel(41000000, "Chromosomal singleton genes")
-    
-    S1FigB <- ggplot(S1Fig.data, aes(y=Annotation,x=plasmid_singleton_genes)) %>%
-        format.S1Fig.panel(41000000, "Plasmid singleton genes")
-    
-    S1FigC <- ggplot(S1Fig.data, aes(y=Annotation,x=chromosomal_singleton_ARGs)) %>%
-        format.S1Fig.panel(50000, "Chromosomal singleton ARGs")
-        
-    S1FigD <- ggplot(S1Fig.data, aes(y=Annotation,x=plasmid_singleton_ARGs)) %>%
-        format.S1Fig.panel(50000, "Plasmid singleton ARGs")
-    
-    S1FigE <- ggplot(S1Fig.data, aes(y=Annotation,x=chromosomal_duplicate_genes)) %>%
-        format.S1Fig.panel(550000, "Chromosomal duplicate genes")
-    
-    S1FigF <- ggplot(S1Fig.data, aes(y=Annotation,x=plasmid_duplicate_genes)) %>%
-        format.S1Fig.panel(550000,"Plasmid duplicate genes")
-    
-    S1FigG <- ggplot(S1Fig.data, aes(y=Annotation,x=chromosomal_duplicate_ARGs)) %>%
-        format.S1Fig.panel(4000, "Chromosomal duplicate ARGs")
-    
-    S1FigH <- ggplot(S1Fig.data, aes(y=Annotation,x=plasmid_duplicate_ARGs)) %>%
-        format.S1Fig.panel(4000, "Plasmid duplicate ARGs")
-    
-    S1Fig <- plot_grid(S1FigA, S1FigB, S1FigC, S1FigD,
-                       S1FigE, S1FigF, S1FigG, S1FigH,
-                       labels=c('A','B','C','D','E','F','G','H'), ncol=2)
-    return(S1Fig)
-}
-
-S1Fig <- make.S1Fig(ControlTable2,Table2)
-ggsave("../results/S1Fig.pdf",S1Fig,width=9,height=11)
-
-#######################
-## Figure 2: stacked bar plot version of S1Fig.
-
-## Make Figure 2A:
-## Stacked bar chart of multi-copy proteins
-## on chromosomes and plasmids.
+## Figure 2: Visualization of ARGs on plasmids and chromosomes.
 
 categorize.as.MGE.ARG.or.other <- function(product) {
     if (is.na(product))
@@ -594,6 +534,7 @@ categorize.as.MGE.ARG.or.other <- function(product) {
         return("Other function")
 }
 
+
 Fig2A.data <- duplicate.proteins %>%
     mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
     group_by(Annotation, Category) %>%
@@ -603,10 +544,7 @@ Fig2A.data <- duplicate.proteins %>%
                  values_to = "Count") %>%
     mutate(Annotation = factor(
                Annotation,
-               levels = rev(c("Human-host","Livestock","Animal-host",
-                              "Anthropogenic-environment", "Food", "Freshwater",
-                              "Agriculture", "Sediment", "Soil", "Plant-host",
-                              "Marine","Terrestrial", "Fungal-host"))))
+               levels = rev(order.by.total_isolates.vec)))
 
 Fig2B.data <- singleton.proteins %>%
     mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
@@ -617,14 +555,11 @@ Fig2B.data <- singleton.proteins %>%
                  values_to = "Count") %>%
     mutate(Annotation = factor(
                Annotation,
-               levels = rev(c("Human-host","Livestock","Animal-host",
-                              "Anthropogenic-environment", "Food", "Freshwater",
-                              "Agriculture", "Sediment", "Soil", "Plant-host",
-                              "Marine","Terrestrial", "Fungal-host"))))
+               levels = rev(order.by.total_isolates.vec)))
 
 Fig2A <- ggplot(Fig2A.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) + coord_polar() +
-    facet_wrap(.~Episome) +
+    facet_wrap(.~Episome, scales = "free") +
     theme_classic() +
     ggtitle("Distribution of multi-copy proteins") +
     xlab("Proportion of genes") +
@@ -632,7 +567,7 @@ Fig2A <- ggplot(Fig2A.data, aes(x = Count, y = Annotation, fill = Category)) +
 
 Fig2B <- ggplot(Fig2B.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) + coord_polar() +
-    facet_wrap(.~Episome) +
+    facet_wrap(.~Episome, scales = "free") +
     theme_classic() +
     ggtitle("Distribution of single-copy proteins") +
     xlab("Proportion of genes") +
@@ -640,14 +575,14 @@ Fig2B <- ggplot(Fig2B.data, aes(x = Count, y = Annotation, fill = Category)) +
 
 stackedbar.Fig2A <- ggplot(Fig2A.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity") +
-    facet_wrap(.~Episome) +
+    facet_wrap(.~Episome, scales = "free") +
     theme_classic() +
     ggtitle("Distribution of multi-copy proteins") +
     scale_x_continuous(labels=fancy_scientific)
 
 stackedbar.Fig2B <- ggplot(Fig2B.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity") +
-    facet_wrap(.~Episome) +
+    facet_wrap(.~Episome, scales = "free") +
     theme_classic() +
     ggtitle("Distribution of single-copy proteins") +
     guides(fill = FALSE) +
@@ -658,13 +593,13 @@ rm(Fig2A.data) ## to save memory.
 rm(Fig2B.data) ## to save memory.
 gc() ## run garbage collection.
 
-Fig2 <- plot_grid(Fig2A, Fig2B, labels = c("A", "B"), ncol = 1)
-ggsave("../results/Fig2.pdf", Fig2, height = 9, width = 9)
+Fig2AB <- plot_grid(Fig2A, Fig2B, labels = c("A", "B"), ncol = 1)
+ggsave("../results/Fig2AB.pdf", Fig2AB, height = 9, width = 9)
 
 ## This visualization is also useful.
-stackedbar.Fig2 <- plot_grid(stackedbar.Fig2A,
+stackedbar.Fig2AB <- plot_grid(stackedbar.Fig2A,
                              stackedbar.Fig2B, labels = c("A", "B"), ncol = 1)
-ggsave("../results/stackedbar-Fig2.pdf", stackedbar.Fig2, height = 9, width = 9)
+ggsave("../results/stackedbar-Fig2AB.pdf", stackedbar.Fig2AB, height = 9, width = 9)
 
 #########################
 ## Figure 2C. TODO: FLESH OUT THIS SECTION.
@@ -691,15 +626,96 @@ just.plasmid.cases <- duplicate.proteins %>%
     arrange(desc(count)) %>%
     tibble()
 
-Fig2C_1 <- ggplot(both.chr.and.plasmid.cases,
-                  aes(x = chromosome_count,
-                      y = plasmid_count, color = Category)) +
-    geom_point(size=0.3) +
-    facet_wrap(.~Annotation,scales="free") +
+both.chr.and.plasmid.summary <- both.chr.and.plasmid.cases %>%
+    group_by(Annotation, Category) %>%
+    summarize(Count = sum(count)) %>%
+    mutate(Annotation = factor(
+               Annotation,
+               levels = rev(order.by.total_isolates.vec)))
+
+just.chromosome.summary <- just.chromosome.cases %>%
+    group_by(Annotation, Category) %>%
+    summarize(Count = sum(count)) %>%
+    mutate(Annotation = factor(
+               Annotation,
+               levels = rev(order.by.total_isolates.vec)))
+
+just.plasmid.summary <- just.plasmid.cases %>%
+    group_by(Annotation, Category) %>%
+    summarize(Count = sum(count)) %>%
+    mutate(Annotation = factor(
+               Annotation,
+               levels = rev(order.by.total_isolates.vec)))
+
+Fig2C_1 <- ggplot(both.chr.and.plasmid.summary,
+                  aes(x = Count,
+                      y = Annotation, fill = Category)) +
+    geom_bar(stat="identity", position = "fill", width = 0.95) + coord_polar() +
     theme_classic() +
-    ggtitle("Distribution of proteins on chromosome and plasmid")
+    ggtitle("Both chromosome and plasmid") +
+    guides(fill = FALSE) +
+    guides(fill = FALSE) +
+    theme(axis.line=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
+          legend.position="none",
+          panel.background=element_blank(),
+          panel.border=element_blank(),
+          panel.grid.major=element_blank(),
+          panel.grid.minor=element_blank()#,
+#          plot.background=element_blank()
+          )
 
 
+Fig2C_2 <- ggplot(just.chromosome.summary,
+                  aes(x = Count,
+                      y = Annotation, fill = Category)) +
+    geom_bar(stat="identity", position = "fill", width = 0.95) + coord_polar() +
+    theme_classic() +
+    ggtitle("chromosome only") +
+    guides(fill = FALSE) +
+    theme(axis.line=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
+          legend.position="none",
+          panel.background=element_blank(),
+          panel.border=element_blank(),
+          panel.grid.major=element_blank(),
+          panel.grid.minor=element_blank()#,
+#          plot.background=element_blank()
+          )
+
+Fig2C_3 <- ggplot(just.plasmid.summary,
+                  aes(x = Count,
+                      y = Annotation, fill = Category)) +
+    geom_bar(stat="identity", position = "fill", width = 0.95) + coord_polar() +
+    theme_classic() +
+    ggtitle("plasmid only") +
+    guides(fill = FALSE) +
+    theme(axis.line=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
+          legend.position="none",
+          panel.background=element_blank(),
+          panel.border=element_blank(),
+          panel.grid.major=element_blank(),
+          panel.grid.minor=element_blank()#,
+          ##          plot.background=element_blank()
+          )
+
+
+Fig2C <- plot_grid(Fig2C_1, Fig2C_2, Fig2C_3, nrow = 1,
+                   labels = c("C","Multi-copy proteins"))
+ggsave("../results/Fig2C.pdf", Fig2C, height = 4, width = 9)
+
+Fig2 <- plot_grid(Fig2AB, Fig2C, ncol = 1, rel_heights = c(9,4))
+ggsave("../results/Fig2.pdf", Fig2, height = 13, width = 9)
 ##################################################################################
 ## Figure 1 A & B: Diagram of the analysis workflow, made in Inkscape/Illustrator.
 ##################################################################################
@@ -752,8 +768,8 @@ make.Fig1C <- function(Fig1C.df) {
 
     ## This is for adding a scale for the percent of ARGs on plasmids to Fig1C.
     plasmid_legend_df <- data.frame(plasmid_legend_percent = c(0, 0.25, 0.5, 0.75, 1),
-                                    total_isolates = c(8000, 8000, 8000, 8000, 8000),
-                                    y_pos = c(10^-0.5, 10^-0.25, 10^0, 10^0.25, 10^0.5),
+                                    total_isolates = c(2000, 2000, 2000, 2000, 2000),
+                                    y_pos = c(10^-0.55, 10^-0.30, 10^-0.05, 10^0.20, 10^0.45),
                                     Annotation = c("0%", "25%", "50%", "75%", "100%"))
 
     
@@ -781,7 +797,6 @@ make.Fig1C <- function(Fig1C.df) {
                   color=Fig1C.color.palette[2]) +
         geom_line(aes(y=yvals.for.isolates_with_duplicate_genes.line),
                   color="gray") +
-        ##        geom_text_repel(size=3) +
         geom_text_repel(size=3,aes(color=annotation_label_color)) +
         scale_color_identity() +
         scale_x_log10(
@@ -794,23 +809,23 @@ make.Fig1C <- function(Fig1C.df) {
         ) +
         xlab("Total Isolates") +
         ylab("Isolates in given class") +
-        annotate("text", x = 65, y = 1.6, label = "Isolates with duplicated ARGs",
-                 angle = 34, color = Fig1C.color.palette[1],size=3) +
-        annotate("text", x = 65, y = 13.5, label = "Isolates with singleton ARGs",
-                 angle = 34, color = Fig1C.color.palette[2],size=3) +
-        annotate("text", x = 65, y = 22, label = "Isolates with duplicated genes",
-                 angle = 34, color = "gray",size=3) +
+        annotate("text", x = 27, y = 2.6, label = "Isolates with duplicated ARGs",
+                 angle = 33.2, color = Fig1C.color.palette[1],size=3) +
+        annotate("text", x = 27, y = 18.5, label = "Isolates with singleton ARGs",
+                 angle = 33.2, color = Fig1C.color.palette[2],size=3) +
+        annotate("text", x = 27, y = 30, label = "Isolates with duplicated genes",
+                 angle = 33.2, color = "gray",size=3) +
         guides(size=FALSE) +
         ## Add the scale for the percent of the given gene class on plasmids.
         geom_point(data = plasmid_legend_df,
                    aes(y=y_pos,
                        size=plasmid_legend_percent * 0.5),
                    color="black",alpha=0.2) +
-        annotate("text", x = 8000, y = 10^0.75, size = 3, label = "Percent on\nplasmids") +
-        annotate("text", x = 8000, y = 10^0.5, size = 2, label = "100") +
-        annotate("text", x = 8000, y = 10^0.25, size = 2, label = "75") +
-        annotate("text", x = 8000, y = 10^0, size = 2, label = "50") +
-        annotate("text", x = 8000, y = 10^-0.25, size = 2, label = "25")
+        annotate("text", x = 2000, y = 10^0.75, size = 3, label = "Percent on\nplasmids") +
+        annotate("text", x = 2000, y = 10^0.45, size = 2, label = "100") +
+        annotate("text", x = 2000, y = 10^0.20, size = 2, label = "75") +
+        annotate("text", x = 2000, y = 10^-0.05, size = 2, label = "50") +
+        annotate("text", x = 2000, y = 10^-0.30, size = 2, label = "25")
     
     return(Fig1C)
 }
@@ -819,12 +834,10 @@ Fig1C <- make.Fig1C(Fig1C.df)
 ggsave(Fig1C,file="../results/Fig1C.pdf",width=4.5,height=4.5)
 
 ################################################################################
-## Make a figure similar to Fig1C, using total number of genes as the baseline.
+## We're going to make one dataframe with lots of columns for
+## statistics and analyses. This is important for Figure 3.
 
-## We're going to make one dataframe with lots of columns for plotting
-## Figure S2.
-
-## Then the particular statistics and supplementary tables are going to be
+## The particular statistics and supplementary tables are going to be
 ## calculated on relevant subsets of this dataframe (subsetting columns, not rows).
 
 ## The number of duplicated AR genes.
@@ -886,6 +899,7 @@ total.genes.count <- duplicate.genes.count %>%
     mutate(total_genes = duplicate_genes + singleton_genes) %>%
     select(Annotation, total_genes)
 
+## This data structure is important for later code.
 big.gene.analysis.df <- duplicate.AR.genes.count %>%
     full_join(duplicate.MGE.genes.count) %>%
     full_join(duplicate.genes.count) %>%
@@ -896,103 +910,6 @@ big.gene.analysis.df <- duplicate.AR.genes.count %>%
     mutate(AR_duplicates = replace_na(AR_duplicates, 0)) %>%
     arrange(desc(AR_duplicates))
 
-## make Figure S2. The big figure!
-
-make.FigS2.df <- function(big.gene.analysis.df) {
-        
-    total_genes.sum <- sum(big.gene.analysis.df$total_genes)
-    duplicate_ARGs.sum <- sum(big.gene.analysis.df$AR_duplicates)
-    duplicate_genes.sum <- sum(big.gene.analysis.df$duplicate_genes)
-    AR_singletons.sum <- sum(big.gene.analysis.df$AR_singletons)
-    duplicate_MGEs.sum <- sum(big.gene.analysis.df$MGE_duplicates)
-    MGE_singletons.sum <- sum(big.gene.analysis.df$MGE_singletons)
-    singleton_genes.sum <- sum(big.gene.analysis.df$singleton_genes)
-            
-    FigS2.df <- big.gene.analysis.df %>%
-        ## calculate y-coordinates for line for duplicate genes.
-        mutate(yvals.for.duplicate_genes.line = exp(log(total_genes) + log(duplicate_genes.sum) - log(total_genes.sum))) %>%
-        ## calculate y-coordinates for line for singleton ARGs.
-        mutate(yvals.for.singleton_ARGs.line = exp(log(total_genes) + log(AR_singletons.sum) - log(total_genes.sum))) %>%
-        ## calculate y-coordinates for line for singleton genes.
-        mutate(yvals.for.singleton_genes.line = exp(log(total_genes) + log(singleton_genes.sum) - log(total_genes.sum))) %>%
-        ## calculate y-coordinates for line for duplicate ARGs.
-        mutate(yvals.for.duplicated_ARGs.line = exp(log(total_genes) + log(duplicate_ARGs.sum) - log(total_genes.sum))) %>%
-    ## calculate y-coordinates for line for singleton MGEs.
-        mutate(yvals.for.MGE_singletons.line = exp(log(total_genes) + log(MGE_singletons.sum) - log(total_genes.sum))) %>%
-    ## calculate y-coordinates for line for duplicate MGEs.
-        mutate(yvals.for.MGE_duplicates.line = exp(log(total_genes) + log(duplicate_MGEs.sum) - log(total_genes.sum)))
-    return(FigS2.df)
-}
-
-make.FigS2 <- function(FigS2.df) {
-    
-    FigS2.color.palette <- scales::viridis_pal()(4)
-
-    FigS2 <- ggplot(FigS2.df, aes(x = total_genes,
-                                  y = AR_duplicates,
-                                  label = Annotation)) +
-        theme_classic() +
-        scale_x_log10(
-            breaks = scales::trans_breaks("log10", function(x) 10^x),
-            labels = scales::trans_format("log10", scales::math_format(10^.x))
-        ) +
-        scale_y_log10(
-            breaks = scales::trans_breaks("log10", function(x) 10^x),
-            labels = scales::trans_format("log10", scales::math_format(10^.x))
-        ) +
-        xlab("Total genes") +
-        ylab("Genes from isolates in given class") +
-        guides(size = FALSE) +
-        
-        geom_point(color = FigS2.color.palette[1], alpha = 0.2) +
-        geom_point(aes(y = AR_singletons),
-                   color = FigS2.color.palette[2], alpha = 0.2) +
-        geom_point(aes(y = MGE_singletons),
-                   color = FigS2.color.palette[3], alpha=0.2) +
-        geom_point(aes(y = MGE_duplicates),
-                   color = FigS2.color.palette[4], alpha = 0.2) +
-        geom_point(aes(y = duplicate_genes), color="black", alpha = 0.2) +
-        geom_point(aes(y = singleton_genes), color="gray", alpha = 0.2) +
-        
-        geom_line(aes(y = yvals.for.duplicated_ARGs.line),
-                  color = FigS2.color.palette[1]) +
-        geom_line(aes(y = yvals.for.singleton_ARGs.line),
-                  color = FigS2.color.palette[2]) +
-        
-        geom_line(aes(y = yvals.for.MGE_singletons.line),
-                  color = FigS2.color.palette[3]) +
-        geom_line(aes(y = yvals.for.MGE_duplicates.line),
-                  color = FigS2.color.palette[4]) +
-        geom_line(aes(y = yvals.for.duplicate_genes.line),
-                  color = "black") +
-        geom_line(aes(y = yvals.for.singleton_genes.line),
-                  color = "gray") +
-        
-        geom_text_repel(size = 2.5) +
-        ##geom_text_repel(aes(y = AR_singletons), size = 2.5) +
-        ##geom_text_repel(aes(y = duplicate_genes), size = 2.5) +
-               
-        annotate("text", x = 500000, y = 40, label = "Duplicated ARGs",
-                 angle = 25, color = FigS2.color.palette[1],size=3) +
-        annotate("text", x = 500000, y = 600 , label = "Singleton ARGs",
-                 angle = 25, color = FigS2.color.palette[2],size=3) +
-        
-        annotate("text", x = 500000, y = 100000, label = "MGE singletons",
-                 angle = 25, color = FigS2.color.palette[3],size=3) +
-        annotate("text", x = 500000, y = 15000 , label = "MGE duplicates",
-                 angle = 25, color = FigS2.color.palette[4],size=3) +
-
-        annotate("text", x = 500000, y = 12000, label = "Duplicated genes",
-                 angle = 25, color = "black",size=3) +
-        annotate("text", x = 500000, y = 700000, label = "Singleton genes",
-                 angle = 25, color = "gray",size=3)
-
-    return(FigS2)
-}
-
-FigS2.df <- make.FigS2.df(big.gene.analysis.df)
-FigS2 <- make.FigS2(FigS2.df)
-ggsave(FigS2,file="../results/FigS2.pdf",width=6,height=6)
 #############################
 
 ## Use the data in Figure S1 to make Figure 3.
@@ -1094,7 +1011,7 @@ calc.chromosomal.ARG.singleton.enrichment.pvals <- function(raw.Table,
 
 calc.plasmid.ARG.singleton.enrichment.pvals <- function(raw.Table,
                                                         pval.threshold = 0.01) {
-
+    
     plasmid_singleton.sum <- sum(raw.Table$plasmid_singleton_genes)
     plasmid_ARG_singleton.sum <- sum(raw.Table$plasmid_singleton_ARGs)
 
@@ -1123,18 +1040,14 @@ calc.plasmid.ARG.singleton.enrichment.pvals <- function(raw.Table,
 }
 
 
-make.Fig3.df <- function(ControlTable2, Table2) {
+make.Fig3.df <- function(ControlTable2, Table2, order.by.total_isolates.vec) {
 
     Fig3.data <- full_join(ControlTable2, Table2) %>%
         mutate(Annotation = factor(
                    Annotation,
-                   levels = rev(c("Human-host","Livestock","Animal-host",
-                                  "Anthropogenic-environment", "Food", "Freshwater",
-                                  "Agriculture", "Sediment", "Soil", "Plant-host",
-                                  "Marine","Terrestrial", "Fungal-host"))))
+                   levels = rev(order.by.total_isolates.vec)))
 
-    ## This follows the logic in the function make.FigS2.df--
-    ## See Figure 1B for the intuitive explanation.
+    ## See Figure 1B for the intuitive explanation for this code.
     ## basically, calculate the expected fraction in the given category,
     ## based on the slope, which is the (genes in category)/(total genes in category),
     ## under the null hypothesis that ARGs follow the slope (the sampling distribution).
@@ -1163,27 +1076,32 @@ make.Fig3.df <- function(ControlTable2, Table2) {
 }
 
 
-Fig3.df <- make.Fig3.df(ControlTable2, Table2)
+Fig3.df <- make.Fig3.df(ControlTable2, Table2, order.by.total_isolates.vec)
 
-## calculate formal statistics, and use to add columns for coloring annotations.
-chromosome.ARG.duplicate.pvals <- Fig3.df %>%
-    calc.chromosomal.ARG.duplicate.enrichment.pvals()    
-plasmid.ARG.duplicate.pvals <- Fig3.df %>%
-    calc.plasmid.ARG.duplicate.enrichment.pvals()
-chromosome.ARG.singleton.pvals <- Fig3.df %>%
-    calc.chromosomal.ARG.singleton.enrichment.pvals()
-plasmid.ARG.singleton.pvals <- Fig3.df %>%
-    calc.plasmid.ARG.singleton.enrichment.pvals()
+make.Fig3 <- function(Fig3.df) {
 
-Fig3A <- ggplot(Fig3.df, aes(x=chromosomal_duplicate_genes,
-                                  y=chromosomal_duplicate_ARGs,
-                                  label=Annotation)) +
+    ## calculate formal statistics, and use to add columns for coloring annotations.
+    chromosome.ARG.duplicate.pvals <- Fig3.df %>%
+        calc.chromosomal.ARG.duplicate.enrichment.pvals()    
+    plasmid.ARG.duplicate.pvals <- Fig3.df %>%
+        calc.plasmid.ARG.duplicate.enrichment.pvals()
+    chromosome.ARG.singleton.pvals <- Fig3.df %>%
+        calc.chromosomal.ARG.singleton.enrichment.pvals()
+    plasmid.ARG.singleton.pvals <- Fig3.df %>%
+        calc.plasmid.ARG.singleton.enrichment.pvals()
+    
+    Fig3.color.palette <- scales::viridis_pal()(3)
+    
+    Fig3A <- ggplot(Fig3.df, aes(x=chromosomal_duplicate_genes,
+                                 y=chromosomal_duplicate_ARGs,
+                                 label=Annotation)) +
         theme_classic() +
-        geom_point(alpha=0.2) +                  
-        geom_line(aes(y=yvals.for.chromosomal_ARG_duplicates.line)) +
-    geom_text_repel(data=chromosome.ARG.duplicate.pvals,
-                    aes(color=annotation_label_color), size=3) +
-    scale_color_identity() +
+        geom_point(alpha=0.2, color = Fig3.color.palette[1]) +                  
+        geom_line(aes(y=yvals.for.chromosomal_ARG_duplicates.line),
+                  color = Fig3.color.palette[1]) +
+        geom_text_repel(data=chromosome.ARG.duplicate.pvals,
+                        aes(color=annotation_label_color), size=3) +
+        scale_color_identity() +
         scale_x_log10(
             breaks = scales::trans_breaks("log10", function(x) 10^x),
             labels = scales::trans_format("log10", scales::math_format(10^.x))
@@ -1194,68 +1112,74 @@ Fig3A <- ggplot(Fig3.df, aes(x=chromosomal_duplicate_genes,
         ) +
         xlab("Chromosomal multi-copy proteins") +
         ylab("Chromosomal multi-copy ARGs")
+    
+    Fig3B <- ggplot(Fig3.df, aes(x=plasmid_duplicate_genes,
+                                 y=plasmid_duplicate_ARGs,
+                                 label=Annotation)) +
+        theme_classic() +
+        geom_point(alpha=0.2, color = Fig3.color.palette[1]) +                  
+        geom_line(aes(y=yvals.for.plasmid_ARG_duplicates.line),
+                  color = Fig3.color.palette[1]) +
+        geom_text_repel(data=plasmid.ARG.duplicate.pvals,
+                        aes(color=annotation_label_color), size=3) +
+        scale_color_identity() +
+        scale_x_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        scale_y_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        xlab("Plasmid multi-copy proteins") +
+        ylab("Plasmid multi-copy ARGs")
+    
+    Fig3C <- ggplot(Fig3.df, aes(x=chromosomal_singleton_genes,
+                                 y=chromosomal_singleton_ARGs,
+                                 label=Annotation)) +
+        theme_classic() +
+        geom_point(alpha=0.2, color = Fig3.color.palette[2]) +                  
+        geom_line(aes(y=yvals.for.chromosomal_ARG_singletons.line),
+                  color = Fig3.color.palette[2]) +
+        geom_text_repel(data=chromosome.ARG.singleton.pvals,
+                        aes(color=annotation_label_color), size=3) +
+        scale_color_identity() +
+        scale_x_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        scale_y_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        xlab("Chromosomal single-copy proteins") +
+        ylab("Chromosomal single-copy ARGs")
+    
+    Fig3D <- ggplot(Fig3.df, aes(x=plasmid_singleton_genes,
+                                 y=plasmid_singleton_ARGs,
+                                 label=Annotation)) +
+        theme_classic() +
+        geom_point(alpha=0.2, color = Fig3.color.palette[2]) +                  
+        geom_line(aes(y=yvals.for.plasmid_ARG_singletons.line),
+                  color = Fig3.color.palette[2]) +
+        geom_text_repel(data=plasmid.ARG.singleton.pvals,
+                        aes(color=annotation_label_color), size=3) +
+        scale_color_identity() +    
+        scale_x_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        scale_y_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        xlab("Plasmid single-copy proteins") +
+        ylab("Plasmid single-copy ARGs")
+    Fig3 <- plot_grid(Fig3A, Fig3B, Fig3C, Fig3D, labels = c("A","B","C","D"), nrow=2)
+    return(Fig3)
+}
 
-Fig3B <- ggplot(Fig3.df, aes(x=plasmid_duplicate_genes,
-                                  y=plasmid_duplicate_ARGs,
-                                  label=Annotation)) +
-    theme_classic() +
-    geom_point(alpha=0.2) +                  
-    geom_line(aes(y=yvals.for.plasmid_ARG_duplicates.line)) +
-    geom_text_repel(data=plasmid.ARG.duplicate.pvals,
-                    aes(color=annotation_label_color), size=3) +
-    scale_color_identity() +
-    scale_x_log10(
-        breaks = scales::trans_breaks("log10", function(x) 10^x),
-        labels = scales::trans_format("log10", scales::math_format(10^.x))
-    ) +
-    scale_y_log10(
-        breaks = scales::trans_breaks("log10", function(x) 10^x),
-        labels = scales::trans_format("log10", scales::math_format(10^.x))
-    ) +
-    xlab("Plasmid multi-copy proteins") +
-    ylab("Plasmid multi-copy ARGs")
-
-Fig3C <- ggplot(Fig3.df, aes(x=chromosomal_singleton_genes,
-                             y=chromosomal_singleton_ARGs,
-                             label=Annotation)) +
-    theme_classic() +
-    geom_point(alpha=0.2) +                  
-    geom_line(aes(y=yvals.for.chromosomal_ARG_singletons.line)) +
-    geom_text_repel(data=chromosome.ARG.singleton.pvals,
-                    aes(color=annotation_label_color), size=3) +
-    scale_color_identity() +
-    scale_x_log10(
-        breaks = scales::trans_breaks("log10", function(x) 10^x),
-        labels = scales::trans_format("log10", scales::math_format(10^.x))
-    ) +
-    scale_y_log10(
-        breaks = scales::trans_breaks("log10", function(x) 10^x),
-        labels = scales::trans_format("log10", scales::math_format(10^.x))
-    ) +
-    xlab("Chromosomal single-copy proteins") +
-    ylab("Chromosomal single-copy ARGs")
-
-Fig3D <- ggplot(Fig3.df, aes(x=plasmid_singleton_genes,
-                             y=plasmid_singleton_ARGs,
-                             label=Annotation)) +
-    theme_classic() +
-    geom_point(alpha=0.2) +                  
-    geom_line(aes(y=yvals.for.plasmid_ARG_singletons.line)) +
-    geom_text_repel(data=plasmid.ARG.singleton.pvals,
-                    aes(color=annotation_label_color), size=3) +
-    scale_color_identity() +    
-    scale_x_log10(
-        breaks = scales::trans_breaks("log10", function(x) 10^x),
-        labels = scales::trans_format("log10", scales::math_format(10^.x))
-    ) +
-    scale_y_log10(
-        breaks = scales::trans_breaks("log10", function(x) 10^x),
-        labels = scales::trans_format("log10", scales::math_format(10^.x))
-    ) +
-    xlab("Plasmid single-copy proteins") +
-    ylab("Plasmid single-copy ARGs")
-
-Fig3 <- plot_grid(Fig3A, Fig3B, Fig3C, Fig3D, labels = c("A","B","C","D"), nrow=2)
+Fig3 <- make.Fig3(Fig3.df)
 ggsave("../results/Fig3.pdf", Fig3)
 
 #############################
@@ -1469,12 +1393,6 @@ Control.for.TableS2 <- duplicated.gene.type.count %>%
 make.dup.annotation.freq.table <- partial(.f = .make.annotation.freq.table, duplicate.proteins)
 make.sing.annotation.freq.table <- partial(.f = .make.annotation.freq.table, singleton.proteins)
 
-make.dup.with.MGEs.annotation.freq.table <- partial(.f = .make.annotation.freq.table,
-                                                    duplicate.proteins, remove.MGEs = FALSE)
-
-make.sing.with.MGEs.annotation.freq.table <- partial(.f = .make.annotation.freq.table,
-                                                     singleton.proteins, remove.MGEs = FALSE)
-
 
 ## let's make a big table of product annotations per annotation category,
 ## for TF-IDF analysis.
@@ -1570,19 +1488,7 @@ sing.prot.annotation.tf_idf.cdf.plot <- ranked.sing.prot.annotation.tf_idf %>%
     stat_ecdf(geom = "step") +
     facet_wrap(.~Annotation)
 
-## I have two ideas for analysis here.
-## First, take the first n terms for each category, and calculate recall and precision.
-## Second, take the the first p percentile tf-idf for each category, and calculate
-## recall and precision.
 
-## precision := (# of relevant & retrieved genomes)/(# of retrieved genomes).
-## recall := (# of retrieved & relevant genomes)/(# of relevant genomes).
-
-## Then, compare duplicates to singletons to see which "has more ecological information"
-## for each category.
-
-## first start with top 10 annotations for each category.
-## Calculate recall and precision.
 
 retrieve.genomes.by.term <- function(tf_idf.df, annotated.proteins) {
     ## map each query term to genome accessions and annotations.
