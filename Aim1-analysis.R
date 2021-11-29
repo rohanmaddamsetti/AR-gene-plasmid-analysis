@@ -666,6 +666,40 @@ stackedbar.Fig2 <- plot_grid(stackedbar.Fig2A,
                              stackedbar.Fig2B, labels = c("A", "B"), ncol = 1)
 ggsave("../results/stackedbar-Fig2.pdf", stackedbar.Fig2, height = 9, width = 9)
 
+#########################
+## Figure 2C. 
+## Analysis of duplicate pairs found just on chromosome, just on plasmid, or
+## on both chromosomes and plasmids.
+
+## let's look at cases of identical sequences on chromosomes and plasmids.
+
+both.chr.and.plasmid.cases <- duplicate.proteins %>%
+    filter(chromosome_count >= 1 & plasmid_count >= 1) %>%
+    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
+    arrange(desc(count)) %>%
+    tibble()
+
+just.chromosome.cases <- duplicate.proteins %>%
+    filter(chromosome_count >= 1 & plasmid_count == 0) %>%
+    arrange(desc(count)) %>%
+    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
+    tibble()
+
+just.plasmid.cases <- duplicate.proteins %>%
+    filter(chromosome_count == 0 & plasmid_count >= 1) %>%
+    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
+    arrange(desc(count)) %>%
+    tibble()
+
+Fig2C_1 <- ggplot(both.chr.and.plasmid.cases,
+                  aes(x = count, y = Annotation, fill = Category)) +
+    geom_bar(stat="identity", position = "fill", width = 0.95) + coord_polar() +
+    theme_classic() +
+    ggtitle("Distribution of proteins on chromosome and plasmid") +
+    xlab("Proportion of genes") +
+    guides(fill = FALSE)
+
+
 ##################################################################################
 ## Figure 1 A & B: Diagram of the analysis workflow, made in Inkscape/Illustrator.
 ##################################################################################
@@ -1289,8 +1323,6 @@ Fig3D <- ggplot(Fig3.df, aes(x=plasmid_singleton_genes,
 Fig3 <- plot_grid(Fig3A, Fig3B, Fig3C, Fig3D, labels = c("A","B","C","D"), nrow=2)
 ggsave("../results/Fig3.pdf", Fig3)
 
-
-
 #############################
 ## Duplication Index Ratio calculations.
 
@@ -1486,24 +1518,6 @@ Control.for.TableS2 <- duplicated.gene.type.count %>%
     mutate(duplicate_ARG_types = replace_na(duplicate_ARG_types, 0)) %>%
     mutate(mean.ARG.duplicate.num = replace_na(mean.ARG.duplicate.num, 0)) %>%
     arrange(desc(duplicate_ARG_types))
-
-################################################################################
-## Analysis of duplicate pairs found just on chromosome, just on plasmid, or
-## on both chromosomes and plasmids.
-
-## let's look at cases of identical sequences on chromosomes and plasmids.
-
-both.chr.and.plasmid.cases <- duplicate.proteins %>%
-    filter(chromosome_count >= 1 & plasmid_count >= 1) %>%
-    arrange(desc(count))
-
-just.chromosome.cases <- duplicate.proteins %>%
-    filter(chromosome_count >= 1 & plasmid_count == 0) %>%
-    arrange(desc(count))
-
-just.plasmid.cases <- duplicate.proteins %>%
-    filter(chromosome_count == 0 & plasmid_count >= 1) %>%
-    arrange(desc(count))
 
 ################################################################################
 
