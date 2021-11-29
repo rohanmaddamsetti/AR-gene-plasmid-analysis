@@ -667,7 +667,7 @@ stackedbar.Fig2 <- plot_grid(stackedbar.Fig2A,
 ggsave("../results/stackedbar-Fig2.pdf", stackedbar.Fig2, height = 9, width = 9)
 
 #########################
-## Figure 2C. 
+## Figure 2C. TODO: FLESH OUT THIS SECTION.
 ## Analysis of duplicate pairs found just on chromosome, just on plasmid, or
 ## on both chromosomes and plasmids.
 
@@ -692,12 +692,12 @@ just.plasmid.cases <- duplicate.proteins %>%
     tibble()
 
 Fig2C_1 <- ggplot(both.chr.and.plasmid.cases,
-                  aes(x = count, y = Annotation, fill = Category)) +
-    geom_bar(stat="identity", position = "fill", width = 0.95) + coord_polar() +
+                  aes(x = chromosome_count,
+                      y = plasmid_count, color = Category)) +
+    geom_point(size=0.3) +
+    facet_wrap(.~Annotation,scales="free") +
     theme_classic() +
-    ggtitle("Distribution of proteins on chromosome and plasmid") +
-    xlab("Proportion of genes") +
-    guides(fill = FALSE)
+    ggtitle("Distribution of proteins on chromosome and plasmid")
 
 
 ##################################################################################
@@ -705,7 +705,6 @@ Fig2C_1 <- ggplot(both.chr.and.plasmid.cases,
 ##################################################################################
 ## Figure 1C: main figure, showing enrichment of AR duplicates
 ## in human hosts and livestock.
-
 
 
 make.Fig1C.df <- function(TableS1, ControlTable1, Table2, ControlTable2, duplicate.gene.control.df) {
@@ -1731,8 +1730,8 @@ ggsave("../results/duplicate-protein-seq-TF-IDF.pdf",
 
 ##########################################
 
-## Figure 4. annotations of multi-copy proteins are more informative
-## about ecology than the annotations of single-copy proteins.
+## Figure 4. annotations of multi-copy proteins are informative about
+## ecology. This figure and the associated message needs work!
 
 best.dup.prot.annotation.tf_idf <- dup.prot.annotation.tf_idf %>%
     filter(Annotation %in% c("Agriculture", "Anthropogenic-environment",
@@ -1741,15 +1740,7 @@ best.dup.prot.annotation.tf_idf <- dup.prot.annotation.tf_idf %>%
     slice_max(tf_idf, n = 5) %>%
     ungroup()
 
-best.sing.prot.annotation.tf_idf <- sing.prot.annotation.tf_idf %>%
-    filter(Annotation %in% c("Agriculture", "Anthropogenic-environment",
-                             "Human-host")) %>%
-    group_by(Annotation) %>%
-    slice_max(tf_idf, n = 5) %>%
-    ungroup()
-
-
-Fig4A <- ggplot(best.dup.prot.annotation.tf_idf,
+Fig4 <- ggplot(best.dup.prot.annotation.tf_idf,
                 aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
     geom_col(show.legend = FALSE) +
     labs(x = "tf-idf", y = NULL) +
@@ -1758,43 +1749,4 @@ Fig4A <- ggplot(best.dup.prot.annotation.tf_idf,
     facet_wrap(.~Annotation, ncol=1, scales = "free_y") +
     ggtitle("Most informative multi-copy protein annotations")
 
-Fig4B <- ggplot(best.sing.prot.annotation.tf_idf,
-                aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
-    geom_col(show.legend = FALSE) +
-    labs(x = "tf-idf", y = NULL) +
-    theme_classic() +
-    xlim(0,0.04) +
-    facet_wrap(.~Annotation, ncol=1, scales = "free_y") +
-    ggtitle("Most informative single-copy protein annotations")
-
-
-Fig4 <- plot_grid(Fig4A, Fig4B, ncol = 1, labels = c('A','B'), align = "v")
-
 ggsave("../results/Fig4.pdf", Fig4, width=8, height = 8)
-
-
-##########################################
-## NOTES AND IDEAS
-
-## signal decomposition algorithms: non-negative matrix factorization,
-## ICA, etc.
-## represent strains by duplicated genes. Then factorize those strains
-## into non-negative combinations of sequences/annotations
-## and their counts. for a classifier, weight sequences/annotations that
-## are most informative of particular environments.
-
-## if I filter out MGEs, then I probably get more insight into WHAT
-## functions are being selected.
-## BUT MGEs probably carry significant information about niches!
-## assume that gene flow networks are more tightly connected within a niche
-## in comparison to between niches (since higher probability of interaction).
-## This idea goes back at least to Smillie et al. 2011 in Nature from Eric Alm's group.
-
-## Use Multinomial (softmax) regression on best TF-IDF terms for singletons
-## and duplicate genes to make a classifier to see which is better
-## at classifying strains, using precision and recall and other metrics.
-## This may be an overly complicated strategy to build up the hypothesized
-## argument that duplicate sequences carry more ecological information than
-## singleton arguments. Also, this may not necessarily be the case in general.
-## For instance, the nod family of LysR regulators has diversified in Rhizobia,
-## and so LysR regulators are enriched in the "Agricultural" class.
