@@ -819,70 +819,6 @@ make.Fig1C <- function(Fig1C.df) {
 Fig1C <- make.Fig1C(Fig1C.df)
 ggsave(Fig1C,file="../results/Fig1C.pdf",width=4.5,height=4.5)
 
-
-make.grant.Fig1C <- function(Fig1C.df) {
-
-    ## simplify the labels.
-    grant.Fig1C.df <- Fig1C.df %>%
-        mutate(Annotation = sapply(Annotation, function(x)
-            str_replace_all(x, c("Human-host" = "Human",
-                                 "Anthropogenic-environment" = "Cities",
-                                 "Animal-host" = "Animal",
-                                 "Plant-host" = "Plant",
-                                 "Fungal-host" = "Fungi"))))
-            
-        
-    
-    total_isolates.sum <- sum(grant.Fig1C.df$total_isolates)
-    isolates_with_duplicated_ARGs.sum <- sum(grant.Fig1C.df$isolates_with_duplicated_ARGs)
-    isolates_with_singleton_ARGs.sum <- sum(grant.Fig1C.df$isolates_with_singleton_ARGs)
-    isolates_with_duplicate_genes.sum <- sum(grant.Fig1C.df$isolates_with_duplicate_genes)
-    
-    Fig1C.color.palette <- scales::viridis_pal()(3)
-
-    Fig1C <- ggplot(grant.Fig1C.df, aes(x=total_isolates,
-                                  y=isolates_with_duplicated_ARGs,
-                                  label=Annotation)) +
-        theme_classic() +
-        geom_point(aes(size = plasmid_AR_duplicate_percent * 0.5),
-                   color=Fig1C.color.palette[1], alpha=0.2) +
-        geom_point(aes(y=isolates_with_singleton_ARGs,
-                       size=plasmid_AR_singleton_percent * 0.5),
-                   color=Fig1C.color.palette[2],alpha=0.2) +
-        geom_point(aes(y=isolates_with_duplicate_genes,
-                       size=plasmid_duplicate_percent * 0.5),color="gray",alpha=0.2) +
-        geom_line(aes(y=yvals.for.isolates_with_duplicated_ARGs.line),
-                  color=Fig1C.color.palette[1]) +
-        geom_line(aes(y=yvals.for.isolates_with_singleton_ARGs.line),
-                  color=Fig1C.color.palette[2]) +
-        geom_line(aes(y=yvals.for.isolates_with_duplicate_genes.line),
-                  color="gray") +
-        geom_text_repel(size=3) +
-        scale_x_log10(
-            breaks = scales::trans_breaks("log10", function(x) 10^x),
-            labels = scales::trans_format("log10", scales::math_format(10^.x))
-        ) +
-        scale_y_log10(
-            breaks = scales::trans_breaks("log10", function(x) 10^x),
-            labels = scales::trans_format("log10", scales::math_format(10^.x))
-        ) +
-        xlab("Total Isolates") +
-        ylab("Isolates in given class") +
-        annotate("text", x = 85, y = 3, label = "duplicated ARGs",
-                 angle = 30, color = Fig1C.color.palette[1],size=3) +
-        annotate("text", x = 85, y = 14.5, label = "singleton ARGs",
-                 angle = 30, color = Fig1C.color.palette[2],size=3) +
-        annotate("text", x = 85, y = 30, label = "duplicated genes",
-                 angle = 30, color = "gray",size=3) +
-        guides(size=FALSE) 
-        
-    return(Fig1C)
-}
-
-grant.Fig1C <- make.grant.Fig1C(Fig1C.df)
-ggsave(grant.Fig1C,file="../results/grant_Fig1C.pdf",width=3,height=2)
-
-
 ################################################################################
 ## Make a figure similar to Fig1C, using total number of genes as the baseline.
 
@@ -1322,33 +1258,6 @@ Fig3D <- ggplot(Fig3.df, aes(x=plasmid_singleton_genes,
 
 Fig3 <- plot_grid(Fig3A, Fig3B, Fig3C, Fig3D, labels = c("A","B","C","D"), nrow=2)
 ggsave("../results/Fig3.pdf", Fig3)
-
-#############################
-## Duplication Index Ratio calculations.
-
-duplication.index.df <- big.gene.analysis.df %>%
-    ## calculate the ratio of duplicated ARGs to singleton ARGs.
-    mutate(DI.ARGs = AR_duplicates/AR_singletons)  %>%
-    mutate(DI.all = duplicate_genes/singleton_genes) %>%
-    mutate(Annotation = factor(Annotation,
-                                      levels=rev(big.gene.analysis.df$Annotation))) %>%
-    ## make a bar graph comparing DI for ARGs to DI for all genes.
-    pivot_longer(c(DI.ARGs, DI.all), names_to = "DI.type", values_to = "DI")
-
-DI.ARGs.to.all.fig <- ggplot(duplication.index.df,
-                       aes(x = Annotation, y = DI,fill=DI.type)) +
-    geom_bar(stat="identity", position=position_dodge()) +
-    theme_classic() +
-    ## make a better legend.
-    scale_fill_manual(values=c("gray","black"),
-                      name = "",
-                      labels=c("All genes", "ARGs")) +
-    theme(axis.text.x  = element_text(angle=90,vjust=0.2,hjust=0.95)) +
-    ylab("Duplication Index") +
-    theme(legend.position="top") +
-    xlab("Annotation")
-
-ggsave("../results/DI-index.pdf", DI.ARGs.to.all.fig)
 
 #############################
 ## Supplementary Table S2.
