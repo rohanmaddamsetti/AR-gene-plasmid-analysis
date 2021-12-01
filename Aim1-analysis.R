@@ -8,10 +8,6 @@
 ## singleton.proteins, in terms of number of isolates in each
 ## category, are COMPLETELY consistent with each other.
 
-## CRITICAL ANALYSIS TODO FOR A FOLLOW UP PAPER:
-## look for evidence of recent diversification.
-## In particular look more deeply at the result that AAA+ ATPases,
-## and ATPases in general seem to be enriched in gene duplications.
 
 library(tidyverse)
 library(cowplot)
@@ -89,7 +85,9 @@ Conlan.strains %in% protein.db.metadata$Strain
 IS.keywords <- "IS|transposon|Transposase|transposase|Transposable|transposable|hypothetical protein|Phage|phage|integrase|Integrase|tail|intron|Mobile|mobile|antitoxin|toxin|capsid|plasmid|Plasmid|conjug"
 
 ## remove all genes that match Elongation Factor Tu (2 copies in most bacteria).
-EFTu.keywords <- "Tu | Tu|-Tu"
+## \\b is a word boundary.
+## see: https://stackoverflow.com/questions/62430498/detecting-whole-words-using-str-detect-in-r
+EFTu.keywords <- "\\bTu | Tu\\b|-Tu\\b"
 
 ## now look at a few antibiotic-specific annotations.
 antibiotic.keywords <- "lactamase|chloramphenicol|quinolone|antibiotic resistance|tetracycline|VanZ"
@@ -251,9 +249,9 @@ order.by.total_isolates.vec <- TableS1$Annotation
 
 ## Most follow the expected distribution.
 ## however, isolates from animal-hosts are signficantly depleted
-## in duplicate genes: FDR-corrected p < 10^-5
-## while isolates from livestock and agriculture are both significantly enriched
-## in duplicate genes: FDR-corrected p < 0.004 for both.
+## in duplicate genes: FDR-corrected p = 0.0000314
+## while isolates from anthropogenic environments are weakly enriched
+## in multi-copy genes: FDR-corrected p = 0.0212.
 
 run.duplicate.gene.control <- function(gbk.annotation, duplicate.proteins) {
     
@@ -528,6 +526,8 @@ categorize.as.MGE.ARG.or.other <- function(product) {
         return("ARG")
     else if (str_detect(product, EFTu.keywords))
         return("EF-Tu")
+    else if (str_detect(product, "\\bribosomal protein\\b"))
+        return("ribosomal protein")
     else if (str_detect(product, IS.keywords))
         return("MGE")
     else
@@ -559,7 +559,7 @@ Fig2B.data <- singleton.proteins %>%
 
 Fig2A <- ggplot(Fig2A.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) + coord_polar() +
-    facet_wrap(.~Episome, scales = "free") +
+    facet_wrap(.~Episome) +
     theme_classic() +
     ggtitle("Distribution of multi-copy proteins") +
     xlab("Proportion of genes") +
@@ -567,7 +567,7 @@ Fig2A <- ggplot(Fig2A.data, aes(x = Count, y = Annotation, fill = Category)) +
 
 Fig2B <- ggplot(Fig2B.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) + coord_polar() +
-    facet_wrap(.~Episome, scales = "free") +
+    facet_wrap(.~Episome) +
     theme_classic() +
     ggtitle("Distribution of single-copy proteins") +
     xlab("Proportion of genes") +
@@ -588,10 +588,6 @@ stackedbar.Fig2B <- ggplot(Fig2B.data, aes(x = Count, y = Annotation, fill = Cat
     guides(fill = FALSE) +
     scale_x_continuous(labels=fancy_scientific)
 
-
-rm(Fig2A.data) ## to save memory.
-rm(Fig2B.data) ## to save memory.
-gc() ## run garbage collection.
 
 Fig2AB <- plot_grid(Fig2A, Fig2B, labels = c("A", "B"), ncol = 1)
 ggsave("../results/Fig2AB.pdf", Fig2AB, height = 9, width = 9)
@@ -717,11 +713,53 @@ ggsave("../results/Fig2C.pdf", Fig2C, height = 4, width = 9)
 Fig2 <- plot_grid(Fig2AB, Fig2C, ncol = 1, rel_heights = c(9,4))
 ggsave("../results/Fig2.pdf", Fig2, height = 13, width = 9)
 ##################################################################################
+
+## Let's take a closer look at duplicated EF-Tu sequences,
+## and examine ribosomal proteins too.
+
+Fig2A.summary <- Fig2A.data %>% group_by(Episome, Category) %>%
+    summarize(count = sum(Count))
+
+## Remember: singleton is based on 100% sequence identity.
+## so a pair of duplicate gene with a single amino acid difference
+## is counted as a pair of singletons.
+
+Fig2B.summary <- Fig2B.data %>% group_by(Episome, Category) %>%
+    summarize(count = sum(Count))
+
+duplicated.EF.Tu <- duplicate.proteins %>%
+    tibble() %>% filter(str_detect(product,EFTu.keywords))
+singleton.EF.Tu <- singleton.proteins %>%
+    tibble() %>% filter(str_detect(product,EFTu.keywords))
+
+## find average number of EF-Tu sequences per genome. 1.52 per genome.
+num.genomes <- nrow(filter(gbk.annotation,!(Annotation %in% c("Unannotated","Blank"))))
+(sum(filter(Fig2A.summary,Category=="EF-Tu")$count) +
+ sum(filter(Fig2B.summary,Category=="EF-Tu")$count))/num.genomes
+
+duplicated.EF.Tu.genera.summary <- duplicated.EF.Tu %>%
+    mutate(Genus = stringr::word(Organism, 1)) %>%
+    group_by(Genus, Annotation) %>%
+    summarize(duplicated.EF.Tu.count = n()) %>%
+    arrange(desc(duplicated.EF.Tu.count))
+
+singleton.EF.Tu.genera.summary <- singleton.EF.Tu %>%
+    mutate(Genus = stringr::word(Organism, 1)) %>%    
+    group_by(Genus, Annotation) %>%
+    summarize(singleton.EF.Tu.count = n()) %>%
+    arrange(desc(singleton.EF.Tu.count))
+
+EF.Tu.genera.summary <- full_join(
+    duplicated.EF.Tu.genera.summary,
+    singleton.EF.Tu.genera.summary) %>%
+    ## turn NAs to zeros.
+    replace(is.na(.), 0)
+
+##################################################################################
 ## Figure 1 A & B: Diagram of the analysis workflow, made in Inkscape/Illustrator.
 ##################################################################################
 ## Figure 1C: main figure, showing enrichment of AR duplicates
 ## in human hosts and livestock.
-
 
 make.Fig1C.df <- function(TableS1, ControlTable1, Table2, ControlTable2, duplicate.gene.control.df) {
     ## join duplicate and singleton tables to make Fig 1C.
@@ -809,11 +847,11 @@ make.Fig1C <- function(Fig1C.df) {
         ) +
         xlab("Total Isolates") +
         ylab("Isolates in given class") +
-        annotate("text", x = 27, y = 2.6, label = "Isolates with duplicated ARGs",
+        annotate("text", x = 27, y = 2.6, label = "Isolates with multi-copy ARGs",
                  angle = 33.2, color = Fig1C.color.palette[1],size=3) +
-        annotate("text", x = 27, y = 18.5, label = "Isolates with singleton ARGs",
+        annotate("text", x = 27, y = 18.5, label = "Isolates with single-copy ARGs",
                  angle = 33.2, color = Fig1C.color.palette[2],size=3) +
-        annotate("text", x = 27, y = 30, label = "Isolates with duplicated genes",
+        annotate("text", x = 27, y = 30, label = "Isolates with multi-copy genes",
                  angle = 33.2, color = "gray",size=3) +
         guides(size=FALSE) +
         ## Add the scale for the percent of the given gene class on plasmids.
@@ -834,82 +872,85 @@ Fig1C <- make.Fig1C(Fig1C.df)
 ggsave(Fig1C,file="../results/Fig1C.pdf",width=4.5,height=4.5)
 
 ################################################################################
-## We're going to make one dataframe with lots of columns for
-## statistics and analyses. This is important for Figure 3.
+make.big.gene.analysis.df <- function(duplicate.proteins, singleton.proteins) {
+    ## We're going to make one dataframe with lots of columns for
+    ## statistics and analyses. This is important for Figure 3.
 
-## The particular statistics and supplementary tables are going to be
-## calculated on relevant subsets of this dataframe (subsetting columns, not rows).
+    ## The particular statistics and supplementary tables are going to be
+    ## calculated on relevant subsets of this dataframe (subsetting columns, not rows).
 
-## The number of duplicated AR genes.
-duplicate.AR.genes.count <- duplicate.proteins %>%
-    ## remove Unannotated isolates.
-    filter(Annotation != "Unannotated") %>%
-    filter(Annotation != "blank") %>%
-    filter(str_detect(.$product,antibiotic.keywords)) %>%
-    group_by(Annotation) %>%
-    summarize(AR_duplicates = sum(count)) %>%
-    arrange(desc(AR_duplicates))
+    ## The number of duplicated AR genes.
+    duplicate.AR.genes.count <- duplicate.proteins %>%
+        ## remove Unannotated isolates.
+        filter(Annotation != "Unannotated") %>%
+        filter(Annotation != "blank") %>%
+        filter(str_detect(.$product,antibiotic.keywords)) %>%
+        group_by(Annotation) %>%
+        summarize(AR_duplicates = sum(count)) %>%
+        arrange(desc(AR_duplicates))
+    
+    ## The number of duplicated MGE genes.
+    duplicate.MGE.genes.count <- duplicate.proteins %>%
+        ## remove Unannotated isolates.
+        filter(Annotation != "Unannotated") %>%
+        filter(Annotation != "blank") %>%
+        filter(str_detect(.$product,IS.keywords)) %>%
+        group_by(Annotation) %>%
+        summarize(MGE_duplicates = sum(count)) %>%
+        arrange(desc(MGE_duplicates))
+    
+    ## The number of duplicated genes in each category.
+    duplicate.genes.count <- duplicate.proteins %>%
+        ## remove Unannotated isolates.
+        filter(Annotation != "Unannotated") %>%
+        filter(Annotation != "blank") %>%
+        group_by(Annotation) %>%
+        summarize(duplicate_genes = sum(count)) %>%
+        arrange(desc(duplicate_genes))
+    
+    ## The number of singleton genes in each category.
+    singleton.genes.count <- singleton.proteins %>%
+        group_by(Annotation) %>%
+        summarize(singleton_genes = sum(count)) %>%
+        arrange(desc(singleton_genes))
+    
+    ## The number of singleton AR genes.
+    singleton.AR.genes.count <- singleton.proteins %>%
+        filter(str_detect(.$product,antibiotic.keywords)) %>%
+        group_by(Annotation) %>%
+        summarize(AR_singletons = sum(count)) %>%
+        arrange(desc(AR_singletons))
 
-## The number of duplicated MGE genes.
-duplicate.MGE.genes.count <- duplicate.proteins %>%
-    ## remove Unannotated isolates.
-    filter(Annotation != "Unannotated") %>%
-    filter(Annotation != "blank") %>%
-    filter(str_detect(.$product,IS.keywords)) %>%
-    group_by(Annotation) %>%
-    summarize(MGE_duplicates = sum(count)) %>%
-    arrange(desc(MGE_duplicates))
+    ## The number of singleton MGE genes.
+    singleton.MGE.genes.count <- singleton.proteins %>%
+        filter(str_detect(.$product,IS.keywords)) %>%
+        group_by(Annotation) %>%
+        summarize(MGE_singletons = sum(count)) %>%
+        arrange(desc(MGE_singletons))
 
-## The number of duplicated genes in each category.
-duplicate.genes.count <- duplicate.proteins %>%
-    ## remove Unannotated isolates.
-    filter(Annotation != "Unannotated") %>%
-    filter(Annotation != "blank") %>%
-    group_by(Annotation) %>%
-    summarize(duplicate_genes = sum(count)) %>%
-    arrange(desc(duplicate_genes))
+    ## Sum up the totals for duplicate genes and singleton genes.
+    ## This is the baseline column for statistical tests.
+    total.genes.count <- duplicate.genes.count %>%
+        full_join(singleton.genes.count) %>%
+        mutate(total_genes = duplicate_genes + singleton_genes) %>%
+        select(Annotation, total_genes)
+    
+    ## This data structure is important for later code.
+    big.gene.analysis.df <- duplicate.AR.genes.count %>%
+        full_join(duplicate.MGE.genes.count) %>%
+        full_join(duplicate.genes.count) %>%
+        full_join(singleton.AR.genes.count) %>%
+        full_join(singleton.MGE.genes.count) %>%
+        full_join(singleton.genes.count) %>%
+        full_join(total.genes.count) %>%
+        mutate(AR_duplicates = replace_na(AR_duplicates, 0)) %>%
+        arrange(desc(AR_duplicates))
+    
+    return(big.gene.analysis.df)
+}
 
-## The number of singleton genes in each category.
-singleton.genes.count <- singleton.proteins %>%
-    group_by(Annotation) %>%
-    summarize(singleton_genes = sum(count)) %>%
-    arrange(desc(singleton_genes))
+big.gene.analysis.df <- make.big.gene.analysis.df(duplicate.proteins, singleton.proteins)
 gc() ## free memory
-
-## The number of singleton AR genes.
-singleton.AR.genes.count <- singleton.proteins %>%
-    filter(str_detect(.$product,antibiotic.keywords)) %>%
-    group_by(Annotation) %>%
-    summarize(AR_singletons = sum(count)) %>%
-    arrange(desc(AR_singletons))
-gc() ## free memory
-
-## The number of singleton MGE genes.
-singleton.MGE.genes.count <- singleton.proteins %>%
-    filter(str_detect(.$product,IS.keywords)) %>%
-    group_by(Annotation) %>%
-    summarize(MGE_singletons = sum(count)) %>%
-    arrange(desc(MGE_singletons))
-gc() ## free memory
-
-## Sum up the totals for duplicate genes and singleton genes.
-## This is the baseline column for statistical tests.
-total.genes.count <- duplicate.genes.count %>%
-    full_join(singleton.genes.count) %>%
-    mutate(total_genes = duplicate_genes + singleton_genes) %>%
-    select(Annotation, total_genes)
-
-## This data structure is important for later code.
-big.gene.analysis.df <- duplicate.AR.genes.count %>%
-    full_join(duplicate.MGE.genes.count) %>%
-    full_join(duplicate.genes.count) %>%
-    full_join(singleton.AR.genes.count) %>%
-    full_join(singleton.MGE.genes.count) %>%
-    full_join(singleton.genes.count) %>%
-    full_join(total.genes.count) %>%
-    mutate(AR_duplicates = replace_na(AR_duplicates, 0)) %>%
-    arrange(desc(AR_duplicates))
-
 #############################
 
 ## Use the data in Figure S1 to make Figure 3.
