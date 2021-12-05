@@ -245,7 +245,7 @@ write.csv(x=TableS1, file="../results/TableS1.csv")
 ## Use the total isolate order in TableS1 for organizing the pie chart figures.
 order.by.total_isolates.vec <- TableS1$Annotation
 
-######################
+###############################################################################
 ## Control: does the number of isolates with duplicate genes
 ## follow the sampling distribution of isolates?
 
@@ -760,7 +760,7 @@ EF.Tu.genera.summary <- full_join(
 duplicate.ribosomal.proteins <- duplicate.proteins %>%
     tibble() %>% filter(str_detect(product,"\\bribosomal protein\\b"))
 
-duplicate.ribosomal.protein.genera.summary <- duplicated.ribosomal.proteins %>%
+duplicate.ribosomal.protein.genera.summary <- duplicate.ribosomal.proteins %>%
     mutate(Genus = stringr::word(Organism, 1)) %>%
     group_by(Genus, Annotation) %>%
     summarize(duplicated.ribosomal.proteins.count = n()) %>%
@@ -1173,7 +1173,7 @@ make.Fig3 <- function(Fig3.df) {
             breaks = scales::trans_breaks("log10", function(x) 10^x),
             labels = scales::trans_format("log10", scales::math_format(10^.x))
         ) +
-        xlab("Chromosomal multi-copy proteins") +
+        xlab("Chromosomal multi-copy genes") +
         ylab("Chromosomal multi-copy ARGs")
     
     Fig3B <- ggplot(Fig3.df, aes(x=plasmid_duplicate_genes,
@@ -1194,7 +1194,7 @@ make.Fig3 <- function(Fig3.df) {
             breaks = scales::trans_breaks("log10", function(x) 10^x),
             labels = scales::trans_format("log10", scales::math_format(10^.x))
         ) +
-        xlab("Plasmid multi-copy proteins") +
+        xlab("Plasmid multi-copy genes") +
         ylab("Plasmid multi-copy ARGs")
     
     Fig3C <- ggplot(Fig3.df, aes(x=chromosomal_singleton_genes,
@@ -1215,7 +1215,7 @@ make.Fig3 <- function(Fig3.df) {
             breaks = scales::trans_breaks("log10", function(x) 10^x),
             labels = scales::trans_format("log10", scales::math_format(10^.x))
         ) +
-        xlab("Chromosomal single-copy proteins") +
+        xlab("Chromosomal single-copy genes") +
         ylab("Chromosomal single-copy ARGs")
     
     Fig3D <- ggplot(Fig3.df, aes(x=plasmid_singleton_genes,
@@ -1236,7 +1236,7 @@ make.Fig3 <- function(Fig3.df) {
             breaks = scales::trans_breaks("log10", function(x) 10^x),
             labels = scales::trans_format("log10", scales::math_format(10^.x))
         ) +
-        xlab("Plasmid single-copy proteins") +
+        xlab("Plasmid single-copy genes") +
         ylab("Plasmid single-copy ARGs")
     Fig3 <- plot_grid(Fig3A, Fig3B, Fig3C, Fig3D, labels = c("A","B","C","D"), nrow=2)
     return(Fig3)
@@ -1496,6 +1496,155 @@ unannotated.duplicated.ARG.isolate.genera.summary <- unannotated.duplicate.prote
     arrange(desc(duplicated.ARG.genome.count))
 
 ################################################################################
+## Figure 4: examples that indicate generality of our method.
+## let's examine some other functions that we expect to be enriched in some, but
+## not all ecological annotations.
+
+
+## generic version of make.TableS1, for examining classes of genes other than
+## antibiotic resistance genes.
+
+make.IsolateEnrichmentTable <- function(gbk.annotation, duplicate.genes, keywords) {
+    ## count the number of isolates with duplicated genes of interest in each category.
+    category.counts <- duplicate.proteins %>%
+        filter(str_detect(.$product, keywords)) %>%
+        ## next two lines is to count isolates rather than genes
+        select(Annotation_Accession, Annotation) %>%
+        distinct() %>%
+        group_by(Annotation) %>%
+        summarize(isolates_with_duplicated_function = n()) %>%
+        arrange(desc(isolates_with_duplicated_function))
+    
+    ## join columns to make Table 1 with raw data.
+    raw.Table <- make.isolate.totals.col(gbk.annotation) %>%
+        left_join(category.counts) %>%
+        mutate(isolates_with_duplicated_function =
+                   replace_na(isolates_with_duplicated_function,0)) %>%
+        arrange(desc(isolates_with_duplicated_function))
+    
+    ## For consistency with Figure 1, use the distribution of sampled isolates as the null
+    ## distribution.
+    calc.expected.isolates.with.function <- function(raw.Table) {
+        sum.total.isolates <- sum(raw.Table$total_isolates)
+        total.isolates.with.duplicated.function <- sum(
+            raw.Table$isolates_with_duplicated_function)
+        Table <- raw.Table %>%
+            mutate(expected_isolates_with_duplicated_function = total.isolates.with.duplicated.function * total_isolates/sum.total.isolates)
+        return(Table)
+    }
+    
+    calc.isolate.function.gene.enrichment.pvals <- function(raw.Table) {
+        sum.total.isolates <- sum(raw.Table$total_isolates)
+        total.isolates.with.duplicated.function <- sum(raw.Table$isolates_with_duplicated_function)
+        Table <- raw.Table %>%
+            rowwise() %>%
+            mutate(binom.test.pval = binom.test
+            (
+                x = isolates_with_duplicated_function,
+                n = total.isolates.with.duplicated.function,
+                p = total_isolates/sum.total.isolates
+            )$p.value) %>%
+            mutate(corrected.pval = p.adjust(binom.test.pval,"BH")) %>%
+            ## use Benjamini-Hochberg p-value correction.
+            select(-binom.test.pval) ## drop original p-value after the correction.
+        return(Table)
+    }
+
+    ## Add a third column: expected number of isolates with duplicated function genes,
+    ## based on the percentage of isolates with duplicated genes.
+    Table <- raw.Table %>% calc.expected.isolates.with.function() %>%
+        ## Add a fourth column: p-values for deviation from
+        ## expected number of duplicated function genes, using binomial test,
+        ## correcting for multiple tests.
+        calc.isolate.function.gene.enrichment.pvals()
+
+    return(Table)
+}
+
+
+make.Fig4.panel.df <- function(Fig4.panel.table, pval.threshold = 0.05) {
+
+    total_isolates.sum <- sum(Fig4.panel.table$total_isolates)
+    isolates_with_duplicated_function.sum <- sum(Fig4.panel.table$isolates_with_duplicated_function)
+    
+    Fig4.panel.df <- Fig4.panel.table %>%
+        ## calculate y-coordinates for line for duplicate ARGs.
+        mutate(yvals.for.isolates_with_duplicated_function.line = total_isolates * isolates_with_duplicated_function.sum/total_isolates.sum) %>%
+        ## add a column for label colors in the Figure.
+        mutate(annotation_label_color = ifelse(
+        (isolates_with_duplicated_function > expected_isolates_with_duplicated_function)
+        && (corrected.pval < pval.threshold),
+        "red", "black"))
+    
+    return(Fig4.panel.df)
+
+}
+
+make.Fig4.panel <- function(Fig4.panel.df) {
+
+    Fig4.panel <- ggplot(Fig4.panel.df, aes(x=total_isolates,
+                                 y=isolates_with_duplicated_function,
+                                 label=Annotation)) +
+        theme_classic() +
+        geom_point(alpha=0.2) +                  
+        geom_line(aes(y=yvals.for.isolates_with_duplicated_function.line)) +
+        geom_text_repel(aes(color=annotation_label_color), size=3) +
+        scale_color_identity() +
+        scale_x_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        scale_y_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))
+        ) +
+        xlab("Total isolates")
+
+    return(Fig4.panel)
+}
+
+photosynthesis.table <- make.IsolateEnrichmentTable(gbk.annotation,
+                                                    duplicate.genes,
+                                                    "photosystem")
+
+N2.fixation.table <- make.IsolateEnrichmentTable(gbk.annotation,
+                                                 duplicate.genes,
+                                                 "nitrogenase")
+
+heavy.metal.table <- make.IsolateEnrichmentTable(gbk.annotation,
+                                                 duplicate.genes,
+                                                 "mercury|cadmium|arsen")
+
+heme.table <- make.IsolateEnrichmentTable(gbk.annotation,
+                                                 duplicate.genes,
+                                                 "heme")
+
+Fig4A.df <- make.Fig4.panel.df(photosynthesis.table)
+Fig4A <- make.Fig4.panel(Fig4A.df) +
+    ylab("Isolates with multi-copy photosystem genes") +
+    ggtitle("Photosynthesis")
+
+Fig4B.df <- make.Fig4.panel.df(N2.fixation.table)
+Fig4B <- make.Fig4.panel(Fig4B.df) +
+    ylab("Isolates with multi-copy nitrogenase genes") +
+    ggtitle("Nitrogen fixation")
+
+Fig4C.df <- make.Fig4.panel.df(heavy.metal.table)
+Fig4C <- make.Fig4.panel(Fig4C.df) +
+    ylab("Isolates with multi-copy heavy-metal resistance genes") +
+    ggtitle("Heavy-metal resistance")
+
+Fig4D.df <- make.Fig4.panel.df(heme.table)
+Fig4D <- make.Fig4.panel(Fig4D.df) +
+    ylab("Isolates with multi-copy heme degradation genes") +
+    ggtitle("Heme degradation")
+
+Fig4 <- plot_grid(Fig4A, Fig4B, Fig4C, Fig4D,
+                  labels = c("A","B","C","D"),
+                  nrow = 2)
+
+ggsave(Fig4, file = "../results/Fig4.pdf")
+################################################################################
 
 ## Calculate TF-IDF (Term Frequency times Inverse Document Frequency)
 ## for each ecological category, using protein sequences.
@@ -1513,6 +1662,8 @@ unannotated.duplicated.ARG.isolate.genera.summary <- unannotated.duplicate.prote
 ## proteins in each environment, after removing MGEs, EF-Tu, and unknown,
 ## hypothetical, or uncharacterized proteins (since many different protein families
 ## can be described this way).
+
+## This stuff will go into the Supplementary Material.
 
 ## this function filters proteins by manual annotation category,
 ## supplied as an argument, and summarizes by count of product annotation strings.
@@ -1555,7 +1706,7 @@ dup.prot.annotation.tf_idf <- big.dup.prot.annotation.freq.table %>%
 
 top.dup.prot.annotation.tf_idf <- dup.prot.annotation.tf_idf %>%
     group_by(Annotation) %>%
-    slice_max(tf_idf, n = 100) %>%
+    slice_max(tf_idf, n = 5) %>%
     ungroup()
 
 dup.prot.annotation.tf_idf.plot <- top.dup.prot.annotation.tf_idf %>%
