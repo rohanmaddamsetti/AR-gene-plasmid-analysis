@@ -1611,7 +1611,7 @@ N2.fixation.table <- make.IsolateEnrichmentTable(gbk.annotation,
                                                  duplicate.genes,
                                                  "nitrogenase")
 
-heavy.metal.table <- make.IsolateEnrichmentTable(gbk.annotation,
+toxic.metal.table <- make.IsolateEnrichmentTable(gbk.annotation,
                                                  duplicate.genes,
                                                  "mercury|cadmium|arsen")
 
@@ -1629,10 +1629,10 @@ Fig4B <- make.Fig4.panel(Fig4B.df) +
     ylab("Isolates with multi-copy nitrogenase genes") +
     ggtitle("Nitrogen fixation")
 
-Fig4C.df <- make.Fig4.panel.df(heavy.metal.table)
+Fig4C.df <- make.Fig4.panel.df(toxic.metal.table)
 Fig4C <- make.Fig4.panel(Fig4C.df) +
-    ylab("Isolates with multi-copy heavy-metal resistance genes") +
-    ggtitle("Heavy-metal resistance")
+    ylab("Isolates with multi-copy toxic-metal resistance genes") +
+    ggtitle("Toxic-metal resistance")
 
 Fig4D.df <- make.Fig4.panel.df(heme.table)
 Fig4D <- make.Fig4.panel(Fig4D.df) +
@@ -1643,7 +1643,7 @@ Fig4 <- plot_grid(Fig4A, Fig4B, Fig4C, Fig4D,
                   labels = c("A","B","C","D"),
                   nrow = 2)
 
-ggsave(Fig4, file = "../results/Fig4.pdf")
+ggsave(Fig4, file = "../results/Fig4.pdf", width = 8.5, height = 8.5)
 ################################################################################
 
 ## Calculate TF-IDF (Term Frequency times Inverse Document Frequency)
@@ -1941,7 +1941,7 @@ best.dup.prot.annotation.tf_idf <- dup.prot.annotation.tf_idf %>%
     slice_max(tf_idf, n = 5) %>%
     ungroup()
 
-Fig4 <- ggplot(best.dup.prot.annotation.tf_idf,
+S1Fig <- ggplot(best.dup.prot.annotation.tf_idf,
                 aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
     geom_col(show.legend = FALSE) +
     labs(x = "tf-idf", y = NULL) +
@@ -1950,4 +1950,4 @@ Fig4 <- ggplot(best.dup.prot.annotation.tf_idf,
     facet_wrap(.~Annotation, ncol=1, scales = "free_y") +
     ggtitle("Most informative multi-copy protein annotations")
 
-ggsave("../results/Fig4.pdf", Fig4, width=8, height = 8)
+ggsave("../results/S1Fig.pdf", S1Fig, width=8, height = 8)
