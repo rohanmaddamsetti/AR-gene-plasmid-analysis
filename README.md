@@ -42,7 +42,7 @@ sbatch --mem=2G -t 6:00:00 --wrap="python count-duplicate-proteins.py"
 ## this runs for ~2.5h on DCC.
 sbatch --mem=2G -t 6:00:00 --wrap="python count-all-proteins.py"
 
-Then, copy the following files from the results/AR-gene-duplication
+Then, copy the following files from the results/
 directory onto my local machine (same directory name and file structure).
 
 duplicate-proteins.csv
