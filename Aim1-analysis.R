@@ -1606,18 +1606,23 @@ make.Fig4.panel <- function(Fig4.panel.df) {
 photosynthesis.table <- make.IsolateEnrichmentTable(gbk.annotation,
                                                     duplicate.genes,
                                                     "photosystem")
+write.csv(x=photosynthesis.table, file="../results/TableS4.csv")
 
 N2.fixation.table <- make.IsolateEnrichmentTable(gbk.annotation,
                                                  duplicate.genes,
                                                  "nitrogenase")
+write.csv(x=N2.fixation.table, file="../results/TableS5.csv")
 
 toxic.metal.table <- make.IsolateEnrichmentTable(gbk.annotation,
                                                  duplicate.genes,
                                                  "mercury|cadmium|arsen")
+write.csv(x=toxic.metal.table, file="../results/TableS6.csv")
 
 heme.table <- make.IsolateEnrichmentTable(gbk.annotation,
-                                                 duplicate.genes,
-                                                 "heme")
+                                          duplicate.genes,
+                                          "heme")
+write.csv(x=heme.table, file="../results/TableS7.csv")
+
 
 Fig4A.df <- make.Fig4.panel.df(photosynthesis.table)
 Fig4A <- make.Fig4.panel(Fig4A.df) +
@@ -1931,8 +1936,8 @@ ggsave("../results/duplicate-protein-seq-TF-IDF.pdf",
 
 ##########################################
 
-## Figure 4. annotations of multi-copy proteins are informative about
-## ecology. This figure and the associated message needs work!
+## Figure S1. annotations of multi-copy proteins are informative about
+## ecology.
 
 best.dup.prot.annotation.tf_idf <- dup.prot.annotation.tf_idf %>%
     filter(Annotation %in% c("Agriculture", "Anthropogenic-environment",

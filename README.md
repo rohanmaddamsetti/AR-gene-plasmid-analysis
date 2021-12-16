@@ -12,7 +12,7 @@ wget https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/prokaryotes.txt
 Then, filter the prokaryotes genome data for those that have both
 plasmids and chromosomes:
 
-python filter-genome-reports.py > ../results/AR-gene-duplication/prokaryotes-with-plasmids.txt
+python filter-genome-reports.py > ../results/prokaryotes-with-plasmids.txt
 
 Then, fetch genome annotation for each row in prokaryotes-with-plasmids.txt,
 and fetch the protein-coding genes for all chromosomes and plasmids for
@@ -34,7 +34,7 @@ python make-chromosome-plasmid-table.py
 python make-gbk-annotation-table.py ## this runs for ~9 min on DCC.
 
 ## this runs for 2 min on DCC. 
-python count-cds.py > ../results/AR-gene-duplication/protein_db_CDS_counts.csv
+python count-cds.py > ../results/protein_db_CDS_counts.csv
 
 ## this runs for ~2.5h on DCC.
 sbatch --mem=2G -t 6:00:00 --wrap="python count-duplicate-proteins.py" 
@@ -56,7 +56,7 @@ prokaryotes-with-plasmids.txt
 Then, run the follow scripts to annotate the genomes, and to cross-check
 the computational annotation against a subset of annotations that were conducted manually.
 
-python annotate-ecological-category.py > ../results/AR-gene-duplication/computationally-annotated-gbk-annotated-table.csv
+python annotate-ecological-category.py > ../results/computationally-annotated-gbk-annotated-table.csv
 
 python check-ecological-annotation.py
 
