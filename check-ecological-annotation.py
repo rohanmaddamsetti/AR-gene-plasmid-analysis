@@ -30,7 +30,7 @@ correctCount = 0
 unstableAnnotationCount = 0
 computational_accessions = [] ## for error checking.
 
-with open("../results/AR-gene-duplication/computationally-annotated-gbk-annotation-table.csv") as fh:
+with open("../results/computationally-annotated-gbk-annotation-table.csv") as fh:
     for i, line in enumerate(fh):
         if i == 0: continue ## skip the header.
         line = line.strip()

@@ -7,13 +7,13 @@ This script goes through the headers in ../results/protein_db.faa,
 makes a dictionary of NCBI_Nucleotide_Accessions to number of sequences
 in the database with that accession.
 
-Usage: python count-cds.py > ../results/AR-gene-duplication/protein_db_CDS_counts.csv
+Usage: python count-cds.py > ../results/protein_db_CDS_counts.csv
 
 '''
 
 cds_counts = {}
 
-with open("../results/AR-gene-duplication/protein_db.faa","r") as protein_db_fh:
+with open("../results/protein_db.faa","r") as protein_db_fh:
     for line in protein_db_fh:
         ## skip unless it's a sequence header
         if not line.startswith('>'): continue

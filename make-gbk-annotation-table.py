@@ -8,9 +8,9 @@ import os
 import gzip
 from tqdm import tqdm
 
-gbk_annotation_dir = "../results/AR-gene-duplication/gbk-annotation/"
+gbk_annotation_dir = "../results/gbk-annotation/"
 
-with open("../results/AR-gene-duplication/gbk-annotation-table.csv","w") as out_fh:
+with open("../results/gbk-annotation-table.csv","w") as out_fh:
     header = "Annotation_Accession,host,isolation_source\n"
     out_fh.write(header)
 

@@ -11,7 +11,7 @@ agriculture, on the other hand, refers strictly to crop plants-- soil is not inc
 
 In addition, "rhizosphere" always maps to the Soil annotation.
 
-Usage: python annotate-ecological-category.py > ../results/AR-gene-duplication/computationally-annotated-gbk-annotation-table.csv
+Usage: python annotate-ecological-category.py > ../results/computationally-annotated-gbk-annotation-table.csv
 '''
 
 ########################################################################################################################
@@ -600,7 +600,7 @@ na_isolation_sources = [
 print("Annotation_Accession,host,isolation_source,Annotation")  ## print header
 
 ##with open("pretend-input-gbk-annotation-table.csv", "r") as annotation_fh: ##this version is just for debugging.
-with open("../results/AR-gene-duplication/gbk-annotation-table.csv", "r") as annotation_fh:
+with open("../results/gbk-annotation-table.csv", "r") as annotation_fh:
     for i, line in enumerate(annotation_fh):
         if i == 0: continue ## skip the header.
         line = line.strip()  ## remove trailing newline characters

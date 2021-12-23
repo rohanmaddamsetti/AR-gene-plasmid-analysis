@@ -23,15 +23,15 @@ And make sure these scripts are called from the src directory.
 fetch-gbk-annotation should take about 3 hours,
 and fetch-genome-and-plasmid-cds.py should take about 6 hours.
 
-sbatch --mem=2G -t 24:00:00 --wrap="python fetch-gbk-annotation.py"
-sbatch --mem=2G -t 24:00:00 --wrap="python fetch-genome-and-plasmid-cds.py"
+sbatch --mem=2G -t 24:00:00 --wrap="python fetch-gbk-annotation.py"  
+sbatch --mem=2G -t 24:00:00 --wrap="python fetch-genome-and-plasmid-cds.py"  
 
 Once the data has downloaded, run the following scripts. Some run
 quite quickly, so no need to submit them to a partition on DCC--
 just run them in an interactive session on DCC.
 
-python make-chromosome-plasmid-table.py
-python make-gbk-annotation-table.py ## this runs for ~9 min on DCC.
+python make-chromosome-plasmid-table.py  
+python make-gbk-annotation-table.py ## this runs for ~9 min on DCC.  
 
 ## this runs for 2 min on DCC. 
 python count-cds.py > ../results/protein_db_CDS_counts.csv
@@ -45,18 +45,18 @@ sbatch --mem=2G -t 6:00:00 --wrap="python count-all-proteins.py"
 Then, copy the following files from the results/
 directory onto my local machine (same directory name and file structure).
 
-duplicate-proteins.csv
-all-proteins.csv
-protein_db_CDS_counts.csv
-gbk-annotation-table.csv
-chromosome-plasmid-table.csv
-protein_db.faa
-prokaryotes-with-plasmids.txt
+duplicate-proteins.csv  
+all-proteins.csv  
+protein_db_CDS_counts.csv  
+gbk-annotation-table.csv  
+chromosome-plasmid-table.csv  
+protein_db.faa  
+prokaryotes-with-plasmids.txt  
 
 Then, run the follow scripts to annotate the genomes, and to cross-check
 the computational annotation against a subset of annotations that were conducted manually.
 
-python annotate-ecological-category.py > ../results/computationally-annotated-gbk-annotated-table.csv
+python annotate-ecological-category.py > ../results/computationally-annotated-gbk-annotated-table.csv  
 
-python check-ecological-annotation.py
+python check-ecological-annotation.py  
 
