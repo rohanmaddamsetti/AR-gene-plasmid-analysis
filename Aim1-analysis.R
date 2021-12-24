@@ -8,6 +8,15 @@
 ## singleton.proteins, in terms of number of isolates in each
 ## category, are COMPLETELY consistent with each other.
 
+## To address this, I will do the following:
+## 1) verify the location of each gene to avoid double-counting
+## due to annotation errors in the databases.
+## 2) reduce code duplication by adding a flag to one script counting genes,
+## and deleting the other one.
+## 3) filter gbk.annotation in one block of code, and remove
+## all "blank" and "Unannotated" genomes throughout, since they
+## are never analyzed anywhere in this analysis code.
+
 ## TODO: CAREFULLY re-number Supplementary Tables based on the manuscript.
 ## work backwards to avoid interchanging data structures between pieces of code.
 
@@ -28,10 +37,11 @@ fancy_scientific <- function(x) {
 
 
 ## annotate source sequence as plasmid or chromosome.
-genome.database <- read.csv("../results/chromosome-plasmid-table.csv")
+genome.database <- read.csv("../results/chromosome-plasmid-table.csv") %>%
+    as_tibble()
 
-## CRITICAL TODO: edit annotate-ecological-category.py to take care of the "blank" entries.
-gbk.annotation <- as_tibble(read.csv("../results/computationally-annotated-gbk-annotation-table.csv")) %>%
+gbk.annotation <- read.csv("../results/computationally-annotated-gbk-annotation-table.csv") %>%
+as_tibble() %>%
     ## refer to NA annotations as "Unannotated".
     mutate(Annotation = replace_na(Annotation,"Unannotated")) %>%
     ## get species name annotation from genome.database.
@@ -45,9 +55,6 @@ gbk.annotation <- as_tibble(read.csv("../results/computationally-annotated-gbk-a
     distinct()
 
 ########################
-## IMPORTANT NOTE: CHECK FOR CONSISTENCY IN protein_db_CDS_counts.csv!!!
-## most importantly, examine replicons which are neither annotated as
-## chromosomes or plasmids.
 cds.counts <- read.csv("../results/protein_db_CDS_counts.csv")
 
 protein.db.metadata <- genome.database %>%
@@ -119,36 +126,37 @@ all.proteins <- data.table::fread("../results/all-proteins.csv",
 all.singleton.proteins <- all.proteins %>% filter(count == 1)
 
 ## free up memory by deallocating all.proteins,
-rm(all.proteins)
+##rm(all.proteins)
 ## and running garbage collection.
-gc()
+##gc()
 
 ## read in duplicate proteins with sequences, using a separate file.
-all.duplicate.proteins <- read.csv("../results/duplicate-proteins.csv") %>% left_join(gbk.annotation)
+all.duplicate.proteins <- read.csv("../results/duplicate-proteins.csv") %>%
     ## now merge with gbk annotation.
     ## I am doing a left_join here, because I want the NA Manual_Accessions
     ## in order to predict where these unannotated strains come from.
+    left_join(gbk.annotation)
 
 ## Some strains in chromosome-and-plasmid-table.csv and
 ## gbk-annotation-table.csv are missing from
 ## all-proteins.csv and duplicate-proteins.csv.
 ## These should be the genomes that do not have
 ## CDS annotated in their GFF annotation.
-## list the 926 strains missing from the singletons data.
+## list the 1074 strains missing from the singletons data.
 missing.ones <- gbk.annotation %>%
     filter(!(Annotation_Accession %in% all.singleton.proteins$Annotation_Accession))
+write.csv(missing.ones, file= "../results/strains-without-proteins.csv")
+
+## CRITICAL STEP: remove all genomes that do not have proteins annotated.
+gbk.annotation <- anti_join(gbk.annotation, missing.ones)
 
 #################
 ## For the first part of the data analysis, ignore genes from Unannotated isolates.
 duplicate.proteins <- all.duplicate.proteins %>%
-    filter(Annotation != "Unannotated") %>%
-    ## TODO: in the future, there should not be any "blank" genomes.
-    filter(Annotation != "blank")
+    filter(Annotation != "Unannotated")
 
 singleton.proteins <- all.singleton.proteins %>%
-    filter(Annotation != "Unannotated") %>%
-    ## TODO: in the future, there should not be any "blank" genomes
-    filter(Annotation != "blank")
+    filter(Annotation != "Unannotated")
 
 ## for now, remove these data structures from memory, since they are not used
 ## in any analyses yet.
@@ -162,6 +170,22 @@ gc()
 ## there are 7,910 isolates that have annotated proteins in their Genbank
 ## annotation. 634 are missing protein (CDS) annotation in their genome.
 ## for now, I have restricted these data by filtering on Annotation_Accession--
+
+## CRITICAL ANALYSIS TODO: Make sure numbers in genome.database,
+## gbk.annotation, and all.proteins, duplicate.proteins, and
+## singleton.proteins, in terms of number of isolates in each
+## category, are COMPLETELY consistent with each other.
+
+## There are 11764 Annotation_Accessions in genome.database and gbk.annotation.
+
+## let's examine all.proteins to check for discrepancies.
+
+## 1) are there Annotation_Accessions with no proteins?
+
+
+## CRITICAL ANALYSIS TODO: use location information in the protein annotation
+## to prevent double-counting of duplicate genes.   
+
 ###########################################################################
 ## Analysis for Figure 1C.
 
