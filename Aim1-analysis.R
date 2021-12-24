@@ -1673,7 +1673,7 @@ Fig4 <- plot_grid(Fig4A, Fig4B, Fig4C, Fig4D,
                   nrow = 2)
 
 ggsave(Fig4, file = "../results/Fig4.pdf", width = 8.5, height = 8.5)
-################################################################################
+##########################################################################
 
 ## Calculate TF-IDF (Term Frequency times Inverse Document Frequency)
 ## for each ecological category, using protein sequences.
