@@ -13,12 +13,33 @@ Usage: python count-cds.py > ../results/protein_db_CDS_counts.csv
 
 cds_counts = {}
 
+## some genomes have artifactual duplicate CDS in their annotation
+## (at least 10 Xanthomonas strains as of 12/24/2021).
+## To handle these cases, make sure that the location of each cds per accession
+## has not been seen before.
+
+accession_to_CDS_locs = {} ## This is a dict of dicts for O(1) lookups.
+
 with open("../results/protein_db.faa","r") as protein_db_fh:
     for line in protein_db_fh:
         ## skip unless it's a sequence header
         if not line.startswith('>'): continue
         fields = line.split()
         ncbi_nucleotide_accession = fields[0].split('|')[-1].split('_prot')[0]
+        prot_location = fields[-2].strip("[]").split('=')[-1]
+
+        ## check for artifactual duplicates
+        ## (same location, found multiple times).
+        if ncbi_nucleotide_accession in accession_to_CDS_locs:
+            episome_dict = accession_to_CDS_locs[ncbi_nucleotide_accession]
+            if prot_location in episome_dict: ## then we have seen this protein
+                continue ## in this episome already-- skip this artifact.
+            else: ## mark that we are seeing this protein for the first time.
+                episome_dict.update({prot_location:True})
+        else:
+            accession_to_CDS_locs[ncbi_nucleotide_accession] = {}
+
+        ## after passing error checking, update the number of cds in this episome.
         if ncbi_nucleotide_accession in cds_counts:
             cds_counts[ncbi_nucleotide_accession] += 1
         else:

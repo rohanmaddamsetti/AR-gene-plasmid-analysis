@@ -1,24 +1,34 @@
 #!/usr/bin/env python
 
 '''
-count-all-proteins.py by Rohan Maddamsetti.
+tabulate-proteins.py by Rohan Maddamsetti.
 
-This script counts and tabulates all proteins in a strain that have multiple
+This script tabulates all proteins in a strain that have multiple
 identical copies across all chromosomes and plasmids.
 
-Usage: python count-all-proteins.py
+Usage: python tabulate-proteins.py ## for tabulating all proteins
+
+Usage: python tabulate-proteins.py --ignore-singletons ## for tabulating multi-copy proteins only
 '''
 
 import os
 import gzip
 from Bio import SeqIO
 from tqdm import tqdm
+import argparse
 
-## flag to filter out non-duplicated proteins.
-## set to False right now, so that we can look at the distribution of
-## non-duplicated AR genes as a positive control.
-ignore_singletons = False
-
+parser = argparse.ArgumentParser(description="Tabulate protein copies across all chromosomes and plasmids of the bacterial strains in these data.")
+parser.add_argument('--ignore-singletons', dest='ignore_singletons', action='store_const',
+                    const=True, default=False,
+                    help="only tabulate multi-copy proteins (default: tabulate all proteins)")
+args = parser.parse_args()
+print("ignore singletons? =>", args.ignore_singletons)
+if args.ignore_singletons:
+    outf = "../results/duplicate-proteins.csv"
+else:
+    outf = "../results/all-proteins.csv"
+print("outfile =>", outf)
+    
 ## use the data in chromosome-plasmid-table.csv to look up replicon type,
 ## based on Annotation_Accession and then NCBI Nucleotide ID.
 
@@ -37,7 +47,6 @@ with open(chromosome_plasmid_tbl, 'r') as chromosome_plasmid_fh:
         else:
             replicon_type_lookup_table[my_annot_accession] = {rep_id : rep_type}
 
-outf = "../results/all-proteins.csv"
 with open(outf, 'w') as outfh:
     header = "Annotation_Accession,count,chromosome_count,plasmid_count,unassembled_count,product,sequence\n"
     outfh.write(header)
@@ -72,8 +81,14 @@ with open(outf, 'w') as outfh:
                                                    "chromosome_count":0,
                                                    "plasmid_count":0,
                                                    "unassembled_count":0,
-                                                   "product":prot_product}
-                    ## in all cases, update the counts.
+                                                   "product":prot_product,
+                                                   "locations":[]}
+                    ## check to see that the location has not been seen before.
+                    prot_location = str(feat.location)
+                    if prot_location in protein_dict[prot_seq]["locations"]:
+                        continue
+                    ## in all cases, add the location and update the counts.
+                    protein_dict[prot_seq]["locations"].append(prot_location)
                     protein_dict[prot_seq]["count"] += 1
                     if replicon_type == "chromosome": ## keep track of copies on chromosomes and plasmids
                         protein_dict[prot_seq]['chromosome_count'] += 1
@@ -81,7 +96,7 @@ with open(outf, 'w') as outfh:
                         protein_dict[prot_seq]['plasmid_count'] += 1
                     elif replicon_type == "contig":
                         protein_dict[prot_seq]['unassembled_count'] += 1
-            if ignore_singletons:
+            if args.ignore_singletons:
                 ## then throw away all single copy entries.
                 filtered_prot_dict = {k:v for (k,v) in protein_dict.items() if v['count'] > 1}
             else:

@@ -9,10 +9,6 @@
 ## category, are COMPLETELY consistent with each other.
 
 ## To address this, I will do the following:
-## 1) verify the location of each gene to avoid double-counting
-## due to annotation errors in the databases.
-## 2) reduce code duplication by adding a flag to one script counting genes,
-## and deleting the other one.
 ## 3) filter gbk.annotation in one block of code, and remove
 ## all "blank" and "Unannotated" genomes throughout, since they
 ## are never analyzed anywhere in this analysis code.
@@ -142,7 +138,7 @@ all.duplicate.proteins <- read.csv("../results/duplicate-proteins.csv") %>%
 ## all-proteins.csv and duplicate-proteins.csv.
 ## These should be the genomes that do not have
 ## CDS annotated in their GFF annotation.
-## list the 1074 strains missing from the singletons data.
+## list the 1,064 strains missing from the singletons data.
 missing.ones <- gbk.annotation %>%
     filter(!(Annotation_Accession %in% all.singleton.proteins$Annotation_Accession))
 write.csv(missing.ones, file= "../results/strains-without-proteins.csv")
