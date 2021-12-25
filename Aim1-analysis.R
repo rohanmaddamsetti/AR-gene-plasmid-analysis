@@ -8,11 +8,6 @@
 ## singleton.proteins, in terms of number of isolates in each
 ## category, are COMPLETELY consistent with each other.
 
-## To address this, I will do the following:
-## 3) filter gbk.annotation in one block of code, and remove
-## all "blank" and "Unannotated" genomes throughout, since they
-## are never analyzed anywhere in this analysis code.
-
 ## TODO: CAREFULLY re-number Supplementary Tables based on the manuscript.
 ## work backwards to avoid interchanging data structures between pieces of code.
 
@@ -31,17 +26,27 @@ fancy_scientific <- function(x) {
     ifelse(x==0, "0", parse(text=gsub("[+]", "", gsub("e", " %*% 10^", scales::scientific_format()(x)))))
 }
 
+################################################################################
+## Set up the key data structures for the analysis:
+## gbk.annotation, in particular.
 
-## annotate source sequence as plasmid or chromosome.
-genome.database <- read.csv("../results/chromosome-plasmid-table.csv") %>%
+## import the 17GB file containing all proteins, including singletons.
+## I can save a ton of memory if I don't import the sequence column,
+## and by using the data.table package for import.
+all.proteins <- data.table::fread("../results/all-proteins.csv",
+                                  drop="sequence")
+
+## annotate source sequences as plasmid or chromosome.
+episome.database <- read.csv("../results/chromosome-plasmid-table.csv") %>%
     as_tibble()
 
-gbk.annotation <- read.csv("../results/computationally-annotated-gbk-annotation-table.csv") %>%
-as_tibble() %>%
+gbk.annotation <- read.csv(
+    "../results/computationally-annotated-gbk-annotation-table.csv") %>%
+    as_tibble() %>%
     ## refer to NA annotations as "Unannotated".
     mutate(Annotation = replace_na(Annotation,"Unannotated")) %>%
-    ## get species name annotation from genome.database.
-    left_join(genome.database) %>%
+    ## get species name annotation from episome.database.
+    left_join(episome.database) %>%
     ## CRITICAL STEP: remove the NCBI_Nucleotide_Accession and SequenceType columns.
     ## This is absolutely critical, otherwise each row is duplicated for every
     ## chromosome and plasmid, breaking the invariant that each row refers to one sequence,
@@ -50,12 +55,52 @@ as_tibble() %>%
     ## and we have to explicitly remove redundant rows now.
     distinct()
 
-########################
+## Some strains in chromosome-and-plasmid-table.csv and
+## gbk-annotation-table.csv are missing from
+## all-proteins.csv
+## These should be the genomes that do not have
+## CDS annotated in their GFF annotation.
+## list the 1,064 strains missing from the singletons data.
+missing.ones <- gbk.annotation %>%
+    filter(!(Annotation_Accession %in% all.proteins$Annotation_Accession))
+write.csv(missing.ones, file= "../results/strains-without-proteins.csv")
+
+## CRITICAL STEP: remove all genomes that do not have proteins annotated.
+gbk.annotation <- anti_join(gbk.annotation, missing.ones) %>%
+    ## And now remove all Unannotated genomes, since these are not analyzed
+    ## at all in this first paper.
+    filter(Annotation != "Unannotated") %>%
+    ## and remove any strains (although none should fall in this category)
+    ## that were not annotated by annotate-ecological-category.py.
+    filter(Annotation != "blank")
+
+## and filter episome.database to be consistent with gbk.annotation.
+episome.database <- episome.database %>%
+    filter(Annotation_Accession %in% gbk.annotation$Annotation_Accession)
+
+## now get the singleton protein by filtering.
+singleton.proteins <- all.proteins %>%
+    filter(count == 1) %>%
+    inner_join(gbk.annotation)
+
+## read in duplicate proteins with sequences, using a separate file.
+## I want the sequence column for the duplicate genes,
+## but not for the singletons, to save memory.
+duplicate.proteins <- read.csv("../results/duplicate-proteins.csv") %>%
+    ## now merge with gbk annotation.
+    inner_join(gbk.annotation)
+
+## free up memory by deallocating all.proteins,
+rm(all.proteins)
+## and running garbage collection.
+gc()
+
+########################################################################
 cds.counts <- read.csv("../results/protein_db_CDS_counts.csv")
 
-protein.db.metadata <- genome.database %>%
-    left_join(gbk.annotation) %>%
-    left_join(cds.counts)    
+protein.db.metadata <- episome.database %>%
+    inner_join(gbk.annotation) %>%
+    inner_join(cds.counts)
 
 ## check out the different host and isolation source annotations.
 chromosome.annotation <- protein.db.metadata %>%
@@ -70,33 +115,21 @@ plasmid.annotation <- protein.db.metadata %>%
     summarize(number = n()) %>%
     arrange(desc(number))
 
-## Check to see that the genomes and plasmids in the paper
-## "Single-molecule sequencing to track plasmid diversity of
-## hospital-associated carbapenemase-producing Enterobacteriaceae"
-## by Conlan et al. (2014) in Science Advances are in AR.results.
-## Strains with plasmids are in Table 2 of this paper.
-Conlan.strains <- c("KPNIH1","KPNIH10","ECNIH3","ECNIH5","KPNIH27",
-                    "CFNIH1","ECNIH2","KPNIH24","ECR091","KONIH1", 
-                    "KPR0928","ECNIH4","PSNIH1","KPNIH32","PSNIH2",
-                    "KPNIH33","ECONIH1","KPNIH30","KPNIH29","KPNIH31")
-
-Conlan.strains %in% protein.db.metadata$Strain
 ################################################################################
+## Regular expressions used in this analysis.
 
-## Simple analysis of recent protein duplications and HGT between
-## chromosome and plasmids.
-
-## remove all genes with the following keywords in the "product" annotation
+## match MGE genes using the following keywords in the "product" annotation
 IS.keywords <- "IS|transposon|Transposase|transposase|Transposable|transposable|hypothetical protein|Phage|phage|integrase|Integrase|tail|intron|Mobile|mobile|antitoxin|toxin|capsid|plasmid|Plasmid|conjug"
 
-## remove all genes that match Elongation Factor Tu (2 copies in most bacteria).
+## Elongation Factor Tu (2 copies in most bacteria).
 ## \\b is a word boundary.
 ## see: https://stackoverflow.com/questions/62430498/detecting-whole-words-using-str-detect-in-r
 EFTu.keywords <- "\\bTu | Tu\\b|-Tu\\b"
 
-## now look at a few antibiotic-specific annotations.
+## antibiotic-specific keywords.
 antibiotic.keywords <- "lactamase|chloramphenicol|quinolone|antibiotic resistance|tetracycline|VanZ"
 
+## unknown protein keywords
 unknown.protein.keywords <- "unknown|Unknown|hypothetical|Hypothetical|Uncharacterized|Uncharacterised|uncharacterized|uncharacterised|DUF|unknow|putative protein in bacteria|Unassigned|unassigned"
 
 ## The regular expressions used by Zeevi et al. (2019).
@@ -106,81 +139,6 @@ unknown.protein.keywords <- "unknown|Unknown|hypothetical|Hypothetical|Uncharact
 ## phage: ‘capsid|phage|tail|head|tape measure|antiterminatio’
 ## other HGT mechanisms: ‘integrase|excision\S*|exo- nuclease|recomb|toxin|restrict\S*|resolv\S*|topoisomerase|reverse transcrip’
 ## antibiotic resistance: ‘azole resistance|antibiotic resistance|TetR|tetracycline resistance|VanZ|betalactam\S*|beta-lactam|antimicrob\S*|lantibio\S*’.
-
-## I want the sequence column for the duplicate genes,
-## but not for the singletons, to save memory.
-
-## import the 15GB file containing all proteins, including singletons.
-## I can save a ton of memory if I don't import the sequence column,
-## and by using the data.table package for import.
-all.proteins <- data.table::fread("../results/all-proteins.csv",
-                                  drop="sequence") %>%
-    left_join(gbk.annotation)
-## I am doing a left_join here, because I eventually want to
-## predict where the unannotated strains come from.
-
-all.singleton.proteins <- all.proteins %>% filter(count == 1)
-
-## free up memory by deallocating all.proteins,
-##rm(all.proteins)
-## and running garbage collection.
-##gc()
-
-## read in duplicate proteins with sequences, using a separate file.
-all.duplicate.proteins <- read.csv("../results/duplicate-proteins.csv") %>%
-    ## now merge with gbk annotation.
-    ## I am doing a left_join here, because I want the NA Manual_Accessions
-    ## in order to predict where these unannotated strains come from.
-    left_join(gbk.annotation)
-
-## Some strains in chromosome-and-plasmid-table.csv and
-## gbk-annotation-table.csv are missing from
-## all-proteins.csv and duplicate-proteins.csv.
-## These should be the genomes that do not have
-## CDS annotated in their GFF annotation.
-## list the 1,064 strains missing from the singletons data.
-missing.ones <- gbk.annotation %>%
-    filter(!(Annotation_Accession %in% all.singleton.proteins$Annotation_Accession))
-write.csv(missing.ones, file= "../results/strains-without-proteins.csv")
-
-## CRITICAL STEP: remove all genomes that do not have proteins annotated.
-gbk.annotation <- anti_join(gbk.annotation, missing.ones)
-
-#################
-## For the first part of the data analysis, ignore genes from Unannotated isolates.
-duplicate.proteins <- all.duplicate.proteins %>%
-    filter(Annotation != "Unannotated")
-
-singleton.proteins <- all.singleton.proteins %>%
-    filter(Annotation != "Unannotated")
-
-## for now, remove these data structures from memory, since they are not used
-## in any analyses yet.
-rm(all.singleton.proteins)
-
-## call garbage collector to free up memory.
-gc()
-
-##########################################
-## CRITICAL BUG TO FIX:
-## there are 7,910 isolates that have annotated proteins in their Genbank
-## annotation. 634 are missing protein (CDS) annotation in their genome.
-## for now, I have restricted these data by filtering on Annotation_Accession--
-
-## CRITICAL ANALYSIS TODO: Make sure numbers in genome.database,
-## gbk.annotation, and all.proteins, duplicate.proteins, and
-## singleton.proteins, in terms of number of isolates in each
-## category, are COMPLETELY consistent with each other.
-
-## There are 11764 Annotation_Accessions in genome.database and gbk.annotation.
-
-## let's examine all.proteins to check for discrepancies.
-
-## 1) are there Annotation_Accessions with no proteins?
-
-
-## CRITICAL ANALYSIS TODO: use location information in the protein annotation
-## to prevent double-counting of duplicate genes.   
 
 ###########################################################################
 ## Analysis for Figure 1C.
@@ -192,9 +150,6 @@ gc()
 ## shows the number of isolates in each category.
 make.isolate.totals.col <- function(gbk.annotation) {
     isolate.totals <- gbk.annotation %>%
-        ## remove Unannotated isolates as we're working with gbk.annotation.
-        filter(Annotation != "Unannotated") %>%
-        filter(Annotation != "blank") %>%
         group_by(Annotation) %>%
         summarize(total_isolates = n()) %>%
         arrange(desc(total_isolates))
@@ -755,7 +710,7 @@ singleton.EF.Tu <- singleton.proteins %>%
     tibble() %>% filter(str_detect(product,EFTu.keywords))
 
 ## find average number of EF-Tu sequences per genome. 1.52 per genome.
-num.genomes <- nrow(filter(gbk.annotation,!(Annotation %in% c("Unannotated","blank"))))
+num.genomes <- nrow(gbk.annotation)
 (sum(filter(Fig2A.summary,Category=="EF-Tu")$count) +
  sum(filter(Fig2B.summary,Category=="EF-Tu")$count))/num.genomes
 
@@ -923,9 +878,6 @@ make.big.gene.analysis.df <- function(duplicate.proteins, singleton.proteins) {
 
     ## The number of duplicated AR genes.
     duplicate.AR.genes.count <- duplicate.proteins %>%
-        ## remove Unannotated isolates.
-        filter(Annotation != "Unannotated") %>%
-        filter(Annotation != "blank") %>%
         filter(str_detect(.$product,antibiotic.keywords)) %>%
         group_by(Annotation) %>%
         summarize(AR_duplicates = sum(count)) %>%
@@ -933,9 +885,6 @@ make.big.gene.analysis.df <- function(duplicate.proteins, singleton.proteins) {
     
     ## The number of duplicated MGE genes.
     duplicate.MGE.genes.count <- duplicate.proteins %>%
-        ## remove Unannotated isolates.
-        filter(Annotation != "Unannotated") %>%
-        filter(Annotation != "blank") %>%
         filter(str_detect(.$product,IS.keywords)) %>%
         group_by(Annotation) %>%
         summarize(MGE_duplicates = sum(count)) %>%
@@ -943,9 +892,6 @@ make.big.gene.analysis.df <- function(duplicate.proteins, singleton.proteins) {
     
     ## The number of duplicated genes in each category.
     duplicate.genes.count <- duplicate.proteins %>%
-        ## remove Unannotated isolates.
-        filter(Annotation != "Unannotated") %>%
-        filter(Annotation != "blank") %>%
         group_by(Annotation) %>%
         summarize(duplicate_genes = sum(count)) %>%
         arrange(desc(duplicate_genes))
