@@ -3,11 +3,6 @@
 ## analyse the distribution of AR genes on chromosomes versus plasmids in
 ## fully-sequenced genomes and plasmids in the NCBI Nucleotide database.
 
-## CRITICAL ANALYSIS TODO: Make sure numbers in genome.database,
-## gbk.annotation, and all.proteins, duplicate.proteins, and
-## singleton.proteins, in terms of number of isolates in each
-## category, are COMPLETELY consistent with each other.
-
 ## TODO: CAREFULLY re-number Supplementary Tables based on the manuscript.
 ## work backwards to avoid interchanging data structures between pieces of code.
 
@@ -25,6 +20,32 @@ fancy_scientific <- function(x) {
     ## https://stackoverflow.com/questions/10762287/how-can-i-format-axis-labels-with-exponents-with-ggplot2-and-scales
     ifelse(x==0, "0", parse(text=gsub("[+]", "", gsub("e", " %*% 10^", scales::scientific_format()(x)))))
 }
+
+################################################################################
+## Regular expressions used in this analysis.
+
+## match MGE genes using the following keywords in the "product" annotation
+IS.keywords <- "IS|transposon|Transposase|transposase|Transposable|transposable|hypothetical protein|Phage|phage|integrase|Integrase|tail|intron|Mobile|mobile|antitoxin|toxin|capsid|plasmid|Plasmid|conjug"
+
+## Elongation Factor Tu (2 copies in most bacteria).
+## \\b is a word boundary.
+## see: https://stackoverflow.com/questions/62430498/detecting-whole-words-using-str-detect-in-r
+EFTu.keywords <- "\\bTu | Tu\\b|-Tu\\b"
+
+## antibiotic-specific keywords.
+antibiotic.keywords <- "lactamase|chloramphenicol|quinolone|antibiotic resistance|tetracycline|VanZ"
+
+## unknown protein keywords
+unknown.protein.keywords <- "unknown|Unknown|hypothetical|Hypothetical|Uncharacterized|Uncharacterised|uncharacterized|uncharacterised|DUF|unknow|putative protein in bacteria|Unassigned|unassigned"
+
+## The regular expressions used by Zeevi et al. (2019).
+## These are not used in this analysis, but nice to have on hand.
+## Transposon: ‘transpos\S*|insertion|Tra[A-Z]|Tra[0-9]|IS[0-9]|conjugate transposon’
+## plasmid: ‘relax\S*|conjug\S*|mob\S*|plasmid|type IV|chromosome partitioning|chromosome segregation’
+## phage: ‘capsid|phage|tail|head|tape measure|antiterminatio’
+## other HGT mechanisms: ‘integrase|excision\S*|exo- nuclease|recomb|toxin|restrict\S*|resolv\S*|topoisomerase|reverse transcrip’
+## antibiotic resistance: ‘azole resistance|antibiotic resistance|TetR|tetracycline resistance|VanZ|betalactam\S*|beta-lactam|antimicrob\S*|lantibio\S*’.
+
 
 ################################################################################
 ## Set up the key data structures for the analysis:
@@ -90,6 +111,18 @@ duplicate.proteins <- read.csv("../results/duplicate-proteins.csv") %>%
     ## now merge with gbk annotation.
     inner_join(gbk.annotation)
 
+## For Teng (and myself), let's make a table of uncategorized duplicate proteins.
+unmatched.duplicate.proteins <- duplicate.proteins %>%
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,unknown.protein.keywords)) %>%
+    filter(!str_detect(.$product,EFTu.keywords)) %>%
+    filter(!str_detect(.$product,antibiotic.keywords)) %>%
+    as_tibble()
+write.csv(unmatched.duplicate.proteins,
+          file= "../results/non-MGE-non-ARG-duplicate-proteins.csv",
+          row.names=FALSE)
+unmatched.duplicate.protein.product.annotations <- unique(unmatched.duplicate.proteins$product)
+
 ## free up memory by deallocating all.proteins,
 rm(all.proteins)
 ## and running garbage collection.
@@ -114,31 +147,6 @@ plasmid.annotation <- protein.db.metadata %>%
     group_by(host, Annotation) %>%
     summarize(number = n()) %>%
     arrange(desc(number))
-
-################################################################################
-## Regular expressions used in this analysis.
-
-## match MGE genes using the following keywords in the "product" annotation
-IS.keywords <- "IS|transposon|Transposase|transposase|Transposable|transposable|hypothetical protein|Phage|phage|integrase|Integrase|tail|intron|Mobile|mobile|antitoxin|toxin|capsid|plasmid|Plasmid|conjug"
-
-## Elongation Factor Tu (2 copies in most bacteria).
-## \\b is a word boundary.
-## see: https://stackoverflow.com/questions/62430498/detecting-whole-words-using-str-detect-in-r
-EFTu.keywords <- "\\bTu | Tu\\b|-Tu\\b"
-
-## antibiotic-specific keywords.
-antibiotic.keywords <- "lactamase|chloramphenicol|quinolone|antibiotic resistance|tetracycline|VanZ"
-
-## unknown protein keywords
-unknown.protein.keywords <- "unknown|Unknown|hypothetical|Hypothetical|Uncharacterized|Uncharacterised|uncharacterized|uncharacterised|DUF|unknow|putative protein in bacteria|Unassigned|unassigned"
-
-## The regular expressions used by Zeevi et al. (2019).
-## These are not used in this analysis, but nice to have on hand.
-## Transposon: ‘transpos\S*|insertion|Tra[A-Z]|Tra[0-9]|IS[0-9]|conjugate transposon’
-## plasmid: ‘relax\S*|conjug\S*|mob\S*|plasmid|type IV|chromosome partitioning|chromosome segregation’
-## phage: ‘capsid|phage|tail|head|tape measure|antiterminatio’
-## other HGT mechanisms: ‘integrase|excision\S*|exo- nuclease|recomb|toxin|restrict\S*|resolv\S*|topoisomerase|reverse transcrip’
-## antibiotic resistance: ‘azole resistance|antibiotic resistance|TetR|tetracycline resistance|VanZ|betalactam\S*|beta-lactam|antimicrob\S*|lantibio\S*’.
 
 ###########################################################################
 ## Analysis for Figure 1C.
