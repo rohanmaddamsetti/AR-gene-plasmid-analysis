@@ -717,78 +717,6 @@ plasmid.chromosome.singleton.ARG.contingency.test <- function(TableS5) {
 plasmid.chromosome.singleton.ARG.contingency.test(TableS5)
 
 ################################################################################
-make.big.gene.analysis.df <- function(duplicate.proteins, singleton.proteins) {
-    ## We're going to make one dataframe with lots of columns for
-    ## statistics and analyses. This is important for Figure 3.
-
-    ## The particular statistics and supplementary tables are going to be
-    ## calculated on relevant subsets of this dataframe (subsetting columns, not rows).
-
-    ## The number of duplicated AR genes.
-    duplicate.AR.genes.count <- duplicate.proteins %>%
-        filter(str_detect(.$product,antibiotic.keywords)) %>%
-        group_by(Annotation) %>%
-        summarize(AR_duplicates = sum(count)) %>%
-        arrange(desc(AR_duplicates))
-    
-    ## The number of duplicated MGE genes.
-    duplicate.MGE.genes.count <- duplicate.proteins %>%
-        filter(str_detect(.$product,IS.keywords)) %>%
-        group_by(Annotation) %>%
-        summarize(MGE_duplicates = sum(count)) %>%
-        arrange(desc(MGE_duplicates))
-    
-    ## The number of duplicated genes in each category.
-    duplicate.genes.count <- duplicate.proteins %>%
-        group_by(Annotation) %>%
-        summarize(duplicate_genes = sum(count)) %>%
-        arrange(desc(duplicate_genes))
-    
-    ## The number of singleton genes in each category.
-    singleton.genes.count <- singleton.proteins %>%
-        group_by(Annotation) %>%
-        summarize(singleton_genes = sum(count)) %>%
-        arrange(desc(singleton_genes))
-    
-    ## The number of singleton AR genes.
-    singleton.AR.genes.count <- singleton.proteins %>%
-        filter(str_detect(.$product,antibiotic.keywords)) %>%
-        group_by(Annotation) %>%
-        summarize(AR_singletons = sum(count)) %>%
-        arrange(desc(AR_singletons))
-
-    ## The number of singleton MGE genes.
-    singleton.MGE.genes.count <- singleton.proteins %>%
-        filter(str_detect(.$product,IS.keywords)) %>%
-        group_by(Annotation) %>%
-        summarize(MGE_singletons = sum(count)) %>%
-        arrange(desc(MGE_singletons))
-
-    ## Sum up the totals for duplicate genes and singleton genes.
-    ## This is the baseline column for statistical tests.
-    total.genes.count <- duplicate.genes.count %>%
-        full_join(singleton.genes.count) %>%
-        mutate(total_genes = duplicate_genes + singleton_genes) %>%
-        select(Annotation, total_genes)
-    
-    ## This data structure is important for later code.
-    big.gene.analysis.df <- duplicate.AR.genes.count %>%
-        full_join(duplicate.MGE.genes.count) %>%
-        full_join(duplicate.genes.count) %>%
-        full_join(singleton.AR.genes.count) %>%
-        full_join(singleton.MGE.genes.count) %>%
-        full_join(singleton.genes.count) %>%
-        full_join(total.genes.count) %>%
-        mutate(AR_duplicates = replace_na(AR_duplicates, 0)) %>%
-        arrange(desc(AR_duplicates))
-    
-    return(big.gene.analysis.df)
-}
-
-big.gene.analysis.df <- make.big.gene.analysis.df(duplicate.proteins, singleton.proteins)
-gc() ## free memory
-#############################
-
 ## Use the data in Tables S4 and S5 to make Figure 3.
 ## The point of this figure is to show that the distribution of
 ## duplicated ARGs is not predicted by the distribution of single-copy ARGs
@@ -818,15 +746,14 @@ make.Fig3.df <- function(TableS1, TableS4, TableS5) {
 
 Fig3.df <- make.Fig3.df(TableS1, TableS4, TableS5)
 
-################################################################################
-## Analysis for Figure 3.
+## Figure 3.
 ## Plot point estimates for the fraction of chromosomal genes that are
-## duplicated ARGs (panel A),
-## the fraction of plasmid genes that are duplicated ARGs (panel B),
-## the fraction of chromosomal genes that are single-copy ARGs (panel C),
-## the fraction of plasmid genes that are single-copy ARGs (panel D),
-## the fraction of genes that are duplicated ARGs (panel E),
-## the fraction of genes that are single-copy ARGs (panel F).
+## the fraction of genes that are duplicated ARGs (panel A),
+## the fraction of genes that are single-copy ARGs (panel B).
+## duplicated ARGs (panel C),
+## the fraction of plasmid genes that are duplicated ARGs (panel D),
+## the fraction of chromosomal genes that are single-copy ARGs (panel E),
+## the fraction of plasmid genes that are single-copy ARGs (panel F),
 
 ## Fig3A
 Fig3A.df <- Fig3.df %>%
@@ -947,134 +874,7 @@ Fig3 <- plot_grid(Fig3A, Fig3B, Fig3C, Fig3D, Fig3E, Fig3F,
                   labels = c('A','B','C','D','E','F'), ncol=2)
 ggsave("../results/Fig3.pdf", Fig3)
 
-#############################
-## Supplementary Table S7??
-## Enrichment/deletion analysis of AR genes using total genes,
-## rather than number of isolates as in Supplementary Table S1.
-
-## the expected number of duplicated AR genes in each category.
-calc.expected.AR.duplicates <- function(raw.Table) {
-    total.genes.sum <- sum(raw.Table$total_genes)
-    total.AR.duplicates <- sum(raw.Table$AR_duplicates)
-    Table <- raw.Table %>%
-        mutate(expected_AR_duplicates = total.AR.duplicates * total_genes/total.genes.sum)
-    return(Table)
-}
-
-## Seventh column: p-value for enrichment/depletion of duplicated AR genes in each category.
-calc.AR.duplicate.enrichment.pvals <- function(raw.Table) {
-
-    total.genes.sum <- sum(raw.Table$total_genes)
-    total.AR.duplicates <- sum(raw.Table$AR_duplicates)
-
-    Table <- raw.Table %>%
-        rowwise() %>%
-        mutate(binom.test.pval = binom.test(
-                   x = AR_duplicates,
-                   n = total.AR.duplicates,
-                   p = total_genes/total.genes.sum
-               )$p.value) %>%
-        mutate(corrected.pval = p.adjust(binom.test.pval,"BH")) %>%
-        ## use Benjamini-Hochberg p-value correction.
-        select(-binom.test.pval) ## drop original p-value after the correction.
-    
-    return(Table)
-}
-
-TableS2 <- big.gene.analysis.df %>%
-    select(Annotation, AR_duplicates, total_genes) %>%
-    calc.expected.AR.duplicates() %>% 
-    calc.AR.duplicate.enrichment.pvals() %>%
-    mutate(deviation.from.expected = AR_duplicates - expected_AR_duplicates) %>%
-    arrange(desc(deviation.from.expected)) %>%
-    select(-deviation.from.expected)
-
-
-## write Supplementary Table S2 to file.
-write.csv(x=TableS2,file="../results/TableS2.csv")
-
-############################################################
-## Positive control: Examine the distribution of ARGs that have NOT duplicated.
-## This shows that Soil and Agricultural isolates are highly enriched in
-## singleton ARGs.
-
-## calculate the expected number of singleton AR genes in each category.
-calc.expected.AR.singletons <- function(raw.Table) {
-    total.genes.sum <- sum(raw.Table$total_genes)
-    total.AR.singletons <- sum(raw.Table$AR_singletons)
-    Table <- raw.Table %>%
-        mutate(expected_AR_singletons = exp(log(total.AR.singletons) + log(total_genes) - log(total.genes.sum)))
-    return(Table)
-}
-
-## p-value for enrichment/depletion of singleton AR genes in each category.
-calc.AR.singleton.enrichment.pvals <- function(raw.Table) {
-    total.genes.sum <- sum(raw.Table$total_genes)
-    total.AR.singletons <- sum(raw.Table$AR_singletons)
-
-    Table <- raw.Table %>%
-        rowwise() %>%
-        mutate(binom.test.pval = binom.test(
-                   x = AR_singletons,
-                   n = total.AR.singletons,
-                   p = total_genes/total.genes.sum
-               )$p.value) %>%
-        mutate(corrected.pval = p.adjust(binom.test.pval,"BH")) %>%
-        ## use Benjamini-Hochberg p-value correction.
-        select(-binom.test.pval) ## drop original p-value after the correction.
-    
-    return(Table)
-}
-
-TableS3 <- big.gene.analysis.df %>%
-    select(Annotation, AR_singletons, total_genes) %>%
-    calc.expected.AR.singletons() %>%
-    calc.AR.singleton.enrichment.pvals() %>%
-    mutate(deviation.from.expected = AR_singletons - expected_AR_singletons) %>%
-    arrange(desc(deviation.from.expected)) %>%
-    select(-deviation.from.expected)
-
-write.csv(x=TableS3, file="../results/TableS3.csv")
-######################################################
-## Control for Table S2 that Lingchong asked me to make.
-## examine the number of types of duplicate genes in each category,
-## and the average num.
-
-## the number of duplicate gene types.
-duplicated.gene.type.count <- duplicate.proteins %>%
-    group_by(Annotation) %>%
-    ## each row corresponds to a type of duplicated gene.
-    summarize(duplicate_gene_types = n(),
-              mean.duplicate.num = sum(count)/n()) %>%
-    arrange(desc(duplicate_gene_types))
-
-## the number of duplicated MGE gene types
-duplicated.MGE.type.count <- duplicate.proteins %>%
-    filter(str_detect(.$product,IS.keywords)) %>%
-    group_by(Annotation) %>%
-    ## each row corresponds to a type of duplicated MGE.
-    summarize(duplicate_MGE_types = n(),
-              mean.MGE.duplicate.num = sum(count)/n()) %>%
-    arrange(desc(duplicate_MGE_types))
-
-## the number of duplicated AR gene types.
-duplicated.ARG.type.count <- duplicate.proteins %>%
-    filter(str_detect(.$product,antibiotic.keywords)) %>%
-    group_by(Annotation) %>%
-    ## each row corresponds to a type of duplicated ARG.
-    summarize(duplicate_ARG_types = n(),
-              mean.ARG.duplicate.num = sum(count)/n()) %>%
-    arrange(desc(duplicate_ARG_types))
-
-Control.for.TableS2 <- duplicated.gene.type.count %>% 
-    left_join(duplicated.MGE.type.count) %>%
-    left_join(duplicated.ARG.type.count) %>%
-    mutate(duplicate_ARG_types = replace_na(duplicate_ARG_types, 0)) %>%
-    mutate(mean.ARG.duplicate.num = replace_na(mean.ARG.duplicate.num, 0)) %>%
-    arrange(desc(duplicate_ARG_types))
-
 ################################################################################
-
 ## I am playing around here.
 
 ## let's look at the taxonomic distribution of strains with duplicated ARGs.
@@ -1227,6 +1027,7 @@ make.Fig4.panel.df <- function(Fig4.panel.table, pval.threshold = 0.05) {
     return(Fig4.panel.df)
 
 }
+
 
 make.Fig4.panel <- function(Fig4.panel.df) {
 
