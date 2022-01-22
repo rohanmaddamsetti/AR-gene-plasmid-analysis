@@ -25,40 +25,6 @@ fancy_scientific <- function(x) {
 }
 
 
-calc.bootstrap.conf.int <- function(vec, Nbootstraps = 10000) {
-  ## bootstrap confidence intervals around the mean.
-  ## Use the boot package to calculate fancy BCA intervals.
-  
-  mean.boot <- function(x,ind) {
-      ## define this type of mean-calculating function to pass to the boot function.
-      ## from: https://web.as.uky.edu/statistics/users/pbreheny/621/F12/notes/9-18.pdf
-      ## as it seems this link has been taken down, I downloaded these notes
-      ## using the Wayback Machine from the Internet Archive.
-      return(c(mean(x[ind]), var(x[ind])/length(x)))
-  }
-
-    ## remove any NA values from vec.
-    vec <- vec[!is.na(vec)]
-    
-    if (length(vec)) {    
-        out <- boot(data = vec, statistic = mean.boot, R = Nbootstraps)
-        ## handle bad inputs in bootstrapping confidence intervals
-        ci.result <- tryCatch(boot.ci(out, type="bca"), error= function(c) return(NULL))
-        if (is.null(ci.result)) {
-            Left <- NA
-            Right <- NA
-        } else {
-            Left <- ci.result$bca[4]
-            Right <- ci.result$bca[5]
-        }
-    } else { ## vec only contained NA values.
-        Left <- NA
-        Right <- NA
-    }   
-    final <- c(Left, Right)
-    return(final)
-}
-
 ################################################################################
 ## Regular expressions used in this analysis.
 
@@ -133,6 +99,9 @@ gbk.annotation <- anti_join(gbk.annotation, missing.ones) %>%
     ## that were not annotated by annotate-ecological-category.py.
     filter(Annotation != "blank")
 
+## This vector is used for ordering axes in figures and tables.
+order.by.total.isolates <- make.isolate.totals.col(gbk.annotation)$Annotation
+
 ## and filter episome.database to be consistent with gbk.annotation.
 episome.database <- episome.database %>%
     filter(Annotation_Accession %in% gbk.annotation$Annotation_Accession)
@@ -189,7 +158,11 @@ plasmid.annotation <- protein.db.metadata %>%
 ###########################################################################
 ## Analysis for Figure 1.
 ## Panel A is a schematic of the analysis pipeline.
-## Make BCa confidence intervals for the fraction of isolates with
+
+## See Wikipedia reference:
+## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
+
+## Make Z-distributed confidence intervals for the fraction of isolates with
 ## duplicated ARGs (panel B),
 ## the fraction of isolates with single-copy ARGs (panel C),
 ## the fraction of isolates with duplicated genes (panel D).
@@ -207,62 +180,40 @@ make.isolate.totals.col <- function(gbk.annotation) {
     return(isolate.totals)
 }
 
-bootstrap.isolate.proportions <- function(df) {
-    ## for generality, the presence/absence vector is called "XXX".
-    ## The meaning of "XXX" depends on the context in which this
-    ## function is invoked.
-    the.conf.int <- calc.bootstrap.conf.int(df$XXX)
-    bootstrap.results <- data.frame(
-        Annotation = unique(df$Annotation),
-        Estimate = mean(df$XXX, na.rm=TRUE),
-        Left = the.conf.int[1],
-        Right = the.conf.int[2],
-        stringsAsFactors=FALSE)   
-    return(bootstrap.results)
+
+calc.isolate.confints <- function(df) {
+    df %>%
+        ## use the normal approximation for binomial proportion conf.ints
+        mutate(se = sqrt(p*(1-p)/total_isolates)) %>%
+        ## and the Rule of Three to handle zeros.
+        ## See Wikipedia reference:
+        ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
+        mutate(Left = ifelse(p > 0, p - 1.96*se, 0)) %>%
+        mutate(Right = ifelse(p > 0, p + 1.96*se, 3/total_isolates)) %>%
+        ## Sort every table by the total number of isolates.
+        arrange(desc(total_isolates))
 }
 
-make.TableS1 <- function(gbk.annotation, duplicate.proteins) {    
+
+make.TableS1 <- function(gbk.annotation, duplicate.proteins) {
     
     ## count the number of isolates with duplicated ARGs in each category.
-    AR.category.counts <- duplicate.proteins %>%
+    ARG.category.counts <- duplicate.proteins %>%
         filter(str_detect(.$product,antibiotic.keywords)) %>%
         ## next two lines is to count isolates rather than genes
         select(Annotation_Accession, Annotation) %>%
         distinct() %>%
-        group_by(Annotation) %>%
-        summarize(isolates_with_duplicated_ARGs = n()) %>%
-        arrange(desc(isolates_with_duplicated_ARGs))
-
+        count(Annotation, sort = TRUE) %>%
+        rename(isolates_with_duplicated_ARGs = n)
     
-    ## get the isolates with duplicated ARGs.
-    dup.ARG.isolates <- duplicate.proteins %>%
-        filter(str_detect(.$product,antibiotic.keywords)) %>%
-        ## next two lines is to count isolates rather than genes
-        select(Annotation_Accession, Annotation) %>%
-        distinct()
-    ## now calculate vectors of presence/absence of duplicated ARGs.
-    isolates.scored.by.dup.ARGs <- gbk.annotation %>%
-        select(Annotation_Accession, Annotation) %>%
-        mutate( ## XXX := has_duplicated_ARGs
-            XXX = ifelse(
-                Annotation_Accession %in% dup.ARG.isolates$Annotation_Accession,
-                1, 0))
-    ## now find BCa confidence intervals around the mean presence/absence
-    ## of duplicated ARGs per category
-    ## (this is the fraction of isolates with duplicated ARGs).
-    isolate.proportion.results <- isolates.scored.by.dup.ARGs %>%
-        split(.$Annotation) %>%
-        map_dfr(.f=bootstrap.isolate.proportions)
-
     ## join columns to make Table S1.
     TableS1 <- make.isolate.totals.col(gbk.annotation) %>%
-        left_join(AR.category.counts) %>%
+        left_join(ARG.category.counts) %>%
         mutate(isolates_with_duplicated_ARGs =
                    replace_na(isolates_with_duplicated_ARGs,0)) %>%
-        ## based on the percentage of isolates with duplicated genes.
-        left_join(isolate.proportion.results) %>%
-        arrange(desc(isolates_with_duplicated_ARGs))
-
+        mutate(p = isolates_with_duplicated_ARGs/total_isolates) %>%
+        calc.isolate.confints()
+    
     return(TableS1)
 }
 
@@ -278,7 +229,7 @@ make.Fig1.panel <- function(Table, title) {
         mutate(Annotation = factor(
                    Annotation,
                    levels = order.by.total_isolates)) %>%
-        ggplot(aes(y = Annotation, x = Estimate)) +     
+        ggplot(aes(y = Annotation, x = p)) +     
         geom_point(size=2) +
         ylab("Annotation") +
         xlab("Proportion of Isolates") +
@@ -290,7 +241,7 @@ make.Fig1.panel <- function(Table, title) {
 }
 
 
-## Figure 1B: BCa confidence intervals for the percentage
+## Figure 1B: normal-approximation confidence intervals for the percentage
 ## of isolates with duplicated ARGs.
 TableS1 <- make.TableS1(gbk.annotation, duplicate.proteins)
 ## write Supplementary Table S1 to file.
@@ -309,7 +260,7 @@ Fig1B <- make.Fig1.panel(TableS1, "Duplicated ARGs")
 make.TableS2 <- function(gbk.annotation, singleton.proteins) {
 
 ## count the number of isolates with singleton AR genes in each category.
-    AR.category.counts <- singleton.proteins %>%
+    ARG.category.counts <- singleton.proteins %>%
         filter(str_detect(.$product,antibiotic.keywords)) %>%
         ## next two lines is to count isolates rather than genes
         select(Annotation_Accession, Annotation) %>%
@@ -319,35 +270,15 @@ make.TableS2 <- function(gbk.annotation, singleton.proteins) {
         arrange(desc(isolates_with_singleton_ARGs))
     gc() ## free memory.
     
-    ## get the isolates with single-copy ARGs.
-    sing.ARG.isolates <- singleton.proteins %>%
-        filter(str_detect(.$product,antibiotic.keywords)) %>%
-        ## next two lines is to count isolates rather than genes
-        select(Annotation_Accession, Annotation) %>%
-        distinct()
-    ## now calculate vectors of presence/absence of duplicated ARGs.
-    isolates.scored.by.sing.ARGs <- gbk.annotation %>%
-        select(Annotation_Accession, Annotation) %>%
-        mutate( ## XXX := has_singleton_ARGs
-            XXX = ifelse(
-                Annotation_Accession %in% sing.ARG.isolates$Annotation_Accession,
-                1, 0))
-    ## now find BCa confidence intervals around the mean presence/absence
-    ## of duplicated ARGs per category
-    ## (this is the fraction of isolates with duplicated ARGs).
-    isolate.proportion.results <- isolates.scored.by.sing.ARGs %>%
-        split(.$Annotation) %>%
-        map_dfr(.f=bootstrap.isolate.proportions)
-
+   
     ## join columns to make Table S2.
     TableS2 <- make.isolate.totals.col(gbk.annotation) %>%
-        left_join(AR.category.counts) %>%
+        left_join(ARG.category.counts) %>%
         mutate(isolates_with_singleton_ARGs =
                    replace_na(isolates_with_singleton_ARGs,0)) %>%
-        ## based on the percentage of isolates with duplicated genes.
-        left_join(isolate.proportion.results) %>%
-        arrange(desc(isolates_with_singleton_ARGs))
-
+        mutate(p = isolates_with_singleton_ARGs/total_isolates) %>%
+        calc.isolate.confints()
+    return(TableS2)
 }
 
 ## This data frame will be used for Figure 1C.
@@ -379,37 +310,16 @@ make.TableS3 <- function(gbk.annotation, duplicate.proteins) {
         summarize(isolates_with_duplicated_genes = n()) %>%
         arrange(desc(isolates_with_duplicated_genes))
     
-    ## get the isolates with duplicated genes.
-    dup.isolates <- duplicate.proteins %>%
-        ## next two lines is to count isolates rather than genes
-        select(Annotation_Accession, Annotation) %>%
-        distinct()
-    ## now calculate vectors of presence/absence of duplicated genes.
-    isolates.scored.by.dups <- gbk.annotation %>%
-        select(Annotation_Accession, Annotation) %>%
-        mutate( ## XXX := has_duplicates
-            XXX = ifelse(
-                Annotation_Accession %in% dup.isolates$Annotation_Accession,
-                1, 0))
-    ## now find BCa confidence intervals around the mean presence/absence
-    ## of duplicated genes per category
-    ## (this is the fraction of isolates with duplicates).
-    isolate.proportion.results <- isolates.scored.by.dups %>%
-        split(.$Annotation) %>%
-        map_dfr(.f=bootstrap.isolate.proportions)
-
     ## join columns to make Table S3.
     TableS3 <- make.isolate.totals.col(gbk.annotation) %>%
         left_join(category.counts) %>%
         mutate(isolates_with_duplicated_genes =
                    replace_na(isolates_with_duplicated_genes, 0)) %>%
-        ## based on the percentage of isolates with duplicated genes.
-        left_join(isolate.proportion.results) %>%
-        arrange(desc(isolates_with_duplicated_genes))
-
+        mutate(p = isolates_with_duplicated_genes/total_isolates) %>%
+        calc.isolate.confints()
     return(TableS3)
-
 }
+
 
 TableS3 <- make.TableS3(gbk.annotation, duplicate.proteins)
 ## write TableS3 to file.
@@ -447,7 +357,7 @@ Fig2A.data <- duplicate.proteins %>%
                  values_to = "Count") %>%
     mutate(Annotation = factor(
                Annotation,
-               levels = rev(order.by.total_isolates.vec)))
+               levels = rev(order.by.total.isolates)))
 
 Fig2B.data <- singleton.proteins %>%
     mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
@@ -458,9 +368,9 @@ Fig2B.data <- singleton.proteins %>%
                  values_to = "Count") %>%
     mutate(Annotation = factor(
                Annotation,
-               levels = rev(order.by.total_isolates.vec)))
+               levels = rev(order.by.total.isolates)))
 
-Fig2A <- ggplot(Fig2A.data, aes(x = Count, y = Annotation, fill = Category)) +
+ Fig2A <- ggplot(Fig2A.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
     facet_wrap(.~Episome) +
     theme_classic() +
@@ -534,21 +444,21 @@ both.chr.and.plasmid.summary <- both.chr.and.plasmid.cases %>%
     summarize(Count = sum(count)) %>%
     mutate(Annotation = factor(
                Annotation,
-               levels = rev(order.by.total_isolates.vec)))
+               levels = rev(order.by.total.isolates)))
 
 just.chromosome.summary <- just.chromosome.cases %>%
     group_by(Annotation, Category) %>%
     summarize(Count = sum(count)) %>%
     mutate(Annotation = factor(
                Annotation,
-               levels = rev(order.by.total_isolates.vec)))
+               levels = rev(order.by.total.isolates)))
 
 just.plasmid.summary <- just.plasmid.cases %>%
     group_by(Annotation, Category) %>%
     summarize(Count = sum(count)) %>%
     mutate(Annotation = factor(
                Annotation,
-               levels = rev(order.by.total_isolates.vec)))
+               levels = rev(order.by.total.isolates)))
 
 S1FigA <- ggplot(both.chr.and.plasmid.summary,
                   aes(x = Count,
@@ -778,6 +688,7 @@ TableS5 <- make.TableS5(singleton.proteins)
 write.csv(x=TableS5,file="../results/TableS5.csv")
 gc()
 
+
 plasmid.chromosome.singleton.ARG.contingency.test <- function(TableS5) {
     ## get values for Fisher's exact test.
     total.chr.AR.singletons <- sum(TableS5$chromosomal_singleton_ARGs)
@@ -896,7 +807,10 @@ make.Fig3.df <- function(TableS1, TableS4, TableS5) {
                    plasmid_singleton_genes + chromosomal_singleton_genes) %>%
         mutate(total_duplicate_ARGs =
                    plasmid_duplicate_ARGs + chromosomal_duplicate_ARGs) %>%
-        mutate(total_singleton_ARGs = plasmid_singleton_ARGs + chromosomal_singleton_ARGs)
+        mutate(total_singleton_ARGs = plasmid_singleton_ARGs + chromosomal_singleton_ARGs) %>%
+        mutate(total_chromosomal_genes = chromosomal_duplicate_genes + chromosomal_singleton_genes) %>%
+        mutate(total_plasmid_genes = plasmid_duplicate_genes + plasmid_singleton_genes) %>%
+        mutate(total_genes = total_duplicate_genes + total_singleton_genes)
         
     return(Fig3.df)
 }
@@ -914,14 +828,124 @@ Fig3.df <- make.Fig3.df(TableS1, TableS4, TableS5)
 ## the fraction of genes that are duplicated ARGs (panel E),
 ## the fraction of genes that are single-copy ARGs (panel F).
 
+## Fig3A
+Fig3A.df <- Fig3.df %>%
+    mutate(p = total_duplicate_ARGs/(total_genes)) %>%
+    ## use the normal approximation for binomial proportion conf.ints
+    mutate(se = sqrt(p*(1-p)/total_genes)) %>%
+    ## and the Rule of Three to handle zeros.
+    ## See Wikipedia reference:
+    ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
+    mutate(Left = ifelse(p > 0, p - 1.96*se, 0)) %>%
+    mutate(Right = ifelse(p > 0, p + 1.96*se, 3/total_genes)) %>%
+    select(Annotation, total_duplicate_ARGs, total_genes,
+           p, Left, Right)
+
+Fig3B.df <- Fig3.df %>%
+    mutate(p = total_singleton_ARGs/(total_genes)) %>%
+    ## use the normal approximation for binomial proportion conf.ints
+    mutate(se = sqrt(p*(1-p)/total_genes)) %>%
+    ## and the Rule of Three to handle zeros.
+    ## See Wikipedia reference:
+    ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
+    mutate(Left = ifelse(p > 0, p - 1.96*se, 0)) %>%
+    mutate(Right = ifelse(p > 0, p + 1.96*se, 3/total_genes)) %>%
+    select(Annotation, total_singleton_ARGs, total_genes,
+           p, Left, Right)
+
+
+## Fig3C: the fraction of chromosomal genes that are duplicated ARGs.
+Fig3C.df <- Fig3.df %>%
+    mutate(p = chromosomal_duplicate_ARGs/(total_chromosomal_genes)) %>%
+    ## use the normal approximation for binomial proportion conf.ints
+    mutate(se = sqrt(p*(1-p)/total_chromosomal_genes)) %>%
+    ## and the Rule of Three to handle zeros.
+    ## See Wikipedia reference:
+    ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
+    mutate(Left = ifelse(p > 0, p - 1.96*se, 0)) %>%
+    mutate(Right = ifelse(p > 0, p + 1.96*se, 3/total_chromosomal_genes)) %>%
+    select(Annotation, chromosomal_duplicate_ARGs, total_chromosomal_genes,
+           p, Left, Right)
+
+
+Fig3D.df <- Fig3.df %>%
+    mutate(p = plasmid_duplicate_ARGs/(total_plasmid_genes)) %>%
+    ## use the normal approximation for binomial proportion conf.ints
+    mutate(se = sqrt(p*(1-p)/total_plasmid_genes)) %>%
+    ## and the Rule of Three to handle zeros.
+    ## See Wikipedia reference:
+    ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
+    mutate(Left = ifelse(p > 0, p - 1.96*se, 0)) %>%
+    mutate(Right = ifelse(p > 0, p + 1.96*se, 3/total_plasmid_genes)) %>%
+    select(Annotation, plasmid_duplicate_ARGs, total_plasmid_genes,
+           p, Left, Right)
+
+Fig3E.df <- Fig3.df %>%
+    mutate(p = chromosomal_singleton_ARGs/(total_chromosomal_genes)) %>%
+    ## use the normal approximation for binomial proportion conf.ints
+    mutate(se = sqrt(p*(1-p)/total_chromosomal_genes)) %>%
+    ## and the Rule of Three to handle zeros.
+    ## See Wikipedia reference:
+    ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
+    mutate(Left = ifelse(p > 0, p - 1.96*se, 0)) %>%
+    mutate(Right = ifelse(p > 0, p + 1.96*se, 3/total_chromosomal_genes)) %>%
+    select(Annotation, chromosomal_singleton_ARGs, total_chromosomal_genes,
+           p, Left, Right)
+
+
+Fig3F.df <- Fig3.df %>%
+    mutate(p = plasmid_singleton_ARGs/(total_plasmid_genes)) %>%
+    ## use the normal approximation for binomial proportion conf.ints
+    mutate(se = sqrt(p*(1-p)/total_plasmid_genes)) %>%
+    ## and the Rule of Three to handle zeros.
+    ## See Wikipedia reference:
+    ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
+    mutate(Left = ifelse(p > 0, p - 1.96*se, 0)) %>%
+    mutate(Right = ifelse(p > 0, p + 1.96*se, 3/total_plasmid_genes)) %>%
+    select(Annotation, plasmid_singleton_ARGs, total_plasmid_genes,
+           p, Left, Right)
 
 
 
-##Fig3 <- make.Fig3(Fig3.df)
-##ggsave("../results/Fig3.pdf", Fig3)
+make.Fig3.panel <- function(Table, order.by.total.isolates, title, xlabel) {
+    Fig3.panel <- Table %>%
+        mutate(Annotation = factor(
+                   Annotation,
+                   levels = rev(order.by.total.isolates))) %>%
+        ggplot(aes(y = Annotation, x = p)) +     
+        geom_point(size=2) +
+        ylab("Annotation") +
+        xlab(xlabel) +
+        theme_classic() +
+        ggtitle(title) +
+        ## plot CIs.
+        geom_errorbarh(aes(xmin=Left,xmax=Right), height=1, size=0.5)
+    return(Fig3.panel)
+}
 
 
+Fig3A <- make.Fig3.panel(Fig3A.df, order.by.total.isolates,
+                         "Duplicated ARGs",
+                         "Proportion of all genes")
+Fig3B <- make.Fig3.panel(Fig3B.df, order.by.total.isolates,
+                         "Single-copy ARGs",
+                         "Proportion of all genes")
+Fig3C <- make.Fig3.panel(Fig3C.df, order.by.total.isolates,
+                         "Duplicated ARGs on the chromosome",
+                         "Proportion of chromosomal genes")
+Fig3D <- make.Fig3.panel(Fig3D.df, order.by.total.isolates,
+                         "Duplicated ARGs on plasmids",
+                         "Proportion of plasmid genes")
+Fig3E <- make.Fig3.panel(Fig3E.df, order.by.total.isolates,
+                         "Single-copy ARGs on the chromosome",
+                         "Proportion of chromosomal genes")
+Fig3F <- make.Fig3.panel(Fig3F.df, order.by.total.isolates,
+                         "Single-copy ARGs on plasmids",
+                         "Proportion of plasmid genes")
 
+Fig3 <- plot_grid(Fig3A, Fig3B, Fig3C, Fig3D, Fig3E, Fig3F,
+                  labels = c('A','B','C','D','E','F'), ncol=2)
+ggsave("../results/Fig3.pdf", Fig3)
 
 #############################
 ## Supplementary Table S7??
