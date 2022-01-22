@@ -29,7 +29,7 @@ md""" let's look at the duplicate proteins, first."""
 # ╔═╡ ec356b3d-18a3-4977-8fba-2ca9ee7524a7
 begin
 	
-	dup_protein_fpath = "../results/AR-gene-duplication/duplicate-proteins.csv"
+	dup_protein_fpath = "../results/duplicate-proteins.csv"
 	dup_protein_file = CSV.File(dup_protein_fpath)
 	dup_protein_df = DataFrame(dup_protein_file)
 	

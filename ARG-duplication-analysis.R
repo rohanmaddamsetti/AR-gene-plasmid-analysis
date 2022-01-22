@@ -25,7 +25,7 @@ fancy_scientific <- function(x) {
 }
 
 
-calc.bootstrap.conf.int <- function(vec) {
+calc.bootstrap.conf.int <- function(vec, Nbootstraps = 10000) {
   ## bootstrap confidence intervals around the mean.
   ## Use the boot package to calculate fancy BCA intervals.
   
@@ -36,8 +36,6 @@ calc.bootstrap.conf.int <- function(vec) {
       ## using the Wayback Machine from the Internet Archive.
       return(c(mean(x[ind]), var(x[ind])/length(x)))
   }
-
-    Nbootstraps <- 10000
 
     ## remove any NA values from vec.
     vec <- vec[!is.na(vec)]
@@ -209,7 +207,7 @@ make.isolate.totals.col <- function(gbk.annotation) {
     return(isolate.totals)
 }
 
-bootstrap.proportions <- function(df) {
+bootstrap.isolate.proportions <- function(df) {
     ## for generality, the presence/absence vector is called "XXX".
     ## The meaning of "XXX" depends on the context in which this
     ## function is invoked.
@@ -254,7 +252,7 @@ make.TableS1 <- function(gbk.annotation, duplicate.proteins) {
     ## (this is the fraction of isolates with duplicated ARGs).
     isolate.proportion.results <- isolates.scored.by.dup.ARGs %>%
         split(.$Annotation) %>%
-        map_dfr(.f=bootstrap.proportions)
+        map_dfr(.f=bootstrap.isolate.proportions)
 
     ## join columns to make Table S1.
     TableS1 <- make.isolate.totals.col(gbk.annotation) %>%
@@ -339,7 +337,7 @@ make.TableS2 <- function(gbk.annotation, singleton.proteins) {
     ## (this is the fraction of isolates with duplicated ARGs).
     isolate.proportion.results <- isolates.scored.by.sing.ARGs %>%
         split(.$Annotation) %>%
-        map_dfr(.f=bootstrap.proportions)
+        map_dfr(.f=bootstrap.isolate.proportions)
 
     ## join columns to make Table S2.
     TableS2 <- make.isolate.totals.col(gbk.annotation) %>%
@@ -398,7 +396,7 @@ make.TableS3 <- function(gbk.annotation, duplicate.proteins) {
     ## (this is the fraction of isolates with duplicates).
     isolate.proportion.results <- isolates.scored.by.dups %>%
         split(.$Annotation) %>%
-        map_dfr(.f=bootstrap.proportions)
+        map_dfr(.f=bootstrap.isolate.proportions)
 
     ## join columns to make Table S3.
     TableS3 <- make.isolate.totals.col(gbk.annotation) %>%
@@ -880,170 +878,53 @@ big.gene.analysis.df <- make.big.gene.analysis.df(duplicate.proteins, singleton.
 gc() ## free memory
 #############################
 
-## Use the data in Table S6 to make Figure 3.
-## The point of this figure is to show that ARGs are generally
-## enriched on plasmids, especially multi-copy ARGs.
+## Use the data in Tables S4 and S5 to make Figure 3.
+## The point of this figure is to show that the distribution of
+## duplicated ARGs is not predicted by the distribution of single-copy ARGs
+## in the ecological categories.
 
-## helper functions to calculate statistics of enrichment on
-## chromosomes and plasmids, separately.
-
-
-
-make.Fig3.df <- function(ControlTable2, Table2, order.by.total_isolates.vec) {
-
-    Fig3.data <- full_join(ControlTable2, Table2) %>%
+make.Fig3.df <- function(TableS1, TableS4, TableS5) {
+    order.by.total_isolates <- TableS1$Annotation
+    
+    Fig3.df <- full_join(TableS4, TableS5) %>%
         mutate(Annotation = factor(
                    Annotation,
-                   levels = rev(order.by.total_isolates.vec)))
-
-    ## See Figure 1B for the intuitive explanation for this code.
-    ## basically, calculate the expected fraction in the given category,
-    ## based on the slope, which is the (genes in category)/(total genes in category),
-    ## under the null hypothesis that ARGs follow the slope (the sampling distribution).
-    
-    chromosomal_duplicates.sum <- sum(Fig3.data$chromosomal_duplicate_genes)
-    chromosomal_ARG_duplicates.sum <- sum(Fig3.data$chromosomal_duplicate_ARGs)
-    plasmid_duplicates.sum <- sum(Fig3.data$plasmid_duplicate_genes)
-    plasmid_ARG_duplicates.sum <- sum(Fig3.data$plasmid_duplicate_ARGs)
-
-    chromosomal_singleton.sum <- sum(Fig3.data$chromosomal_singleton_genes)
-    chromosomal_ARG_singleton.sum <- sum(Fig3.data$chromosomal_singleton_ARGs)
-    plasmid_singleton.sum <- sum(Fig3.data$plasmid_singleton_genes)
-    plasmid_ARG_singleton.sum <- sum(Fig3.data$plasmid_singleton_ARGs)
-
-    Fig3.df <- Fig3.data %>%
-        ## calculate y-coordinates for chromosomal duplicate ARGs.
-        mutate(yvals.for.chromosomal_ARG_duplicates.line = exp(log(chromosomal_ARG_duplicates.sum) + log(chromosomal_duplicate_genes) - log(chromosomal_duplicates.sum))) %>%
-        ## calculate y-coordinates for plasmid duplicate ARGs.
-        mutate(yvals.for.plasmid_ARG_duplicates.line = exp(log(plasmid_ARG_duplicates.sum) + log(plasmid_duplicate_genes) - log(plasmid_duplicates.sum))) %>%
-        ## calculate y-coordinates for chromosomal singleton ARGs.
-        mutate(yvals.for.chromosomal_ARG_singletons.line = exp(log(chromosomal_ARG_singleton.sum) + log(chromosomal_singleton_genes) - log(chromosomal_singleton.sum))) %>%
-        ## calculate y-coordinates for plasmid singleton ARGs.
-        mutate(yvals.for.plasmid_ARG_singletons.line = exp(log(plasmid_ARG_singleton.sum) + log(plasmid_singleton_genes) - log(plasmid_singleton.sum)))
-    
+                   levels = order.by.total_isolates)) %>%
+        mutate(total_duplicate_genes =
+                   plasmid_duplicate_genes + chromosomal_duplicate_genes) %>%
+        mutate(total_singleton_genes =
+                   plasmid_singleton_genes + chromosomal_singleton_genes) %>%
+        mutate(total_duplicate_ARGs =
+                   plasmid_duplicate_ARGs + chromosomal_duplicate_ARGs) %>%
+        mutate(total_singleton_ARGs = plasmid_singleton_ARGs + chromosomal_singleton_ARGs)
+        
     return(Fig3.df)
 }
 
 
-Fig3.df <- make.Fig3.df(ControlTable2, Table2, order.by.total_isolates.vec)
+Fig3.df <- make.Fig3.df(TableS1, TableS4, TableS5)
 
-make.Fig3 <- function(Fig3.df) {
+################################################################################
+## Analysis for Figure 3.
+## Plot point estimates for the fraction of chromosomal genes that are
+## duplicated ARGs (panel A),
+## the fraction of plasmid genes that are duplicated ARGs (panel B),
+## the fraction of chromosomal genes that are single-copy ARGs (panel C),
+## the fraction of plasmid genes that are single-copy ARGs (panel D),
+## the fraction of genes that are duplicated ARGs (panel E),
+## the fraction of genes that are single-copy ARGs (panel F).
 
-    ## calculate formal statistics, and use to add columns for coloring annotations.
-    chromosome.ARG.duplicate.pvals <- Fig3.df %>%
-        calc.chromosomal.ARG.duplicate.enrichment.pvals()    
-    plasmid.ARG.duplicate.pvals <- Fig3.df %>%
-        calc.plasmid.ARG.duplicate.enrichment.pvals()
-    chromosome.ARG.singleton.pvals <- Fig3.df %>%
-        calc.chromosomal.ARG.singleton.enrichment.pvals()
-    plasmid.ARG.singleton.pvals <- Fig3.df %>%
-        calc.plasmid.ARG.singleton.enrichment.pvals()
-    
-    Fig3.color.palette <- scales::viridis_pal()(3)
-    
-    Fig3A <- ggplot(Fig3.df, aes(x=chromosomal_duplicate_genes,
-                                 y=chromosomal_duplicate_ARGs,
-                                 label=Annotation)) +
-        theme_classic() +
-        geom_point(alpha=0.2, color = Fig3.color.palette[1]) +                  
-        geom_line(aes(y=yvals.for.chromosomal_ARG_duplicates.line),
-                  color = Fig3.color.palette[1]) +
-        geom_text_repel(data=chromosome.ARG.duplicate.pvals,
-                        aes(color=annotation_label_color), size=3) +
-        scale_color_identity() +
-        scale_x_log10(
-            breaks = scales::trans_breaks("log10", function(x) 10^x),
-            labels = scales::trans_format("log10", scales::math_format(10^.x))
-        ) +
-        scale_y_log10(
-            breaks = scales::trans_breaks("log10", function(x) 10^x),
-            labels = scales::trans_format("log10", scales::math_format(10^.x))
-        ) +
-        xlab("Chromosomal multi-copy genes") +
-        ylab("Chromosomal multi-copy ARGs")
-    
-    Fig3B <- ggplot(Fig3.df, aes(x=plasmid_duplicate_genes,
-                                 y=plasmid_duplicate_ARGs,
-                                 label=Annotation)) +
-        theme_classic() +
-        geom_point(alpha=0.2, color = Fig3.color.palette[1]) +                  
-        geom_line(aes(y=yvals.for.plasmid_ARG_duplicates.line),
-                  color = Fig3.color.palette[1]) +
-        geom_text_repel(data=plasmid.ARG.duplicate.pvals,
-                        aes(color=annotation_label_color), size=3) +
-        scale_color_identity() +
-        scale_x_log10(
-            breaks = scales::trans_breaks("log10", function(x) 10^x),
-            labels = scales::trans_format("log10", scales::math_format(10^.x))
-        ) +
-        scale_y_log10(
-            breaks = scales::trans_breaks("log10", function(x) 10^x),
-            labels = scales::trans_format("log10", scales::math_format(10^.x))
-        ) +
-        xlab("Plasmid multi-copy genes") +
-        ylab("Plasmid multi-copy ARGs")
-    
-    Fig3C <- ggplot(Fig3.df, aes(x=chromosomal_singleton_genes,
-                                 y=chromosomal_singleton_ARGs,
-                                 label=Annotation)) +
-        theme_classic() +
-        geom_point(alpha=0.2, color = Fig3.color.palette[2]) +                  
-        geom_line(aes(y=yvals.for.chromosomal_ARG_singletons.line),
-                  color = Fig3.color.palette[2]) +
-        geom_text_repel(data=chromosome.ARG.singleton.pvals,
-                        aes(color=annotation_label_color), size=3) +
-        scale_color_identity() +
-        scale_x_log10(
-            breaks = scales::trans_breaks("log10", function(x) 10^x),
-            labels = scales::trans_format("log10", scales::math_format(10^.x))
-        ) +
-        scale_y_log10(
-            breaks = scales::trans_breaks("log10", function(x) 10^x),
-            labels = scales::trans_format("log10", scales::math_format(10^.x))
-        ) +
-        xlab("Chromosomal single-copy genes") +
-        ylab("Chromosomal single-copy ARGs")
-    
-    Fig3D <- ggplot(Fig3.df, aes(x=plasmid_singleton_genes,
-                                 y=plasmid_singleton_ARGs,
-                                 label=Annotation)) +
-        theme_classic() +
-        geom_point(alpha=0.2, color = Fig3.color.palette[2]) +                  
-        geom_line(aes(y=yvals.for.plasmid_ARG_singletons.line),
-                  color = Fig3.color.palette[2]) +
-        geom_text_repel(data=plasmid.ARG.singleton.pvals,
-                        aes(color=annotation_label_color), size=3) +
-        scale_color_identity() +    
-        scale_x_log10(
-            breaks = scales::trans_breaks("log10", function(x) 10^x),
-            labels = scales::trans_format("log10", scales::math_format(10^.x))
-        ) +
-        scale_y_log10(
-            breaks = scales::trans_breaks("log10", function(x) 10^x),
-            labels = scales::trans_format("log10", scales::math_format(10^.x))
-        ) +
-        xlab("Plasmid single-copy genes") +
-        ylab("Plasmid single-copy ARGs")
-    Fig3 <- plot_grid(Fig3A, Fig3B, Fig3C, Fig3D, labels = c("A","B","C","D"), nrow=2)
-    return(Fig3)
-}
 
-Fig3 <- make.Fig3(Fig3.df)
-ggsave("../results/Fig3.pdf", Fig3)
 
-## formal statistics for the results in Figure 3 (the colored points are enriched).
-chromosome.ARG.duplicate.pvals <- Fig3.df %>%
-    calc.chromosomal.ARG.duplicate.enrichment.pvals()    
-plasmid.ARG.duplicate.pvals <- Fig3.df %>%
-    calc.plasmid.ARG.duplicate.enrichment.pvals()
-chromosome.ARG.singleton.pvals <- Fig3.df %>%
-    calc.chromosomal.ARG.singleton.enrichment.pvals()
-plasmid.ARG.singleton.pvals <- Fig3.df %>%
-    calc.plasmid.ARG.singleton.enrichment.pvals()
+
+##Fig3 <- make.Fig3(Fig3.df)
+##ggsave("../results/Fig3.pdf", Fig3)
+
+
 
 
 #############################
-## Supplementary Table S2. TODO: change to supplementary Table S4??
+## Supplementary Table S7??
 ## Enrichment/deletion analysis of AR genes using total genes,
 ## rather than number of isolates as in Supplementary Table S1.
 
