@@ -72,6 +72,8 @@ gbk.annotation <- read.csv(
     mutate(Annotation = replace_na(Annotation,"Unannotated")) %>%
     ## get species name annotation from episome.database.
     left_join(episome.database) %>%
+    ## Annotate the genera.
+    mutate(Genus = stringr::word(Organism, 1)) %>%
     ## CRITICAL STEP: remove the NCBI_Nucleotide_Accession and SequenceType columns.
     ## This is absolutely critical, otherwise each row is duplicated for every
     ## chromosome and plasmid, breaking the invariant that each row refers to one sequence,
@@ -196,7 +198,7 @@ calc.isolate.confints <- function(df) {
 
 
 make.TableS1 <- function(gbk.annotation, duplicate.proteins) {
-    
+
     ## count the number of isolates with duplicated ARGs in each category.
     ARG.category.counts <- duplicate.proteins %>%
         filter(str_detect(.$product,antibiotic.keywords)) %>%
@@ -218,17 +220,11 @@ make.TableS1 <- function(gbk.annotation, duplicate.proteins) {
 }
 
 
-make.Fig1.panel <- function(Table, title) {
-
-    Table <- Table %>%
-        arrange(total_isolates)
-    
-    order.by.total_isolates <- Table$Annotation
-    
+make.Fig1.panel <- function(Table, order.by.total.isolates, title) {    
     Fig1.panel <- Table %>%
         mutate(Annotation = factor(
                    Annotation,
-                   levels = order.by.total_isolates)) %>%
+                   levels = rev(order.by.total.isolates))) %>%
         ggplot(aes(y = Annotation, x = p)) +     
         geom_point(size=2) +
         ylab("Annotation") +
@@ -246,7 +242,7 @@ make.Fig1.panel <- function(Table, title) {
 TableS1 <- make.TableS1(gbk.annotation, duplicate.proteins)
 ## write Supplementary Table S1 to file.
 write.csv(x=TableS1, file="../results/TableS1.csv")
-Fig1B <- make.Fig1.panel(TableS1, "Duplicated ARGs")
+Fig1B <- make.Fig1.panel(TableS1, order.by.total.isolates, "Duplicated ARGs")
 
 ######################
 ## Table S2. Control: does the distribution of ARG singletons
@@ -288,8 +284,6 @@ write.csv(x=TableS2, file="../results/TableS2.csv")
 Fig1C <- make.Fig1.panel(TableS2, "Single-copy ARGs")
 gc() ## free memory after dealing with singleton data.
 
-
-
 ###############################################################################
 ## Table S3. Control: does the number of isolates with duplicate genes
 ## follow the sampling distribution of isolates?
@@ -329,6 +323,103 @@ Fig1D <- make.Fig1.panel(TableS3, "All Duplicated Genes")
 
 Fig1BCD <- plot_grid(Fig1B, Fig1C, Fig1D, labels=c('B','C','D'),ncol=1)
 ggsave("../results/Fig1BCD.pdf", width = 5)
+######################################################################
+## Control for Taxonomy (simpler control than for phylogeny)
+
+## let's look at the taxonomic distribution of strains with duplicated ARGs.
+duplicated.ARG.seq.genera.summary <- duplicate.proteins %>%
+    tibble() %>% filter(str_detect(product,antibiotic.keywords)) %>%
+    mutate(Genus = stringr::word(Organism, 1)) %>%
+    group_by(Genus) %>%
+    summarize(duplicated.ARG.count = n()) %>%
+    arrange(desc(duplicated.ARG.count))
+
+duplicated.genera.seq.summary <- duplicate.proteins %>%
+    tibble() %>%
+    mutate(Genus = stringr::word(Organism, 1)) %>%
+    group_by(Genus) %>%
+    summarize(duplicated.seq.count = n()) %>%
+    arrange(desc(duplicated.seq.count))
+
+all.genera.isolate.summary <- gbk.annotation %>%
+    filter(Annotation != "Unannotated") %>%
+    filter(Annotation != "blank") %>%
+    tibble() %>%
+    mutate(Genus = stringr::word(Organism, 1)) %>%
+    group_by(Genus) %>%
+    summarize(genome.count = n()) %>%
+    arrange(desc(genome.count))
+
+duplicated.genera.isolate.summary <- duplicate.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords)) %>%
+    ## next two lines is to count isolates rather than genes
+    select(Annotation_Accession, Organism, Strain, Annotation) %>%
+    distinct() %>%
+    tibble() %>%
+    mutate(Genus = stringr::word(Organism, 1)) %>%
+    group_by(Genus) %>%
+    summarize(duplicated.ARG.genome.count = n()) %>%
+    arrange(desc(duplicated.ARG.genome.count))
+
+## Let's mark the most commonly sampled genera, and recalculate a version
+## of TableS1, and the associated figure.
+top.ARG.genera <- c("Klebsiella", "Escherichia",
+                    "Acinetobacter", "Salmonella",
+                    "Enterobacter", "Staphylococcus",
+                    "Citrobacter", "Pseudomonas",
+                    "Enterococcus","Bacillus")
+
+genera.isolate.comparison.df <- full_join(
+    duplicated.genera.isolate.summary,
+    all.genera.isolate.summary) %>%
+    ## turn NAs to zeros.
+    replace(is.na(.), 0) %>%
+    mutate(percent.genomes.with.dup.ARGs = duplicated.ARG.genome.count/genome.count) %>%
+    mutate(in.top.ARG.genera = ifelse(Genus %in% top.ARG.genera, TRUE, FALSE)) %>%
+    arrange(desc(percent.genomes.with.dup.ARGs))
+
+
+## Hmmm... sampling biases could be problematic,
+## since antibiotic-resistant bacteria are more likely to be sequenced.
+S1FigA <- genera.isolate.comparison.df %>%
+    ggplot(aes(x=sqrt(genome.count),
+               y = sqrt(duplicated.ARG.genome.count),
+               label = Genus,
+               color = in.top.ARG.genera)) +
+    theme_classic() + geom_jitter() + geom_text_repel() +
+    scale_color_manual(values=c("black", "red")) +
+    guides(color=FALSE)
+
+## 4,559 isolates are in the top ARG genera.
+top.ARG.genera.isolates <- gbk.annotation %>%
+    filter(Genus %in% top.ARG.genera)
+
+## 3,780 isolates are in the remaining genera.
+filtered.gbk.annotation <- gbk.annotation %>%
+    filter(!(Genus %in% top.ARG.genera))
+
+filtered.duplicate.proteins <- duplicate.proteins %>%
+    filter(!(Genus %in% top.ARG.genera))
+
+filtered.TableS1 <- make.TableS1(filtered.gbk.annotation, filtered.duplicate.proteins)
+S1FigB <- make.Fig1.panel(filtered.TableS1, order.by.total.isolates, "Duplicated ARGs after filtering top genera")
+
+S1Fig <- plot_grid(S1FigA, S1FigB, labels = c("A", "B"), nrow = 2)
+
+unannotated.duplicate.proteins <- all.duplicate.proteins %>%
+    filter(Annotation == "Unannotated")
+
+unannotated.duplicated.ARG.isolate.genera.summary <- unannotated.duplicate.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords)) %>%
+    ## next two lines is to count isolates rather than genes
+    select(Annotation_Accession, Organism, Strain, Annotation) %>%
+    distinct() %>%
+    tibble() %>%
+    mutate(Genus = stringr::word(Organism, 1)) %>%
+    group_by(Genus) %>%
+    summarize(duplicated.ARG.genome.count = n()) %>%
+    arrange(desc(duplicated.ARG.genome.count))
+
 ######################################################################
 ## Figure 2: Visualization of ARGs on plasmids and chromosomes.
 
@@ -415,7 +506,7 @@ stackedbar.Fig2 <- plot_grid(stackedbar.Fig2A,
 ggsave("../results/stackedbar-Fig2.pdf", stackedbar.Fig2AB)
 
 #########################
-## S1 Figure.
+## S2 Figure.
 ## Analysis of duplicate pairs found just on chromosome, just on plasmid, or
 ## on both chromosomes and plasmids.
 
@@ -460,7 +551,7 @@ just.plasmid.summary <- just.plasmid.cases %>%
                Annotation,
                levels = rev(order.by.total.isolates)))
 
-S1FigA <- ggplot(both.chr.and.plasmid.summary,
+S2FigA <- ggplot(both.chr.and.plasmid.summary,
                   aes(x = Count,
                       y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
@@ -468,10 +559,10 @@ S1FigA <- ggplot(both.chr.and.plasmid.summary,
     ggtitle("Both chromosome and plasmid") +
     theme(legend.position="bottom")
 
-S1Fig.legend <- get_legend(S1FigA)
-S1FigA <- S1FigA + guides(fill = FALSE)
+S2Fig.legend <- get_legend(S1FigA)
+S2FigA <- S1FigA + guides(fill = FALSE)
 
-S1FigB <- ggplot(just.chromosome.summary,
+S2FigB <- ggplot(just.chromosome.summary,
                   aes(x = Count,
                       y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
@@ -479,7 +570,7 @@ S1FigB <- ggplot(just.chromosome.summary,
     ggtitle("chromosome only") +
     guides(fill = FALSE)
 
-S1FigC <- ggplot(just.plasmid.summary,
+S2FigC <- ggplot(just.plasmid.summary,
                   aes(x = Count,
                       y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
@@ -487,10 +578,10 @@ S1FigC <- ggplot(just.plasmid.summary,
     ggtitle("plasmid only") +
     guides(fill = FALSE)
 
-S1Fig <- plot_grid(NULL, S1FigA, S1FigB, S1FigC, S1Fig.legend, ncol = 1,
+S2Fig <- plot_grid(NULL, S2FigA, S2FigB, S2FigC, S2Fig.legend, ncol = 1,
                    labels = c("Genomic distribution of duplicated genes", "A","B","C"),
                    rel_heights=c(0.2,1,1,1,0.25))
-ggsave("../results/S1Fig.pdf", S1Fig)
+ggsave("../results/S2Fig.pdf", S2Fig)
 
 ##################################################################################
 
@@ -875,79 +966,9 @@ Fig3 <- plot_grid(Fig3A, Fig3B, Fig3C, Fig3D, Fig3E, Fig3F,
 ggsave("../results/Fig3.pdf", Fig3)
 
 ################################################################################
-## I am playing around here.
-
-## let's look at the taxonomic distribution of strains with duplicated ARGs.
-duplicated.ARG.seq.genera.summary <- duplicate.proteins %>%
-    tibble() %>% filter(str_detect(product,antibiotic.keywords)) %>%
-    mutate(Genus = stringr::word(Organism, 1)) %>%
-    group_by(Genus) %>%
-    summarize(duplicated.ARG.count = n()) %>%
-    arrange(desc(duplicated.ARG.count))
-
-duplicated.genera.seq.summary <- duplicate.proteins %>%
-    tibble() %>%
-    mutate(Genus = stringr::word(Organism, 1)) %>%
-    group_by(Genus) %>%
-    summarize(duplicated.seq.count = n()) %>%
-    arrange(desc(duplicated.seq.count))
-
-all.genera.isolate.summary <- gbk.annotation %>%
-    filter(Annotation != "Unannotated") %>%
-    filter(Annotation != "blank") %>%
-    tibble() %>%
-    mutate(Genus = stringr::word(Organism, 1)) %>%
-    group_by(Genus) %>%
-    summarize(genome.count = n()) %>%
-    arrange(desc(genome.count))
-
-duplicated.genera.isolate.summary <- duplicate.proteins %>%
-    filter(str_detect(.$product,antibiotic.keywords)) %>%
-    ## next two lines is to count isolates rather than genes
-    select(Annotation_Accession, Organism, Strain, Annotation) %>%
-    distinct() %>%
-    tibble() %>%
-    mutate(Genus = stringr::word(Organism, 1)) %>%
-    group_by(Genus) %>%
-    summarize(duplicated.ARG.genome.count = n()) %>%
-    arrange(desc(duplicated.ARG.genome.count))
-
-genera.isolate.comparison.df <- full_join(
-    duplicated.genera.isolate.summary,
-    all.genera.isolate.summary) %>%
-    ## turn NAs to zeros.
-    replace(is.na(.), 0) %>%
-    mutate(percent.genomes.with.dup.ARGs = duplicated.ARG.genome.count/genome.count) %>%
-    arrange(desc(percent.genomes.with.dup.ARGs))
-    
-genera.duplicated.ARG.comparison.plot <- genera.isolate.comparison.df %>%
-    ggplot(aes(x=log2(1+genome.count),
-               y = log2(1+duplicated.ARG.genome.count),
-               label = Genus)) +
-    theme_classic() + geom_jitter() + geom_text_repel()
-
-## Hmmm... sampling biases could be problematic.
-## AKA antibiotic-resistance bacteria might be most likely to be sequenced.
-
-unannotated.duplicate.proteins <- all.duplicate.proteins %>%
-    filter(Annotation == "Unannotated")
-
-unannotated.duplicated.ARG.isolate.genera.summary <- unannotated.duplicate.proteins %>%
-    filter(str_detect(.$product,antibiotic.keywords)) %>%
-    ## next two lines is to count isolates rather than genes
-    select(Annotation_Accession, Organism, Strain, Annotation) %>%
-    distinct() %>%
-    tibble() %>%
-    mutate(Genus = stringr::word(Organism, 1)) %>%
-    group_by(Genus) %>%
-    summarize(duplicated.ARG.genome.count = n()) %>%
-    arrange(desc(duplicated.ARG.genome.count))
-
-################################################################################
 ## Figure 4: examples that indicate generality of our method.
 ## let's examine some other functions that we expect to be enriched in some, but
 ## not all ecological annotations.
-
 
 ## generic version of make.TableS1, for examining classes of genes other than
 ## antibiotic resistance genes.
@@ -1005,7 +1026,6 @@ make.IsolateEnrichmentTable <- function(gbk.annotation, duplicate.genes, keyword
         ## expected number of duplicated function genes, using binomial test,
         ## correcting for multiple tests.
         calc.isolate.function.gene.enrichment.pvals()
-
     return(Table)
 }
 
@@ -1025,7 +1045,6 @@ make.Fig4.panel.df <- function(Fig4.panel.table, pval.threshold = 0.05) {
         "red", "black"))
     
     return(Fig4.panel.df)
-
 }
 
 
