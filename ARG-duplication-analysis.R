@@ -220,7 +220,7 @@ make.TableS1 <- function(gbk.annotation, duplicate.proteins) {
 }
 
 
-make.Fig1.panel <- function(Table, order.by.total.isolates, title) {    
+make.confint.figure.panel <- function(Table, order.by.total.isolates, title) {    
     Fig1.panel <- Table %>%
         mutate(Annotation = factor(
                    Annotation,
@@ -242,7 +242,7 @@ make.Fig1.panel <- function(Table, order.by.total.isolates, title) {
 TableS1 <- make.TableS1(gbk.annotation, duplicate.proteins)
 ## write Supplementary Table S1 to file.
 write.csv(x=TableS1, file="../results/TableS1.csv")
-Fig1B <- make.Fig1.panel(TableS1, order.by.total.isolates, "Duplicated ARGs")
+Fig1B <- make.confint.figure.panel(TableS1, order.by.total.isolates, "Duplicated ARGs")
 
 ######################
 ## Table S2. Control: does the distribution of ARG singletons
@@ -281,7 +281,7 @@ make.TableS2 <- function(gbk.annotation, singleton.proteins) {
 TableS2 <- make.TableS2(gbk.annotation, singleton.proteins)
 ## write TableS2 to file.
 write.csv(x=TableS2, file="../results/TableS2.csv")
-Fig1C <- make.Fig1.panel(TableS2, "Single-copy ARGs")
+Fig1C <- make.confint.figure.panel(TableS2, "Single-copy ARGs")
 gc() ## free memory after dealing with singleton data.
 
 ###############################################################################
@@ -319,7 +319,7 @@ TableS3 <- make.TableS3(gbk.annotation, duplicate.proteins)
 ## write TableS3 to file.
 write.csv(x=TableS3, file="../results/TableS3.csv")
 
-Fig1D <- make.Fig1.panel(TableS3, "All Duplicated Genes")
+Fig1D <- make.confint.figure.panel(TableS3, "All Duplicated Genes")
 
 Fig1BCD <- plot_grid(Fig1B, Fig1C, Fig1D, labels=c('B','C','D'),ncol=1)
 ggsave("../results/Fig1BCD.pdf", width = 5)
@@ -402,7 +402,7 @@ filtered.duplicate.proteins <- duplicate.proteins %>%
     filter(!(Genus %in% top.ARG.genera))
 
 filtered.TableS1 <- make.TableS1(filtered.gbk.annotation, filtered.duplicate.proteins)
-S1FigB <- make.Fig1.panel(filtered.TableS1, order.by.total.isolates, "Duplicated ARGs after filtering top genera")
+S1FigB <- make.confint.figure.panel(filtered.TableS1, order.by.total.isolates, "Duplicated ARGs after filtering top genera")
 
 S1Fig <- plot_grid(S1FigA, S1FigB, labels = c("A", "B"), nrow = 2)
 
@@ -980,137 +980,60 @@ make.IsolateEnrichmentTable <- function(gbk.annotation, duplicate.genes, keyword
         ## next two lines is to count isolates rather than genes
         select(Annotation_Accession, Annotation) %>%
         distinct() %>%
-        group_by(Annotation) %>%
-        summarize(isolates_with_duplicated_function = n()) %>%
-        arrange(desc(isolates_with_duplicated_function))
+        count(Annotation, sort = TRUE) %>%
+        rename(isolates_with_duplicated_function = n)
     
-    ## join columns to make Table 1 with raw data.
-    raw.Table <- make.isolate.totals.col(gbk.annotation) %>%
+    ## join columns to make the Table.
+    Table <- make.isolate.totals.col(gbk.annotation) %>%
         left_join(category.counts) %>%
         mutate(isolates_with_duplicated_function =
                    replace_na(isolates_with_duplicated_function,0)) %>%
-        arrange(desc(isolates_with_duplicated_function))
-    
-    ## For consistency with Figure 1, use the distribution of sampled isolates as the null
-    ## distribution.
-    calc.expected.isolates.with.function <- function(raw.Table) {
-        sum.total.isolates <- sum(raw.Table$total_isolates)
-        total.isolates.with.duplicated.function <- sum(
-            raw.Table$isolates_with_duplicated_function)
-        Table <- raw.Table %>%
-            mutate(expected_isolates_with_duplicated_function = total.isolates.with.duplicated.function * total_isolates/sum.total.isolates)
-        return(Table)
-    }
-    
-    calc.isolate.function.gene.enrichment.pvals <- function(raw.Table) {
-        sum.total.isolates <- sum(raw.Table$total_isolates)
-        total.isolates.with.duplicated.function <- sum(raw.Table$isolates_with_duplicated_function)
-        Table <- raw.Table %>%
-            rowwise() %>%
-            mutate(binom.test.pval = binom.test
-            (
-                x = isolates_with_duplicated_function,
-                n = total.isolates.with.duplicated.function,
-                p = total_isolates/sum.total.isolates
-            )$p.value) %>%
-            mutate(corrected.pval = p.adjust(binom.test.pval,"BH")) %>%
-            ## use Benjamini-Hochberg p-value correction.
-            select(-binom.test.pval) ## drop original p-value after the correction.
-        return(Table)
-    }
-
-    ## Add a third column: expected number of isolates with duplicated function genes,
-    ## based on the percentage of isolates with duplicated genes.
-    Table <- raw.Table %>% calc.expected.isolates.with.function() %>%
-        ## Add a fourth column: p-values for deviation from
-        ## expected number of duplicated function genes, using binomial test,
-        ## correcting for multiple tests.
-        calc.isolate.function.gene.enrichment.pvals()
+        mutate(p = isolates_with_duplicated_function/total_isolates) %>%
+        calc.isolate.confints()
     return(Table)
 }
 
 
-make.Fig4.panel.df <- function(Fig4.panel.table, pval.threshold = 0.05) {
-
-    total_isolates.sum <- sum(Fig4.panel.table$total_isolates)
-    isolates_with_duplicated_function.sum <- sum(Fig4.panel.table$isolates_with_duplicated_function)
-    
-    Fig4.panel.df <- Fig4.panel.table %>%
-        ## calculate y-coordinates for line for duplicate ARGs.
-        mutate(yvals.for.isolates_with_duplicated_function.line = total_isolates * isolates_with_duplicated_function.sum/total_isolates.sum) %>%
-        ## add a column for label colors in the Figure.
-        mutate(annotation_label_color = ifelse(
-        (isolates_with_duplicated_function > expected_isolates_with_duplicated_function)
-        && (corrected.pval < pval.threshold),
-        "red", "black"))
-    
-    return(Fig4.panel.df)
-}
-
-
-make.Fig4.panel <- function(Fig4.panel.df) {
-
-    Fig4.panel <- ggplot(Fig4.panel.df, aes(x=total_isolates,
-                                 y=isolates_with_duplicated_function,
-                                 label=Annotation)) +
-        theme_classic() +
-        geom_point(alpha=0.2) +                  
-        geom_line(aes(y=yvals.for.isolates_with_duplicated_function.line)) +
-        geom_text_repel(aes(color=annotation_label_color), size=3) +
-        scale_color_identity() +
-        scale_x_log10(
-            breaks = scales::trans_breaks("log10", function(x) 10^x),
-            labels = scales::trans_format("log10", scales::math_format(10^.x))
-        ) +
-        scale_y_log10(
-            breaks = scales::trans_breaks("log10", function(x) 10^x),
-            labels = scales::trans_format("log10", scales::math_format(10^.x))
-        ) +
-        xlab("Total isolates")
-
-    return(Fig4.panel)
-}
-
 photosynthesis.table <- make.IsolateEnrichmentTable(gbk.annotation,
                                                     duplicate.genes,
                                                     "photosystem")
-write.csv(x=photosynthesis.table, file="../results/TableS4.csv")
+write.csv(x=photosynthesis.table, file="../results/TableS6.csv")
 
 N2.fixation.table <- make.IsolateEnrichmentTable(gbk.annotation,
                                                  duplicate.genes,
                                                  "nitrogenase")
-write.csv(x=N2.fixation.table, file="../results/TableS5.csv")
+write.csv(x=N2.fixation.table, file="../results/TableS7.csv")
 
 toxic.metal.table <- make.IsolateEnrichmentTable(gbk.annotation,
                                                  duplicate.genes,
                                                  "mercury|cadmium|arsen")
-write.csv(x=toxic.metal.table, file="../results/TableS6.csv")
+write.csv(x=toxic.metal.table, file="../results/TableS8.csv")
 
 heme.table <- make.IsolateEnrichmentTable(gbk.annotation,
                                           duplicate.genes,
                                           "heme")
-write.csv(x=heme.table, file="../results/TableS7.csv")
+write.csv(x=heme.table, file="../results/TableS9.csv")
 
 
-Fig4A.df <- make.Fig4.panel.df(photosynthesis.table)
-Fig4A <- make.Fig4.panel(Fig4A.df) +
-    ylab("Isolates with multi-copy photosystem genes") +
-    ggtitle("Photosynthesis")
+Fig4A <- make.confint.figure.panel(
+    photosynthesis.table, order.by.total.isolates,
+    "Photosynthesis") +
+    ylab("Isolates with duplicated photosystem genes")
 
-Fig4B.df <- make.Fig4.panel.df(N2.fixation.table)
-Fig4B <- make.Fig4.panel(Fig4B.df) +
-    ylab("Isolates with multi-copy nitrogenase genes") +
-    ggtitle("Nitrogen fixation")
+Fig4B <- make.confint.figure.panel(
+    N2.fixation.table, order.by.total.isolates,
+    "Nitrogen fixation") +
+    ylab("Isolates with duplicated nitrogenase genes")
 
-Fig4C.df <- make.Fig4.panel.df(toxic.metal.table)
-Fig4C <- make.Fig4.panel(Fig4C.df) +
-    ylab("Isolates with multi-copy toxic-metal resistance genes") +
-    ggtitle("Toxic-metal resistance")
+Fig4C <- make.confint.figure.panel(
+    toxic.metal.table, order.by.total.isolates,
+    "Toxic-metal resistance") +
+    ylab("Isolates with duplicated toxic-metal resistance genes")
 
-Fig4D.df <- make.Fig4.panel.df(heme.table)
-Fig4D <- make.Fig4.panel(Fig4D.df) +
-    ylab("Isolates with multi-copy heme degradation genes") +
-    ggtitle("Heme degradation")
+Fig4D <- make.confint.figure.panel(
+    heme.table, order.by.total.isolates,
+    "Heme degradation") +
+    ylab("Isolates with duplicated heme degradation genes")
 
 Fig4 <- plot_grid(Fig4A, Fig4B, Fig4C, Fig4D,
                   labels = c("A","B","C","D"),
@@ -1404,7 +1327,7 @@ ggsave("../results/duplicate-protein-seq-TF-IDF.pdf",
 
 ##########################################
 
-## Figure S1. annotations of multi-copy proteins are informative about
+## Figure S3. the annotations of duplicated proteins are informative about
 ## ecology.
 
 best.dup.prot.annotation.tf_idf <- dup.prot.annotation.tf_idf %>%
@@ -1414,7 +1337,7 @@ best.dup.prot.annotation.tf_idf <- dup.prot.annotation.tf_idf %>%
     slice_max(tf_idf, n = 5) %>%
     ungroup()
 
-S1Fig <- ggplot(best.dup.prot.annotation.tf_idf,
+S3Fig <- ggplot(best.dup.prot.annotation.tf_idf,
                 aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
     geom_col(show.legend = FALSE) +
     labs(x = "tf-idf", y = NULL) +
@@ -1423,4 +1346,4 @@ S1Fig <- ggplot(best.dup.prot.annotation.tf_idf,
     facet_wrap(.~Annotation, ncol=1, scales = "free_y") +
     ggtitle("Most informative multi-copy protein annotations")
 
-ggsave("../results/S1Fig.pdf", S1Fig, width=8, height = 8)
+ggsave("../results/S3Fig.pdf", S3Fig, width=8, height = 8)
