@@ -5,14 +5,10 @@
 
 ## This is a rewrite of Aim1-analysis.R, using a different statistical framework.
 
-## TODO: CAREFULLY re-number Supplementary Tables based on the manuscript.
-## work backwards to avoid interchanging data structures between pieces of code.
-
 library(tidyverse)
 library(cowplot)
 library(ggrepel)
 library(data.table)
-library(boot) ## for professional bootstrapping, rather than rolling my own.
 library(tidytext) ## for text mining with R.
 library(forcats)
 
@@ -23,7 +19,6 @@ fancy_scientific <- function(x) {
     ## https://stackoverflow.com/questions/10762287/how-can-i-format-axis-labels-with-exponents-with-ggplot2-and-scales
     ifelse(x==0, "0", parse(text=gsub("[+]", "", gsub("e", " %*% 10^", scales::scientific_format()(x)))))
 }
-
 
 ################################################################################
 ## Regular expressions used in this analysis.
@@ -101,6 +96,17 @@ gbk.annotation <- anti_join(gbk.annotation, missing.ones) %>%
     ## that were not annotated by annotate-ecological-category.py.
     filter(Annotation != "blank")
 
+## return the first column for several tables.
+## shows the number of isolates in each category.
+make.isolate.totals.col <- function(gbk.annotation) {
+    isolate.totals <- gbk.annotation %>%
+        group_by(Annotation) %>%
+        summarize(total_isolates = n()) %>%
+        arrange(desc(total_isolates))
+    return(isolate.totals)
+}
+
+
 ## This vector is used for ordering axes in figures and tables.
 order.by.total.isolates <- make.isolate.totals.col(gbk.annotation)$Annotation
 
@@ -171,17 +177,6 @@ plasmid.annotation <- protein.db.metadata %>%
 
 ## Count data for isolates with duplicated ARGs
 ## goes into Supplementary Table S1.
-
-## return the first column for several tables.
-## shows the number of isolates in each category.
-make.isolate.totals.col <- function(gbk.annotation) {
-    isolate.totals <- gbk.annotation %>%
-        group_by(Annotation) %>%
-        summarize(total_isolates = n()) %>%
-        arrange(desc(total_isolates))
-    return(isolate.totals)
-}
-
 
 calc.isolate.confints <- function(df) {
     df %>%
@@ -281,7 +276,7 @@ make.TableS2 <- function(gbk.annotation, singleton.proteins) {
 TableS2 <- make.TableS2(gbk.annotation, singleton.proteins)
 ## write TableS2 to file.
 write.csv(x=TableS2, file="../results/TableS2.csv")
-Fig1C <- make.confint.figure.panel(TableS2, "Single-copy ARGs")
+Fig1C <- make.confint.figure.panel(TableS2, order.by.total.isolates, "Single-copy ARGs")
 gc() ## free memory after dealing with singleton data.
 
 ###############################################################################
@@ -319,7 +314,7 @@ TableS3 <- make.TableS3(gbk.annotation, duplicate.proteins)
 ## write TableS3 to file.
 write.csv(x=TableS3, file="../results/TableS3.csv")
 
-Fig1D <- make.confint.figure.panel(TableS3, "All Duplicated Genes")
+Fig1D <- make.confint.figure.panel(TableS3, order.by.total.isolates, "All Duplicated Genes")
 
 Fig1BCD <- plot_grid(Fig1B, Fig1C, Fig1D, labels=c('B','C','D'),ncol=1)
 ggsave("../results/Fig1BCD.pdf", width = 5)
@@ -406,19 +401,82 @@ S1FigB <- make.confint.figure.panel(filtered.TableS1, order.by.total.isolates, "
 
 S1Fig <- plot_grid(S1FigA, S1FigB, labels = c("A", "B"), nrow = 2)
 
-unannotated.duplicate.proteins <- all.duplicate.proteins %>%
-    filter(Annotation == "Unannotated")
+###########################################################################
+## Figure S2: Distribution of proportions of duplicated ARGs per genome:
+## For each Annotation category:
+## panel A: the % of genes in each genome that are duplicated ARGs.
+## panel B: the % of genes in each genome that are duplicated MGEs.
+## panel C: the % of genes in each genome that are duplicated.
 
-unannotated.duplicated.ARG.isolate.genera.summary <- unannotated.duplicate.proteins %>%
+## calculate the number of duplicate genes in each genome.
+duplicated.genes.per.genome <- duplicate.proteins %>%
+    group_by(Annotation_Accession) %>%
+    summarize(gene.duplicates.per.genome = sum(count))
+    
+duplicated.MGEs.per.genome <- duplicate.proteins %>%
+    filter(str_detect(.$product, IS.keywords)) %>%
+    group_by(Annotation_Accession) %>%
+    summarize(MGE.duplicates.per.genome = sum(count))
+
+duplicated.ARGs.per.genome <- duplicate.proteins %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
-    ## next two lines is to count isolates rather than genes
-    select(Annotation_Accession, Organism, Strain, Annotation) %>%
-    distinct() %>%
-    tibble() %>%
-    mutate(Genus = stringr::word(Organism, 1)) %>%
-    group_by(Genus) %>%
-    summarize(duplicated.ARG.genome.count = n()) %>%
-    arrange(desc(duplicated.ARG.genome.count))
+    group_by(Annotation_Accession) %>%
+    summarize(ARG.duplicates.per.genome = sum(count))
+    
+boxplot.df <- protein.db.metadata %>%
+    ## sum the CDS in all chromosomes and plasmids per genome.
+    group_by(Annotation_Accession, Annotation) %>%
+    summarize(total_genes = sum(CDS_count)) %>%
+    ## calculate percentage for all duplicated.genes.
+    left_join(duplicated.genes.per.genome) %>%
+    mutate(gene.duplicates.per.genome =
+               replace_na(gene.duplicates.per.genome, 0)) %>%
+    mutate(proportion.of.duplicated.genes = gene.duplicates.per.genome/total_genes) %>%
+    ## calculate percentage for duplicated MGE-associated genes.
+    left_join(duplicated.MGEs.per.genome) %>%
+    mutate(MGE.duplicates.per.genome =
+               replace_na(MGE.duplicates.per.genome, 0)) %>%
+    mutate(proportion.of.duplicated.MGEs = MGE.duplicates.per.genome/total_genes) %>%
+    ## calculate percentage for duplicated ARGs.
+    left_join(duplicated.ARGs.per.genome) %>%
+    mutate(ARG.duplicates.per.genome =
+               replace_na(ARG.duplicates.per.genome, 0)) %>%
+    mutate(proportion.of.duplicated.ARGs = ARG.duplicates.per.genome/total_genes)
+   
+S2FigA <- boxplot.df %>%
+    mutate(Annotation = factor(
+               Annotation,
+               levels = rev(order.by.total.isolates))) %>%
+    ggplot(aes(y = Annotation, x = proportion.of.duplicated.ARGs)) +
+    geom_jitter(size=0.2) +
+    ylab("Annotation") +
+    xlab("Proportion of duplicated ARGs per genome") +
+    theme_classic() +
+    ggtitle("Duplicated ARGs")
+
+S2FigB <- boxplot.df %>%
+    mutate(Annotation = factor(
+               Annotation,
+               levels = rev(order.by.total.isolates))) %>%
+    ggplot(aes(y = Annotation, x = proportion.of.duplicated.MGEs)) +
+    geom_jitter(size=0.2) +
+    ylab("Annotation") +
+    xlab("Proportion of duplicated MGE genes per genome") +
+    theme_classic() +
+    ggtitle("Duplicated MGE genes")
+
+S2FigC <- boxplot.df %>%
+    mutate(Annotation = factor(
+               Annotation,
+               levels = rev(order.by.total.isolates))) %>%
+    ggplot(aes(y = Annotation, x = proportion.of.duplicated.genes)) +
+    geom_jitter(size=0.2) +
+    ylab("Annotation") +
+    xlab("Proportion of duplicated genes per genome") +
+    theme_classic() +
+    ggtitle("Duplicated genes")
+
+S2Fig <- plot_grid(S2FigA, S2FigB, S2FigC, labels = c('A','B','C'), nrow = 3)
 
 ######################################################################
 ## Figure 2: Visualization of ARGs on plasmids and chromosomes.
@@ -461,7 +519,7 @@ Fig2B.data <- singleton.proteins %>%
                Annotation,
                levels = rev(order.by.total.isolates)))
 
- Fig2A <- ggplot(Fig2A.data, aes(x = Count, y = Annotation, fill = Category)) +
+Fig2A <- ggplot(Fig2A.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
     facet_wrap(.~Episome) +
     theme_classic() +
@@ -503,10 +561,10 @@ ggsave("../results/Fig2.pdf", Fig2, height = 7, width = 6)
 ## This visualization is also useful.
 stackedbar.Fig2 <- plot_grid(stackedbar.Fig2A,
                              stackedbar.Fig2B, labels = c("A", "B"), ncol = 1)
-ggsave("../results/stackedbar-Fig2.pdf", stackedbar.Fig2AB)
+ggsave("../results/stackedbar-Fig2.pdf", stackedbar.Fig2)
 
 #########################
-## S2 Figure.
+## S3 Figure.
 ## Analysis of duplicate pairs found just on chromosome, just on plasmid, or
 ## on both chromosomes and plasmids.
 
@@ -551,7 +609,7 @@ just.plasmid.summary <- just.plasmid.cases %>%
                Annotation,
                levels = rev(order.by.total.isolates)))
 
-S2FigA <- ggplot(both.chr.and.plasmid.summary,
+S3FigA <- ggplot(both.chr.and.plasmid.summary,
                   aes(x = Count,
                       y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
@@ -559,10 +617,10 @@ S2FigA <- ggplot(both.chr.and.plasmid.summary,
     ggtitle("Both chromosome and plasmid") +
     theme(legend.position="bottom")
 
-S2Fig.legend <- get_legend(S1FigA)
-S2FigA <- S1FigA + guides(fill = FALSE)
+S3Fig.legend <- get_legend(S3FigA)
+S3FigA <- S3FigA + guides(fill = FALSE)
 
-S2FigB <- ggplot(just.chromosome.summary,
+S3FigB <- ggplot(just.chromosome.summary,
                   aes(x = Count,
                       y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
@@ -570,7 +628,7 @@ S2FigB <- ggplot(just.chromosome.summary,
     ggtitle("chromosome only") +
     guides(fill = FALSE)
 
-S2FigC <- ggplot(just.plasmid.summary,
+S3FigC <- ggplot(just.plasmid.summary,
                   aes(x = Count,
                       y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
@@ -578,10 +636,10 @@ S2FigC <- ggplot(just.plasmid.summary,
     ggtitle("plasmid only") +
     guides(fill = FALSE)
 
-S2Fig <- plot_grid(NULL, S2FigA, S2FigB, S2FigC, S2Fig.legend, ncol = 1,
+S3Fig <- plot_grid(NULL, S3FigA, S3FigB, S3FigC, S3Fig.legend, ncol = 1,
                    labels = c("Genomic distribution of duplicated genes", "A","B","C"),
                    rel_heights=c(0.2,1,1,1,0.25))
-ggsave("../results/S2Fig.pdf", S2Fig)
+ggsave("../results/S3Fig.pdf", S3Fig)
 
 ##################################################################################
 
@@ -966,7 +1024,89 @@ Fig3 <- plot_grid(Fig3A, Fig3B, Fig3C, Fig3D, Fig3E, Fig3F,
 ggsave("../results/Fig3.pdf", Fig3)
 
 ################################################################################
-## Figure 4: examples that indicate generality of our method.
+## Figure 4: 
+## The observed ecological distribution of duplicate genes is driven by either
+## selection, HGT, or associations with MGEs.
+
+## In the absence of selection, HGT, or association with MGEs,
+## the distribution of non-MGE duplicated genes should be a random sample of
+## non-MGE singletons.
+
+## Null hypothesis: ratio of duplicated ARGs to all duplicated genes
+## should be proportional to the number of singleton ARGs out of all
+## singleton genes.
+
+## Deviation from the null hypothesis indicates selection, HGT, or linkage with
+## MGEs, thus causing enrichment.
+
+## Panel A is a schematic figure in Illustrator to show the rationale.
+
+duplicated.ARGs.per.category <- duplicate.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords)) %>%
+    group_by(Annotation) %>%
+    summarize(ARG.duplicates = sum(count))
+
+duplicated.genes.per.category <- duplicate.proteins %>%
+    group_by(Annotation) %>%
+    summarize(gene.duplicates = sum(count))
+
+duplicated.MGEs.per.category <- duplicate.proteins %>%
+    filter(str_detect(.$product,IS.keywords)) %>%
+    group_by(Annotation) %>%
+    summarize(MGE.duplicates = sum(count))
+
+singleton.ARGs.per.category <- singleton.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords)) %>%
+    group_by(Annotation) %>%
+    summarize(singleton.ARGs = sum(count))
+
+singleton.genes.per.category <- singleton.proteins %>%
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    group_by(Annotation) %>%
+    summarize(singleton.genes = sum(count))
+
+singleton.MGEs.per.category <- singleton.proteins %>%
+    filter(str_detect(.$product,IS.keywords)) %>%
+    group_by(Annotation) %>%
+    summarize(singleton.MGEs = sum(count))
+
+selection.test.df <- duplicated.ARGs.per.category %>%
+    full_join(duplicated.genes.per.category) %>%
+    full_join(duplicated.MGEs.per.category) %>%
+    full_join(singleton.ARGs.per.category) %>%
+    full_join(singleton.genes.per.category) %>%
+    full_join(singleton.MGEs.per.category) %>%
+    ## turn NAs to zeros.
+    replace(is.na(.), 0) %>%
+    mutate(p1 = ARG.duplicates / gene.duplicates) %>%
+    mutate(p2 = MGE.duplicates / gene.duplicates) %>%
+    mutate(q1 = singleton.ARGs / singleton.genes) %>%
+    mutate(q2 = singleton.MGEs / singleton.genes) %>%
+    mutate(ARG.dup.singleton.ratio = p1/q1) %>%
+    mutate(MGE.dup.singleton.ratio = p2/q2) %>%
+    mutate(Annotation = factor(
+               Annotation,
+               levels = rev(order.by.total.isolates)))
+
+ARG.selection.plot <- selection.test.df %>%
+    ggplot(aes(y = Annotation, x = ARG.dup.singleton.ratio)) +
+    geom_point() + theme_classic() +
+    geom_vline(xintercept = 1, color = "red", linetype = "dashed") +
+    xlim(0,4) +
+    xlab("proportion of ARGs among duplicate genes / proportion of ARGs among single-copy genes")
+
+MGE.selection.plot <- selection.test.df %>%
+    ggplot(aes(y = Annotation, x = MGE.dup.singleton.ratio)) +
+    geom_point() + theme_classic() +
+    geom_vline(xintercept = 1, color = "red", linetype = "dashed") +
+    xlim(0,4) +
+    xlab("proportion of MGE genes among duplicate genes / proportion of MGE genes among single-copy genes")
+
+Fig4BC <- plot_grid(ARG.selection.plot, MGE.selection.plot, labels = c('B','C'), nrow = 2)
+ggsave("../results/Fig4BC.pdf", Fig4BC, width=9.5, height=5)
+
+################################################################################
+## Figure 5: examples that indicate generality of our method.
 ## let's examine some other functions that we expect to be enriched in some, but
 ## not all ecological annotations.
 
@@ -1015,31 +1155,31 @@ heme.table <- make.IsolateEnrichmentTable(gbk.annotation,
 write.csv(x=heme.table, file="../results/TableS9.csv")
 
 
-Fig4A <- make.confint.figure.panel(
+Fig5A <- make.confint.figure.panel(
     photosynthesis.table, order.by.total.isolates,
     "Photosynthesis") +
     ylab("Isolates with duplicated photosystem genes")
 
-Fig4B <- make.confint.figure.panel(
+Fig5B <- make.confint.figure.panel(
     N2.fixation.table, order.by.total.isolates,
     "Nitrogen fixation") +
     ylab("Isolates with duplicated nitrogenase genes")
 
-Fig4C <- make.confint.figure.panel(
+Fig5C <- make.confint.figure.panel(
     toxic.metal.table, order.by.total.isolates,
     "Toxic-metal resistance") +
     ylab("Isolates with duplicated toxic-metal resistance genes")
 
-Fig4D <- make.confint.figure.panel(
+Fig5D <- make.confint.figure.panel(
     heme.table, order.by.total.isolates,
     "Heme degradation") +
     ylab("Isolates with duplicated heme degradation genes")
 
-Fig4 <- plot_grid(Fig4A, Fig4B, Fig4C, Fig4D,
+Fig5 <- plot_grid(Fig5A, Fig5B, Fig5C, Fig5D,
                   labels = c("A","B","C","D"),
                   nrow = 2)
 
-ggsave(Fig4, file = "../results/Fig4.pdf", width = 8.5, height = 8.5)
+ggsave(Fig5, file = "../results/Fig5.pdf", width = 8.5, height = 8.5)
 ##########################################################################
 
 ## Calculate TF-IDF (Term Frequency times Inverse Document Frequency)
@@ -1326,8 +1466,7 @@ ggsave("../results/duplicate-protein-seq-TF-IDF.pdf",
        height=21,width=21)
 
 ##########################################
-
-## Figure S3. the annotations of duplicated proteins are informative about
+## Figure S4. the annotations of duplicated proteins are informative about
 ## ecology.
 
 best.dup.prot.annotation.tf_idf <- dup.prot.annotation.tf_idf %>%
@@ -1337,7 +1476,7 @@ best.dup.prot.annotation.tf_idf <- dup.prot.annotation.tf_idf %>%
     slice_max(tf_idf, n = 5) %>%
     ungroup()
 
-S3Fig <- ggplot(best.dup.prot.annotation.tf_idf,
+S4Fig <- ggplot(best.dup.prot.annotation.tf_idf,
                 aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
     geom_col(show.legend = FALSE) +
     labs(x = "tf-idf", y = NULL) +
@@ -1346,4 +1485,5 @@ S3Fig <- ggplot(best.dup.prot.annotation.tf_idf,
     facet_wrap(.~Annotation, ncol=1, scales = "free_y") +
     ggtitle("Most informative multi-copy protein annotations")
 
-ggsave("../results/S3Fig.pdf", S3Fig, width=8, height = 8)
+ggsave("../results/S4Fig.pdf", S4Fig, width=8, height = 8)
+
