@@ -60,7 +60,7 @@ if(numbers[0] > 0 || numbers[1] > 12 || numbers[2] > 1) {
 md"""
 # **_Toy model of ARG duplication and transposition dynamics_**
 
-**model version 1**.
+**linear ODE model version 1**.
 
 Rohan Maddamsetti and Lingchong You.
 """
@@ -193,6 +193,19 @@ begin
 	tspan = (0.0,1000.0)
 end
 
+# ╔═╡ 19d506a1-a53d-4a10-8f99-280301933d7b
+md""" 
+For Figure S4, use the following parameter settings:  
+
+Antibiotic Concentration = 5.0
+
+Duplication Cost = 0.1
+
+Transfer Rate = 0.0002  
+
+Dilution Rate = 0.1.  
+"""
+
 # ╔═╡ 6bbb5a30-192f-11eb-0dd8-7300290d17f0
 md""" Antibiotic Concentration Slider"""
 
@@ -298,7 +311,12 @@ end
 antibiotic_sol_array = transpose(hcat(antibiotic_sol.u...))
 
 # ╔═╡ 9c2038bc-5ff2-11eb-1eb8-df1d0766dbeb
-groupedbar(antibiotic_sol_array, bar_position = :stack, bar_width=0.7,legend=:bottom)
+let
+S4FigB = groupedbar(antibiotic_sol_array, bar_position = :stack, bar_width=0.7,legend=:bottom, ylabel="Total biomass",
+			xlabel="Time", label = ["Type 1" "Type 2" "Type 3" "Type 4" "Type 5"])
+savefig(S4FigB, "../results/linear-ODE-model-figures/S4FigB-pop-dynamics.pdf")
+S4FigB
+end
 
 # ╔═╡ 3a9451de-1d56-11eb-0011-5df5238d4a71
 savefig(p3, "../results/linear-ODE-model-figures/toy-model-dynamics-v0.5.pdf")
@@ -375,7 +393,7 @@ let
 			legend=:bottomright,ylabel="Duplication Index",
 			xlabel="Antibiotic Concentration")
 	end
-	savefig(p, "../results/linear-ODE-model-figures/DI-selection-strength-v1.pdf")
+	savefig(p, "../results/linear-ODE-model-figures/S4FigC-DI-versus-selection.pdf")
 	p
 end
 
@@ -2380,12 +2398,13 @@ version = "0.9.1+5"
 # ╠═2d680c50-13c2-11eb-151b-99bacb19999c
 # ╟─7d9153d0-13c2-11eb-1c1e-a7e70aaa9072
 # ╟─a90b982c-5bf2-11eb-2e54-3d573004d003
-# ╟─6991b524-5bf6-11eb-3478-d9082643bc80
+# ╠═6991b524-5bf6-11eb-3478-d9082643bc80
 # ╠═27d302fe-1237-11eb-0166-1bf9048405e7
 # ╠═cecbfcae-1238-11eb-0353-3905b2919507
 # ╠═ec31ed3c-17c7-11eb-0700-6dae1e0fa0ad
 # ╠═69daf25e-124b-11eb-1fd1-7bb52f61b420
 # ╠═367b0e5c-17c6-11eb-11ff-25fe3e16ecea
+# ╟─19d506a1-a53d-4a10-8f99-280301933d7b
 # ╟─6bbb5a30-192f-11eb-0dd8-7300290d17f0
 # ╟─7229eb0c-192f-11eb-0a00-09121752d3c9
 # ╟─4e324796-1930-11eb-2899-9fa24abd017a
@@ -2406,7 +2425,7 @@ version = "0.9.1+5"
 # ╟─1d679736-4f71-11eb-113a-bd2569486e09
 # ╟─22f819a0-4f71-11eb-03bb-d9e161b7fd27
 # ╟─7f2414bc-5fe4-11eb-1557-73f27ec8ddc9
-# ╟─27b28d24-4f71-11eb-1291-0b1c965aa0e0
+# ╠═27b28d24-4f71-11eb-1291-0b1c965aa0e0
 # ╟─6baaa82e-5fe4-11eb-3e2b-c1dbf419ffda
 # ╟─3133d7ba-5fe9-11eb-08af-3d21f659e7ba
 # ╟─c6d3267c-1930-11eb-3164-871a29bfeaad

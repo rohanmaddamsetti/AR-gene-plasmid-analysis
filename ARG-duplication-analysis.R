@@ -1106,6 +1106,12 @@ Fig4BC <- plot_grid(ARG.selection.plot, MGE.selection.plot, labels = c('B','C'),
 ggsave("../results/Fig4BC.pdf", Fig4BC, width=9.5, height=5)
 
 ################################################################################
+## Figure S4. A deterministic ODE model demonstrates that selection can
+## drive the evolution of duplicated ARGs on plasmids.
+
+## The panels of this figure are generated in my Pluto notebook:
+## duplication-linear-ODE-model.jl.
+################################################################################
 ## Figure 5: examples that indicate generality of our method.
 ## let's examine some other functions that we expect to be enriched in some, but
 ## not all ecological annotations.
@@ -1466,7 +1472,7 @@ ggsave("../results/duplicate-protein-seq-TF-IDF.pdf",
        height=21,width=21)
 
 ##########################################
-## Figure S4. the annotations of duplicated proteins are informative about
+## Figure S5. the annotations of duplicated proteins are informative about
 ## ecology.
 
 best.dup.prot.annotation.tf_idf <- dup.prot.annotation.tf_idf %>%
@@ -1476,7 +1482,7 @@ best.dup.prot.annotation.tf_idf <- dup.prot.annotation.tf_idf %>%
     slice_max(tf_idf, n = 5) %>%
     ungroup()
 
-S4Fig <- ggplot(best.dup.prot.annotation.tf_idf,
+S5Fig <- ggplot(best.dup.prot.annotation.tf_idf,
                 aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
     geom_col(show.legend = FALSE) +
     labs(x = "tf-idf", y = NULL) +
@@ -1485,5 +1491,5 @@ S4Fig <- ggplot(best.dup.prot.annotation.tf_idf,
     facet_wrap(.~Annotation, ncol=1, scales = "free_y") +
     ggtitle("Most informative multi-copy protein annotations")
 
-ggsave("../results/S4Fig.pdf", S4Fig, width=8, height = 8)
+ggsave("../results/S5Fig.pdf", S5Fig, width=8, height = 8)
 
