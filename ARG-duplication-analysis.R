@@ -400,6 +400,7 @@ filtered.TableS1 <- make.TableS1(filtered.gbk.annotation, filtered.duplicate.pro
 S1FigB <- make.confint.figure.panel(filtered.TableS1, order.by.total.isolates, "Duplicated ARGs after filtering top genera")
 
 S1Fig <- plot_grid(S1FigA, S1FigB, labels = c("A", "B"), nrow = 2)
+ggsave("../results/S1Fig.pdf", S1Fig)
 
 ###########################################################################
 ## Figure S2: Distribution of proportions of duplicated ARGs per genome:
@@ -477,6 +478,7 @@ S2FigC <- boxplot.df %>%
     ggtitle("Duplicated genes")
 
 S2Fig <- plot_grid(S2FigA, S2FigB, S2FigC, labels = c('A','B','C'), nrow = 3)
+ggsave("../results/S2Fig.pdf", S2Fig)
 
 ######################################################################
 ## Figure 2: Visualization of ARGs on plasmids and chromosomes.
@@ -1472,7 +1474,7 @@ ggsave("../results/duplicate-protein-seq-TF-IDF.pdf",
        height=21,width=21)
 
 ##########################################
-## Figure S5. the annotations of duplicated proteins are informative about
+## Figure S5? the annotations of duplicated proteins are informative about
 ## ecology.
 
 best.dup.prot.annotation.tf_idf <- dup.prot.annotation.tf_idf %>%
