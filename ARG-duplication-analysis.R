@@ -1009,21 +1009,22 @@ Fig3B <- make.Fig3.panel(Fig3B.df, order.by.total.isolates,
                          "Single-copy ARGs",
                          "Proportion of all genes")
 Fig3C <- make.Fig3.panel(Fig3C.df, order.by.total.isolates,
-                         "Duplicated ARGs on the chromosome",
+                         "Chromosome: Duplicated ARGs",
                          "Proportion of chromosomal genes")
 Fig3D <- make.Fig3.panel(Fig3D.df, order.by.total.isolates,
-                         "Duplicated ARGs on plasmids",
+                         "Plasmids: Duplicated ARGs",
                          "Proportion of plasmid genes")
 Fig3E <- make.Fig3.panel(Fig3E.df, order.by.total.isolates,
-                         "Single-copy ARGs on the chromosome",
+                         "Chromosome: Single-copy ARGs",
                          "Proportion of chromosomal genes")
 Fig3F <- make.Fig3.panel(Fig3F.df, order.by.total.isolates,
-                         "Single-copy ARGs on plasmids",
+                         "Plasmids: Single-copy ARGs",
                          "Proportion of plasmid genes")
 
 Fig3 <- plot_grid(Fig3A, Fig3B, Fig3C, Fig3D, Fig3E, Fig3F,
                   labels = c('A','B','C','D','E','F'), ncol=2)
-ggsave("../results/Fig3.pdf", Fig3)
+
+ggsave("../results/Fig3.pdf", Fig3, height = 7,  width = 9.5)
 
 ################################################################################
 ## Figure 4: 
@@ -1472,26 +1473,3 @@ dup.prot.seq.tf_idf.plot <- top.dup.prot.seq.tf_idf %>%
 ggsave("../results/duplicate-protein-seq-TF-IDF.pdf",
        dup.prot.seq.tf_idf.plot,
        height=21,width=21)
-
-##########################################
-## Figure S5? the annotations of duplicated proteins are informative about
-## ecology.
-
-best.dup.prot.annotation.tf_idf <- dup.prot.annotation.tf_idf %>%
-    filter(Annotation %in% c("Agriculture", "Anthropogenic-environment",
-                             "Human-host")) %>%
-    group_by(Annotation) %>%
-    slice_max(tf_idf, n = 5) %>%
-    ungroup()
-
-S5Fig <- ggplot(best.dup.prot.annotation.tf_idf,
-                aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
-    geom_col(show.legend = FALSE) +
-    labs(x = "tf-idf", y = NULL) +
-    theme_classic() +
-    xlim(0,0.04) +
-    facet_wrap(.~Annotation, ncol=1, scales = "free_y") +
-    ggtitle("Most informative multi-copy protein annotations")
-
-ggsave("../results/S5Fig.pdf", S5Fig, width=8, height = 8)
-
