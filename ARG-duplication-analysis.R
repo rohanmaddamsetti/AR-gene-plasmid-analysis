@@ -1,8 +1,6 @@
 ## ARG-duplication-analysis.R by Rohan Maddamsetti.
-
 ## analyse the distribution of AR genes on chromosomes versus plasmids in
 ## fully-sequenced genomes and plasmids in the NCBI Nucleotide database.
-
 ## This is a rewrite of Aim1-analysis.R, using a different statistical framework.
 
 library(tidyverse)
@@ -14,7 +12,7 @@ library(forcats)
 
 
 fancy_scientific <- function(x) {
-    ## function for plotting better y-axis labels.
+    ## function for plotting better axis labels.
     ## see solution here for nice scientific notation on axes.
     ## https://stackoverflow.com/questions/10762287/how-can-i-format-axis-labels-with-exponents-with-ggplot2-and-scales
     ifelse(x==0, "0", parse(text=gsub("[+]", "", gsub("e", " %*% 10^", scales::scientific_format()(x)))))
@@ -164,8 +162,9 @@ plasmid.annotation <- protein.db.metadata %>%
     arrange(desc(number))
 
 ###########################################################################
-## Analysis for Figure 1.
-## Panel A is a schematic of the analysis pipeline.
+## Figure 1 is a schematic of the analysis pipeline.
+###########################################################################
+## Analysis for Figure 2.
 
 ## See Wikipedia reference:
 ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
@@ -182,11 +181,13 @@ calc.isolate.confints <- function(df) {
     df %>%
         ## use the normal approximation for binomial proportion conf.ints
         mutate(se = sqrt(p*(1-p)/total_isolates)) %>%
-        ## and the Rule of Three to handle zeros.
         ## See Wikipedia reference:
         ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
-        mutate(Left = ifelse(p > 0, p - 1.96*se, 0)) %>%
-        mutate(Right = ifelse(p > 0, p + 1.96*se, 3/total_isolates)) %>%
+        mutate(Left = p - 1.96*se) %>%
+        mutate(Right = p + 1.96*se) %>%
+        ## truncate confidence limits to interval [0,1].
+        rowwise() %>% mutate(Left = max(0, Left)) %>%
+        rowwise() %>% mutate(Right = min(1, Right)) %>%
         ## Sort every table by the total number of isolates.
         arrange(desc(total_isolates))
 }
@@ -215,29 +216,36 @@ make.TableS1 <- function(gbk.annotation, duplicate.proteins) {
 }
 
 
-make.confint.figure.panel <- function(Table, order.by.total.isolates, title) {    
-    Fig1.panel <- Table %>%
+make.confint.figure.panel <- function(Table, order.by.total.isolates, title,
+                                      no.category.label = FALSE) {    
+    Fig.panel <- Table %>%
         mutate(Annotation = factor(
                    Annotation,
                    levels = rev(order.by.total.isolates))) %>%
-        ggplot(aes(y = Annotation, x = p)) +     
-        geom_point(size=2) +
-        ylab("Annotation") +
+        ggplot(aes(y = Annotation, x = p)) +
+        geom_point(size=1) +
+        ylab("") +
         xlab("Proportion of Isolates") +
         theme_classic() +
         ggtitle(title) +
         ## plot CIs.
-        geom_errorbarh(aes(xmin=Left,xmax=Right), height=1, size=0.5)
-    return(Fig1.panel)
+        geom_errorbarh(aes(xmin=Left,xmax=Right), height=0.2, size=0.2)
+    
+    if (no.category.label)
+        Fig.panel <- Fig.panel +
+            theme(axis.text.y=element_blank())
+    
+    return(Fig.panel)
 }
 
 
-## Figure 1B: normal-approximation confidence intervals for the percentage
+## Figure 2B: normal-approximation confidence intervals for the percentage
 ## of isolates with duplicated ARGs.
 TableS1 <- make.TableS1(gbk.annotation, duplicate.proteins)
 ## write Supplementary Table S1 to file.
 write.csv(x=TableS1, file="../results/TableS1.csv")
-Fig1B <- make.confint.figure.panel(TableS1, order.by.total.isolates, "Duplicated ARGs")
+
+Fig2A <- make.confint.figure.panel(TableS1, order.by.total.isolates, "Duplicated ARGs")
 
 ######################
 ## Table S2. Control: does the distribution of ARG singletons
@@ -272,11 +280,13 @@ make.TableS2 <- function(gbk.annotation, singleton.proteins) {
     return(TableS2)
 }
 
-## This data frame will be used for Figure 1C.
+## This data frame will be used for Figure 2B.
 TableS2 <- make.TableS2(gbk.annotation, singleton.proteins)
 ## write TableS2 to file.
 write.csv(x=TableS2, file="../results/TableS2.csv")
-Fig1C <- make.confint.figure.panel(TableS2, order.by.total.isolates, "Single-copy ARGs")
+
+Fig2B <- make.confint.figure.panel(TableS2, order.by.total.isolates,
+                                   "Single-copy ARGs", no.category.label=TRUE)
 gc() ## free memory after dealing with singleton data.
 
 ###############################################################################
@@ -314,10 +324,13 @@ TableS3 <- make.TableS3(gbk.annotation, duplicate.proteins)
 ## write TableS3 to file.
 write.csv(x=TableS3, file="../results/TableS3.csv")
 
-Fig1D <- make.confint.figure.panel(TableS3, order.by.total.isolates, "All Duplicated Genes")
+Fig2C <- make.confint.figure.panel(TableS3, order.by.total.isolates,
+                                   "All Duplicated Genes", no.category.label=TRUE)
 
-Fig1BCD <- plot_grid(Fig1B, Fig1C, Fig1D, labels=c('B','C','D'),ncol=1)
-ggsave("../results/Fig1BCD.pdf", width = 5)
+Fig2 <- plot_grid(Fig2A, Fig2B, Fig2C, labels=c('A','B','C'),
+                     rel_widths = c(1.5,1,1), nrow=1)
+
+ggsave("../results/Fig2.pdf", width = 9, height = 3)
 ######################################################################
 ## Control for Taxonomy (simpler control than for phylogeny)
 
@@ -450,7 +463,7 @@ S2FigA <- boxplot.df %>%
                levels = rev(order.by.total.isolates))) %>%
     ggplot(aes(y = Annotation, x = proportion.of.duplicated.ARGs)) +
     geom_jitter(size=0.2) +
-    ylab("Annotation") +
+    ylab("") +
     xlab("Proportion of duplicated ARGs per genome") +
     theme_classic() +
     ggtitle("Duplicated ARGs")
@@ -461,7 +474,7 @@ S2FigB <- boxplot.df %>%
                levels = rev(order.by.total.isolates))) %>%
     ggplot(aes(y = Annotation, x = proportion.of.duplicated.MGEs)) +
     geom_jitter(size=0.2) +
-    ylab("Annotation") +
+    ylab("") +
     xlab("Proportion of duplicated MGE genes per genome") +
     theme_classic() +
     ggtitle("Duplicated MGE genes")
@@ -472,7 +485,7 @@ S2FigC <- boxplot.df %>%
                levels = rev(order.by.total.isolates))) %>%
     ggplot(aes(y = Annotation, x = proportion.of.duplicated.genes)) +
     geom_jitter(size=0.2) +
-    ylab("Annotation") +
+    ylab("") +
     xlab("Proportion of duplicated genes per genome") +
     theme_classic() +
     ggtitle("Duplicated genes")
@@ -481,17 +494,13 @@ S2Fig <- plot_grid(S2FigA, S2FigB, S2FigC, labels = c('A','B','C'), nrow = 3)
 ggsave("../results/S2Fig.pdf", S2Fig)
 
 ######################################################################
-## Figure 2: Visualization of ARGs on plasmids and chromosomes.
+## Figure 4: Visualization of ARGs on plasmids and chromosomes.
 
 categorize.as.MGE.ARG.or.other <- function(product) {
     if (is.na(product))
         return("Other function")
     else if (str_detect(product, antibiotic.keywords))
         return("ARG")
-    else if (str_detect(product, EFTu.keywords))
-        return("EF-Tu")
-    else if (str_detect(product, "\\bribosomal protein\\b"))
-        return("ribosomal protein")
     else if (str_detect(product, IS.keywords))
         return("MGE")
     else
@@ -499,7 +508,7 @@ categorize.as.MGE.ARG.or.other <- function(product) {
 }
 
 
-Fig2A.data <- duplicate.proteins %>%
+Fig4A.data <- duplicate.proteins %>%
     mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
     group_by(Annotation, Category) %>%
     summarize(Plasmid = sum(plasmid_count), Chromosome = sum(chromosome_count)) %>%
@@ -510,7 +519,7 @@ Fig2A.data <- duplicate.proteins %>%
                Annotation,
                levels = rev(order.by.total.isolates)))
 
-Fig2B.data <- singleton.proteins %>%
+Fig4B.data <- singleton.proteins %>%
     mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
     group_by(Annotation, Category) %>%
     summarize(Plasmid = sum(plasmid_count), Chromosome = sum(chromosome_count)) %>%
@@ -521,7 +530,7 @@ Fig2B.data <- singleton.proteins %>%
                Annotation,
                levels = rev(order.by.total.isolates)))
 
-Fig2A <- ggplot(Fig2A.data, aes(x = Count, y = Annotation, fill = Category)) +
+Fig4A <- ggplot(Fig4A.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
     facet_wrap(.~Episome) +
     theme_classic() +
@@ -529,10 +538,10 @@ Fig2A <- ggplot(Fig2A.data, aes(x = Count, y = Annotation, fill = Category)) +
     xlab("Proportion of genes") +
     theme(legend.position="bottom")
 
-Fig2legend <- get_legend(Fig2A)
-Fig2A <- Fig2A + guides(fill = FALSE)
+Fig4legend <- get_legend(Fig4A)
+Fig4A <- Fig4A + guides(fill = FALSE)
 
-Fig2B <- ggplot(Fig2B.data, aes(x = Count, y = Annotation, fill = Category)) +
+Fig4B <- ggplot(Fig4B.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
     facet_wrap(.~Episome) +
     theme_classic() +
@@ -540,14 +549,14 @@ Fig2B <- ggplot(Fig2B.data, aes(x = Count, y = Annotation, fill = Category)) +
     xlab("Proportion of genes") +
     guides(fill = FALSE)
 
-stackedbar.Fig2A <- ggplot(Fig2A.data, aes(x = Count, y = Annotation, fill = Category)) +
+stackedbar.Fig4A <- ggplot(Fig4A.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity") +
     facet_wrap(.~Episome, scales = "free") +
     theme_classic() +
     ggtitle("Distribution of duplicated genes") +
     scale_x_continuous(labels=fancy_scientific)
 
-stackedbar.Fig2B <- ggplot(Fig2B.data, aes(x = Count, y = Annotation, fill = Category)) +
+stackedbar.Fig4B <- ggplot(Fig4B.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity") +
     facet_wrap(.~Episome, scales = "free") +
     theme_classic() +
@@ -556,14 +565,14 @@ stackedbar.Fig2B <- ggplot(Fig2B.data, aes(x = Count, y = Annotation, fill = Cat
     scale_x_continuous(labels=fancy_scientific)
 
 
-Fig2 <- plot_grid(Fig2A, Fig2B, Fig2legend, labels = c("A", "B"),
+Fig4 <- plot_grid(Fig4A, Fig4B, Fig4legend, labels = c("A", "B"),
                   ncol = 1, rel_heights = c(1,1,0.25))
-ggsave("../results/Fig2.pdf", Fig2, height = 7, width = 6)
+ggsave("../results/Fig4.pdf", Fig4, height = 7, width = 6)
 
 ## This visualization is also useful.
-stackedbar.Fig2 <- plot_grid(stackedbar.Fig2A,
-                             stackedbar.Fig2B, labels = c("A", "B"), ncol = 1)
-ggsave("../results/stackedbar-Fig2.pdf", stackedbar.Fig2)
+stackedbar.Fig4 <- plot_grid(stackedbar.Fig4A,
+                             stackedbar.Fig4B, labels = c("A", "B"), ncol = 1)
+ggsave("../results/stackedbar-Fig4.pdf", stackedbar.Fig4)
 
 #########################
 ## S3 Figure.
@@ -648,14 +657,14 @@ ggsave("../results/S3Fig.pdf", S3Fig)
 ## Let's take a closer look at duplicated EF-Tu sequences,
 ## and examine ribosomal proteins too.
 
-Fig2A.summary <- Fig2A.data %>% group_by(Episome, Category) %>%
+Fig4A.summary <- Fig4.data %>% group_by(Episome, Category) %>%
     summarize(count = sum(Count))
 
 ## Remember: singleton is based on 100% sequence identity.
 ## so a pair of duplicate gene with a single amino acid difference
 ## is counted as a pair of singletons.
 
-Fig2B.summary <- Fig2B.data %>% group_by(Episome, Category) %>%
+Fig4B.summary <- Fig4B.data %>% group_by(Episome, Category) %>%
     summarize(count = sum(Count))
 
 duplicated.EF.Tu <- duplicate.proteins %>%
@@ -665,8 +674,8 @@ singleton.EF.Tu <- singleton.proteins %>%
 
 ## find average number of EF-Tu sequences per genome. 1.52 per genome.
 num.genomes <- nrow(gbk.annotation)
-(sum(filter(Fig2A.summary,Category=="EF-Tu")$count) +
- sum(filter(Fig2B.summary,Category=="EF-Tu")$count))/num.genomes
+(sum(filter(Fig4A.summary,Category=="EF-Tu")$count) +
+ sum(filter(Fig4B.summary,Category=="EF-Tu")$count))/num.genomes
 
 duplicated.EF.Tu.genera.summary <- duplicated.EF.Tu %>%
     mutate(Genus = stringr::word(Organism, 1)) %>%
@@ -704,7 +713,6 @@ duplicate.ribosomal.protein.genera.isolate.summary <- duplicate.ribosomal.protei
     group_by(Genus) %>%
     summarize(duplicated.ribosomal.proteins.isolates = n()) %>%
     arrange(desc(duplicated.ribosomal.proteins.isolates))
-
 ######################################################################
 ## Table S4. Show number of duplicated genes on chromosomes, and number of
 ## duplicate genes on plasmids, for each category, for duplicated genes
@@ -866,7 +874,6 @@ plasmid.chromosome.singleton.ARG.contingency.test <- function(TableS5) {
 }
 
 plasmid.chromosome.singleton.ARG.contingency.test(TableS5)
-
 ################################################################################
 ## Use the data in Tables S4 and S5 to make Figure 3.
 ## The point of this figure is to show that the distribution of
@@ -896,13 +903,12 @@ make.Fig3.df <- function(TableS1, TableS4, TableS5) {
 
 
 Fig3.df <- make.Fig3.df(TableS1, TableS4, TableS5)
-
 ## Figure 3.
 ## Plot point estimates for the fraction of chromosomal genes that are
 ## the fraction of genes that are duplicated ARGs (panel A),
-## the fraction of genes that are single-copy ARGs (panel B).
-## duplicated ARGs (panel C),
-## the fraction of plasmid genes that are duplicated ARGs (panel D),
+## the fraction of chromosomal genes that are duplicated ARGs (panel B),
+## the fraction of plasmid genes that are duplicated ARGs (panel C),
+## the fraction of genes that are single-copy ARGs (panel D).
 ## the fraction of chromosomal genes that are single-copy ARGs (panel E),
 ## the fraction of plasmid genes that are single-copy ARGs (panel F),
 
@@ -911,62 +917,72 @@ Fig3A.df <- Fig3.df %>%
     mutate(p = total_duplicate_ARGs/(total_genes)) %>%
     ## use the normal approximation for binomial proportion conf.ints
     mutate(se = sqrt(p*(1-p)/total_genes)) %>%
-    ## and the Rule of Three to handle zeros.
     ## See Wikipedia reference:
     ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
-    mutate(Left = ifelse(p > 0, p - 1.96*se, 0)) %>%
-    mutate(Right = ifelse(p > 0, p + 1.96*se, 3/total_genes)) %>%
+    mutate(Left = p - 1.96*se) %>%
+    mutate(Right = p + 1.96*se) %>%
+    ## truncate confidence limits to interval [0,1].
+    rowwise() %>% mutate(Left = max(0, Left)) %>%
+    rowwise() %>% mutate(Right = min(1, Right)) %>%
     select(Annotation, total_duplicate_ARGs, total_genes,
            p, Left, Right)
 
+
+## Fig3B: the fraction of chromosomal genes that are duplicated ARGs.
 Fig3B.df <- Fig3.df %>%
+    mutate(p = chromosomal_duplicate_ARGs/(total_chromosomal_genes)) %>%
+    ## use the normal approximation for binomial proportion conf.ints
+    mutate(se = sqrt(p*(1-p)/total_chromosomal_genes)) %>%
+    ## See Wikipedia reference:
+    ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
+    mutate(Left = p - 1.96*se) %>%
+    mutate(Right = p + 1.96*se) %>%
+    ## truncate confidence limits to interval [0,1].
+    rowwise() %>% mutate(Left = max(0, Left)) %>%
+    rowwise() %>% mutate(Right = min(1, Right)) %>%
+    select(Annotation, chromosomal_duplicate_ARGs, total_chromosomal_genes,
+           p, Left, Right)
+
+Fig3C.df <- Fig3.df %>%
+    mutate(p = plasmid_duplicate_ARGs/(total_plasmid_genes)) %>%
+    ## use the normal approximation for binomial proportion conf.ints
+    mutate(se = sqrt(p*(1-p)/total_plasmid_genes)) %>%
+    ## See Wikipedia reference:
+    ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
+    mutate(Left = p - 1.96*se) %>%
+    mutate(Right = p + 1.96*se) %>%
+    ## truncate confidence limits to interval [0,1].
+    rowwise() %>% mutate(Left = max(0, Left)) %>%
+    rowwise() %>% mutate(Right = min(1, Right)) %>%
+    select(Annotation, plasmid_duplicate_ARGs, total_plasmid_genes,
+           p, Left, Right)
+
+Fig3D.df <- Fig3.df %>%
     mutate(p = total_singleton_ARGs/(total_genes)) %>%
     ## use the normal approximation for binomial proportion conf.ints
     mutate(se = sqrt(p*(1-p)/total_genes)) %>%
     ## and the Rule of Three to handle zeros.
     ## See Wikipedia reference:
     ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
-    mutate(Left = ifelse(p > 0, p - 1.96*se, 0)) %>%
-    mutate(Right = ifelse(p > 0, p + 1.96*se, 3/total_genes)) %>%
+    mutate(Left = p - 1.96*se) %>%
+    mutate(Right = p + 1.96*se) %>%
+    ## truncate confidence limits to interval [0,1].
+    rowwise() %>% mutate(Left = max(0, Left)) %>%
+    rowwise() %>% mutate(Right = min(1, Right)) %>%
     select(Annotation, total_singleton_ARGs, total_genes,
-           p, Left, Right)
-
-
-## Fig3C: the fraction of chromosomal genes that are duplicated ARGs.
-Fig3C.df <- Fig3.df %>%
-    mutate(p = chromosomal_duplicate_ARGs/(total_chromosomal_genes)) %>%
-    ## use the normal approximation for binomial proportion conf.ints
-    mutate(se = sqrt(p*(1-p)/total_chromosomal_genes)) %>%
-    ## and the Rule of Three to handle zeros.
-    ## See Wikipedia reference:
-    ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
-    mutate(Left = ifelse(p > 0, p - 1.96*se, 0)) %>%
-    mutate(Right = ifelse(p > 0, p + 1.96*se, 3/total_chromosomal_genes)) %>%
-    select(Annotation, chromosomal_duplicate_ARGs, total_chromosomal_genes,
-           p, Left, Right)
-
-
-Fig3D.df <- Fig3.df %>%
-    mutate(p = plasmid_duplicate_ARGs/(total_plasmid_genes)) %>%
-    ## use the normal approximation for binomial proportion conf.ints
-    mutate(se = sqrt(p*(1-p)/total_plasmid_genes)) %>%
-    ## and the Rule of Three to handle zeros.
-    ## See Wikipedia reference:
-    ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
-    mutate(Left = ifelse(p > 0, p - 1.96*se, 0)) %>%
-    mutate(Right = ifelse(p > 0, p + 1.96*se, 3/total_plasmid_genes)) %>%
-    select(Annotation, plasmid_duplicate_ARGs, total_plasmid_genes,
            p, Left, Right)
 
 Fig3E.df <- Fig3.df %>%
     mutate(p = chromosomal_singleton_ARGs/(total_chromosomal_genes)) %>%
     ## use the normal approximation for binomial proportion conf.ints
     mutate(se = sqrt(p*(1-p)/total_chromosomal_genes)) %>%
-    ## and the Rule of Three to handle zeros.
     ## See Wikipedia reference:
     ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
-    mutate(Left = ifelse(p > 0, p - 1.96*se, 0)) %>%
-    mutate(Right = ifelse(p > 0, p + 1.96*se, 3/total_chromosomal_genes)) %>%
+    mutate(Left = p - 1.96*se) %>%
+    mutate(Right = p + 1.96*se) %>%
+    ## truncate confidence limits to interval [0,1].
+    rowwise() %>% mutate(Left = max(0, Left)) %>%
+    rowwise() %>% mutate(Right = min(1, Right)) %>%
     select(Annotation, chromosomal_singleton_ARGs, total_chromosomal_genes,
            p, Left, Right)
 
@@ -975,59 +991,74 @@ Fig3F.df <- Fig3.df %>%
     mutate(p = plasmid_singleton_ARGs/(total_plasmid_genes)) %>%
     ## use the normal approximation for binomial proportion conf.ints
     mutate(se = sqrt(p*(1-p)/total_plasmid_genes)) %>%
-    ## and the Rule of Three to handle zeros.
     ## See Wikipedia reference:
     ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
-    mutate(Left = ifelse(p > 0, p - 1.96*se, 0)) %>%
-    mutate(Right = ifelse(p > 0, p + 1.96*se, 3/total_plasmid_genes)) %>%
+    mutate(Left = p - 1.96*se) %>%
+    mutate(Right = p + 1.96*se) %>%
+    ## truncate confidence limits to interval [0,1].
+    rowwise() %>% mutate(Left = max(0, Left)) %>%
+    rowwise() %>% mutate(Right = min(1, Right)) %>%
     select(Annotation, plasmid_singleton_ARGs, total_plasmid_genes,
            p, Left, Right)
 
 
-
-make.Fig3.panel <- function(Table, order.by.total.isolates, title, xlabel) {
+make.Fig3.panel <- function(Table, order.by.total.isolates, title,
+                            xlabel, no.category.label = FALSE) {
     Fig3.panel <- Table %>%
         mutate(Annotation = factor(
                    Annotation,
                    levels = rev(order.by.total.isolates))) %>%
         ggplot(aes(y = Annotation, x = p)) +     
-        geom_point(size=2) +
-        ylab("Annotation") +
+        geom_point(size=1) +
+        ylab("") +
         xlab(xlabel) +
+        scale_x_continuous(label=fancy_scientific) +
         theme_classic() +
         ggtitle(title) +
         ## plot CIs.
-        geom_errorbarh(aes(xmin=Left,xmax=Right), height=1, size=0.5)
+        geom_errorbarh(aes(xmin=Left,xmax=Right), height=0.2, size=0.2)
+    
+    if (no.category.label)
+        Fig3.panel <- Fig3.panel +
+            theme(axis.text.y=element_blank())
+    
     return(Fig3.panel)
 }
 
 
 Fig3A <- make.Fig3.panel(Fig3A.df, order.by.total.isolates,
                          "Duplicated ARGs",
-                         "Proportion of all genes")
+                         "Proportion of all genes") +
+    ## so that axis labels don't get cut off
+    scale_x_continuous(label=fancy_scientific, limits = c(0,1.25e-4))
 Fig3B <- make.Fig3.panel(Fig3B.df, order.by.total.isolates,
+                         "Chromosome: Duplicated ARGs",
+                         "Proportion of chromosomal genes",
+                         no.category.label = TRUE)
+Fig3C <- make.Fig3.panel(Fig3C.df, order.by.total.isolates,
+                         "Plasmids: Duplicated ARGs",
+                         "Proportion of plasmid genes",
+                         no.category.label = TRUE)
+Fig3D <- make.Fig3.panel(Fig3D.df, order.by.total.isolates,
                          "Single-copy ARGs",
                          "Proportion of all genes")
-Fig3C <- make.Fig3.panel(Fig3C.df, order.by.total.isolates,
-                         "Chromosome: Duplicated ARGs",
-                         "Proportion of chromosomal genes")
-Fig3D <- make.Fig3.panel(Fig3D.df, order.by.total.isolates,
-                         "Plasmids: Duplicated ARGs",
-                         "Proportion of plasmid genes")
 Fig3E <- make.Fig3.panel(Fig3E.df, order.by.total.isolates,
                          "Chromosome: Single-copy ARGs",
-                         "Proportion of chromosomal genes")
+                         "Proportion of chromosomal genes",
+                         no.category.label = TRUE)
 Fig3F <- make.Fig3.panel(Fig3F.df, order.by.total.isolates,
                          "Plasmids: Single-copy ARGs",
-                         "Proportion of plasmid genes")
+                         "Proportion of plasmid genes",
+                         no.category.label = TRUE)
 
 Fig3 <- plot_grid(Fig3A, Fig3B, Fig3C, Fig3D, Fig3E, Fig3F,
-                  labels = c('A','B','C','D','E','F'), ncol=2)
+                  labels = c('A','B','C','D','E','F'), nrow=2,
+                  rel_widths = c(1.5, 1, 1, 1.5, 1, 1))
 
-ggsave("../results/Fig3.pdf", Fig3, height = 7,  width = 9.5)
+ggsave("../results/Fig3.pdf", Fig3, height = 5,  width = 10.5)
 
 ################################################################################
-## Figure 4: 
+## Figure 5: 
 ## The observed ecological distribution of duplicate genes is driven by either
 ## selection, HGT, or associations with MGEs.
 
@@ -1044,78 +1075,81 @@ ggsave("../results/Fig3.pdf", Fig3, height = 7,  width = 9.5)
 
 ## Panel A is a schematic figure in Illustrator to show the rationale.
 
-duplicated.ARGs.per.category <- duplicate.proteins %>%
-    filter(str_detect(.$product,antibiotic.keywords)) %>%
-    group_by(Annotation) %>%
-    summarize(ARG.duplicates = sum(count))
+make.selection.test.df <- function(duplicate.proteins, singleton.proteins,
+                                   order.by.total.isolates,
+                                   keywords) {
 
-duplicated.genes.per.category <- duplicate.proteins %>%
-    group_by(Annotation) %>%
-    summarize(gene.duplicates = sum(count))
+    duplicated.function.per.category <- duplicate.proteins %>%
+        filter(str_detect(.$product, keywords)) %>%
+        group_by(Annotation) %>%
+        summarize(function.duplicates = sum(count))
 
-duplicated.MGEs.per.category <- duplicate.proteins %>%
-    filter(str_detect(.$product,IS.keywords)) %>%
-    group_by(Annotation) %>%
-    summarize(MGE.duplicates = sum(count))
+    duplicated.genes.per.category <- duplicate.proteins %>%
+        group_by(Annotation) %>%
+        summarize(gene.duplicates = sum(count))
 
-singleton.ARGs.per.category <- singleton.proteins %>%
-    filter(str_detect(.$product,antibiotic.keywords)) %>%
-    group_by(Annotation) %>%
-    summarize(singleton.ARGs = sum(count))
+    singleton.function.per.category <- singleton.proteins %>%
+        filter(str_detect(.$product, keywords)) %>%
+        group_by(Annotation) %>%
+        summarize(function.singletons = sum(count))
+    
+    singleton.genes.per.category <- singleton.proteins %>%
+        group_by(Annotation) %>%
+        summarize(singleton.genes = sum(count))
+    
+    selection.test.df <- duplicated.function.per.category %>%
+        full_join(duplicated.genes.per.category) %>%
+        full_join(singleton.function.per.category) %>%
+        full_join(singleton.genes.per.category) %>%
+        ## turn NAs to zeros.
+        replace(is.na(.), 0) %>%
+        mutate(p = function.duplicates / gene.duplicates) %>%
+        mutate(q = function.singletons / singleton.genes) %>%
+        mutate(dup.singleton.ratio = p/q) %>%
+        mutate(Annotation = factor(
+                   Annotation,
+                   levels = rev(order.by.total.isolates)))
+    return(selection.test.df)
+}
 
-singleton.genes.per.category <- singleton.proteins %>%
-    filter(!str_detect(.$product,IS.keywords)) %>%
-    group_by(Annotation) %>%
-    summarize(singleton.genes = sum(count))
 
-singleton.MGEs.per.category <- singleton.proteins %>%
-    filter(str_detect(.$product,IS.keywords)) %>%
-    group_by(Annotation) %>%
-    summarize(singleton.MGEs = sum(count))
+ARG.selection.test.df <- make.selection.test.df(
+    duplicate.proteins,
+    singleton.proteins,
+    order.by.total.isolates,
+    antibiotic.keywords)
 
-selection.test.df <- duplicated.ARGs.per.category %>%
-    full_join(duplicated.genes.per.category) %>%
-    full_join(duplicated.MGEs.per.category) %>%
-    full_join(singleton.ARGs.per.category) %>%
-    full_join(singleton.genes.per.category) %>%
-    full_join(singleton.MGEs.per.category) %>%
-    ## turn NAs to zeros.
-    replace(is.na(.), 0) %>%
-    mutate(p1 = ARG.duplicates / gene.duplicates) %>%
-    mutate(p2 = MGE.duplicates / gene.duplicates) %>%
-    mutate(q1 = singleton.ARGs / singleton.genes) %>%
-    mutate(q2 = singleton.MGEs / singleton.genes) %>%
-    mutate(ARG.dup.singleton.ratio = p1/q1) %>%
-    mutate(MGE.dup.singleton.ratio = p2/q2) %>%
-    mutate(Annotation = factor(
-               Annotation,
-               levels = rev(order.by.total.isolates)))
+MGE.selection.test.df <- make.selection.test.df(
+    duplicate.proteins,
+    singleton.proteins,
+    order.by.total.isolates,
+    IS.keywords)
 
-ARG.selection.plot <- selection.test.df %>%
-    ggplot(aes(y = Annotation, x = ARG.dup.singleton.ratio)) +
+ARG.selection.plot <- ARG.selection.test.df %>%
+    ggplot(aes(y = Annotation, x = dup.singleton.ratio)) +
     geom_point() + theme_classic() +
     geom_vline(xintercept = 1, color = "red", linetype = "dashed") +
-    xlim(0,4) +
+    xlim(0,5) +
     xlab("proportion of ARGs among duplicate genes / proportion of ARGs among single-copy genes")
 
-MGE.selection.plot <- selection.test.df %>%
-    ggplot(aes(y = Annotation, x = MGE.dup.singleton.ratio)) +
+MGE.selection.plot <- MGE.selection.test.df %>%
+    ggplot(aes(y = Annotation, x = dup.singleton.ratio)) +
     geom_point() + theme_classic() +
     geom_vline(xintercept = 1, color = "red", linetype = "dashed") +
-    xlim(0,4) +
+    xlim(0,5) +
     xlab("proportion of MGE genes among duplicate genes / proportion of MGE genes among single-copy genes")
 
-Fig4BC <- plot_grid(ARG.selection.plot, MGE.selection.plot, labels = c('B','C'), nrow = 2)
-ggsave("../results/Fig4BC.pdf", Fig4BC, width=9.5, height=5)
+Fig5BC <- plot_grid(ARG.selection.plot, MGE.selection.plot, labels = c('B','C'), nrow = 2)
+ggsave("../results/Fig5BC.pdf", Fig5BC, width=9.5, height=5)
 
 ################################################################################
-## Figure S4. A deterministic ODE model demonstrates that selection can
+## Figure 6. A deterministic ODE model demonstrates that selection can
 ## drive the evolution of duplicated ARGs on plasmids.
 
 ## The panels of this figure are generated in my Pluto notebook:
 ## duplication-linear-ODE-model.jl.
 ################################################################################
-## Figure 5: examples that indicate generality of our method.
+## Figure 7: examples that indicate generality of our method.
 ## let's examine some other functions that we expect to be enriched in some, but
 ## not all ecological annotations.
 
@@ -1142,55 +1176,309 @@ make.IsolateEnrichmentTable <- function(gbk.annotation, duplicate.genes, keyword
     return(Table)
 }
 
+make.IsolateEnrichmentControlTable <- function(gbk.annotation, singleton.genes, keywords) {
+    ## count the number of isolates with singleton genes of interest in each category.
+    category.counts <- singleton.proteins %>%
+        filter(str_detect(.$product, keywords)) %>%
+        ## next two lines is to count isolates rather than genes
+        select(Annotation_Accession, Annotation) %>%
+        distinct() %>%
+        count(Annotation, sort = TRUE) %>%
+        rename(isolates_with_singleton_function = n)
+    
+    ## join columns to make the Table.
+    Table <- make.isolate.totals.col(gbk.annotation) %>%
+        left_join(category.counts) %>%
+        mutate(isolates_with_singleton_function =
+                   replace_na(isolates_with_singleton_function,0)) %>%
+        mutate(p = isolates_with_singleton_function/total_isolates) %>%
+        calc.isolate.confints()
+    return(Table)
+}
 
-photosynthesis.table <- make.IsolateEnrichmentTable(gbk.annotation,
-                                                    duplicate.genes,
-                                                    "photosystem")
+## Tables for duplicate genes.
+photosynthesis.table <- make.IsolateEnrichmentTable(
+    gbk.annotation,
+    duplicate.genes,
+    "photosystem")
 write.csv(x=photosynthesis.table, file="../results/TableS6.csv")
 
-N2.fixation.table <- make.IsolateEnrichmentTable(gbk.annotation,
-                                                 duplicate.genes,
-                                                 "nitrogenase")
+N2.fixation.table <- make.IsolateEnrichmentTable(
+    gbk.annotation,
+    duplicate.genes,
+    "nitrogenase")
 write.csv(x=N2.fixation.table, file="../results/TableS7.csv")
 
-toxic.metal.table <- make.IsolateEnrichmentTable(gbk.annotation,
-                                                 duplicate.genes,
-                                                 "mercury|cadmium|arsen")
+toxic.metal.table <- make.IsolateEnrichmentTable(
+    gbk.annotation,
+    duplicate.genes,
+    "mercury|cadmium|arsen")
 write.csv(x=toxic.metal.table, file="../results/TableS8.csv")
 
-heme.table <- make.IsolateEnrichmentTable(gbk.annotation,
-                                          duplicate.genes,
-                                          "heme")
+heme.table <- make.IsolateEnrichmentTable(
+    gbk.annotation,
+    duplicate.genes,
+    "heme")
 write.csv(x=heme.table, file="../results/TableS9.csv")
 
+## Tables for single-copy genes.
+photosynthesis.control.table <- make.IsolateEnrichmentControlTable(
+    gbk.annotation,
+    singleton.genes,
+    "photosystem")
 
+N2.fixation.control.table <- make.IsolateEnrichmentControlTable(
+    gbk.annotation,
+    singleton.genes,
+    "nitrogenase")
+
+toxic.metal.control.table <- make.IsolateEnrichmentControlTable(
+    gbk.annotation,
+    singleton.genes,
+    "mercury|cadmium|arsen")
+
+heme.control.table <- make.IsolateEnrichmentControlTable(
+    gbk.annotation,
+    singleton.genes,
+    "heme")
+
+## tests for selection.
+photosynthesis.selection.test.df <- make.selection.test.df(
+    duplicate.proteins,
+    singleton.proteins,
+    order.by.total.isolates,
+    "photosystem")
+
+N2.fixation.selection.test.df <- make.selection.test.df(
+    duplicate.proteins,
+    singleton.proteins,
+    order.by.total.isolates,
+    "nitrogenase")
+
+toxic.metal.selection.test.df <- make.selection.test.df(
+    duplicate.proteins,
+    singleton.proteins,
+    order.by.total.isolates,
+    "mercury|cadmium|arsen")
+
+heme.selection.test.df <- make.selection.test.df(
+    duplicate.proteins,
+    singleton.proteins,
+    order.by.total.isolates,
+    "heme")
+
+## plots of the tests for selection.
+photosynthesis.selection.plot <- photosynthesis.selection.test.df %>%
+    ggplot(aes(y = Annotation, x = dup.singleton.ratio)) +
+    geom_point() + theme_classic() +
+    geom_vline(xintercept = 1, color = "red", linetype = "dashed") +
+    xlab("proportion of function among duplicate genes / proportion of function among single-copy genes") +
+    ggtitle("Photosynthesis")
+
+N2.fixation.selection.plot <- N2.fixation.selection.test.df %>%
+    ggplot(aes(y = Annotation, x = dup.singleton.ratio)) +
+    geom_point() + theme_classic() +
+    geom_vline(xintercept = 1, color = "red", linetype = "dashed") +
+    xlab("proportion of function among duplicate genes / proportion of function among single-copy genes") +
+    ggtitle("Nitrogen fixation")
+
+toxic.metal.selection.plot <- toxic.metal.selection.test.df %>%
+    ggplot(aes(y = Annotation, x = dup.singleton.ratio)) +
+    geom_point() + theme_classic() +
+    geom_vline(xintercept = 1, color = "red", linetype = "dashed") +
+    xlab("proportion of function among duplicate genes / proportion of function among single-copy genes") +
+    ggtitle("Toxic metal resistance")
+
+heme.selection.plot <- heme.selection.test.df %>%
+    ggplot(aes(y = Annotation, x = dup.singleton.ratio)) +
+    geom_point() + theme_classic() +
+    geom_vline(xintercept = 1, color = "red", linetype = "dashed") +
+    xlab("proportion of function among duplicate genes / proportion of function among single-copy genes") +
+    ggtitle("Heme metabolism")
+
+## Make current version of Figure 5.
 Fig5A <- make.confint.figure.panel(
     photosynthesis.table, order.by.total.isolates,
-    "Photosynthesis") +
-    ylab("Isolates with duplicated photosystem genes")
+    "Duplicated photosystem genes")
 
 Fig5B <- make.confint.figure.panel(
-    N2.fixation.table, order.by.total.isolates,
-    "Nitrogen fixation") +
-    ylab("Isolates with duplicated nitrogenase genes")
+    photosynthesis.control.table, order.by.total.isolates,
+    "Single-copy photosystem genes",
+    no.category.label = TRUE)
 
 Fig5C <- make.confint.figure.panel(
-    toxic.metal.table, order.by.total.isolates,
-    "Toxic-metal resistance") +
-    ylab("Isolates with duplicated toxic-metal resistance genes")
+    N2.fixation.table, order.by.total.isolates,
+    "Duplicated nitrogenases")
 
 Fig5D <- make.confint.figure.panel(
+    N2.fixation.control.table, order.by.total.isolates,
+    "Single-copy nitrogenases",
+    no.category.label = TRUE)
+
+Fig5E <- make.confint.figure.panel(
+    toxic.metal.table, order.by.total.isolates,
+    "Duplicated toxic-metal resistance")
+
+Fig5F <- make.confint.figure.panel(
+    toxic.metal.control.table, order.by.total.isolates,
+    "Single-copy toxic-metal resistance",
+    no.category.label = TRUE)
+
+Fig5G <- make.confint.figure.panel(
     heme.table, order.by.total.isolates,
-    "Heme degradation") +
-    ylab("Isolates with duplicated heme degradation genes")
+    "Duplicated heme metabolic genes")
 
-Fig5 <- plot_grid(Fig5A, Fig5B, Fig5C, Fig5D,
-                  labels = c("A","B","C","D"),
-                  nrow = 2)
+Fig5H <- make.confint.figure.panel(
+    heme.control.table, order.by.total.isolates,
+    "Single-copy heme metabolic genes",
+    no.category.label = TRUE)
 
-ggsave(Fig5, file = "../results/Fig5.pdf", width = 8.5, height = 8.5)
+Fig5 <- plot_grid(Fig5A, Fig5B, Fig5C, Fig5D, Fig5E, Fig5F, Fig5G, Fig5H,
+                  labels = c("A","B","C","D", "E", "F", "G", "H"),
+                  ncol = 2,
+                  rel_widths = c(1.4, 1, 1.4, 1, 1.4, 1, 1.4, 1))
+
+ggsave(Fig5, file = "../results/Fig5.pdf", width = 8, height = 8)
 ##########################################################################
+## Figure 8:
 
+## Lingchong suggested the following central point for the manuscript:
+## The propensity for jumping to a plasmid is proportional to the propensity
+## for gene duplication.
+
+## Can we expand this analysis to 100,000s of genomes?
+## Can we test this pattern using any given gene in a pangenome?
+## For every type and function: expect to see a correlation between
+## duplication and jumping to the plasmid.
+
+## First let's make a figure for the correlation between isolates with duplicate
+## ARGs and isolates with ARGs on plasmids.
+
+make.plasmid.duplication.cor.plot <- function(duplicate.proteins,
+                                              singleton.proteins,
+                                              order.by.total.isolates,
+                                              keywords,
+                                              xlabel,
+                                              ylabel) {
+
+    ## count the number of isolates with duplicated functions in each category.
+    function.category.counts <- duplicate.proteins %>%
+        filter(str_detect(.$product, keywords)) %>%
+        ## next two lines is to count isolates rather than genes
+        select(Annotation_Accession, Annotation) %>%
+        distinct() %>%
+        count(Annotation, sort = TRUE) %>%
+        rename(isolates_with_duplicated_functions = n)
+
+    isolates.with.plasmid.singleton.functions <- singleton.proteins %>%
+        filter(plasmid_count > 0) %>%
+        filter(str_detect(.$product, keywords)) %>%
+        count(Annotation_Accession) %>%
+        rename(singleton_plasmid_functions = n)
+
+    isolates.with.plasmid.duplicate.functions <- duplicate.proteins %>%
+        filter(plasmid_count > 0) %>%
+        filter(str_detect(.$product, keywords)) %>%
+        count(Annotation_Accession) %>%
+        rename(duplicate_plasmid_functions = n)
+    
+    isolates.with.plasmid.functions.vec <- unique(c(
+        isolates.with.plasmid.singleton.functions$Annotation_Accession,
+        isolates.with.plasmid.duplicate.functions$Annotation_Accession))
+
+    isolates.with.plasmid.functions.df <- gbk.annotation %>%
+        filter(Annotation_Accession %in% isolates.with.plasmid.functions.vec) %>%
+        count(Annotation, sort = TRUE) %>%
+        rename(isolates_with_plasmid_functions = n)
+    
+    ## join columns to make the new Table.
+    Table <- make.isolate.totals.col(gbk.annotation) %>%
+        left_join(function.category.counts) %>%
+        left_join(isolates.with.plasmid.functions.df) %>%
+        mutate(isolates_with_duplicated_functions =
+                   replace_na(isolates_with_duplicated_functions,0)) %>%
+        mutate(p_dup = isolates_with_duplicated_functions/total_isolates) %>%
+        ## use the normal approximation for binomial proportion conf.ints
+        mutate(dup_se = sqrt(p_dup*(1-p_dup)/total_isolates)) %>%
+        ## See Wikipedia reference:
+        ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
+        mutate(dup.Left = p_dup - 1.96*dup_se) %>%
+        mutate(dup.Right = p_dup + 1.96*dup_se) %>%
+        ## truncate confidence limits to interval [0,1].
+        rowwise() %>% mutate(dup.Left = max(0, dup.Left)) %>%
+        rowwise() %>% mutate(dup.Right = min(1, dup.Right)) %>%
+        mutate(p_plasmid = isolates_with_plasmid_functions/total_isolates) %>%
+        ## use the normal approximation for binomial proportion conf.ints
+        mutate(plas_se = sqrt(p_plasmid*(1-p_plasmid)/total_isolates)) %>%
+        ## See Wikipedia reference:
+        ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
+        mutate(plas.Left = p_plasmid - 1.96*plas_se) %>%
+        mutate(plas.Right = p_plasmid + 1.96*plas_se) %>%
+        ## truncate confidence limits to interval [0,1].
+        rowwise() %>% mutate(plas.Left = max(0, plas.Left)) %>%
+        rowwise() %>% mutate(plas.Right = min(1, plas.Right))
+    
+    
+    plasmid_dup_correlation_plot <- Table %>%
+        ggplot(aes(x = p_plasmid, y = p_dup, label = Annotation)) +
+        geom_point() +
+        ## plot both CIs.
+        geom_errorbar(aes(ymin=dup.Left,ymax=dup.Right), width=0, size=0.2) +
+        geom_errorbarh(aes(xmin=plas.Left,xmax=plas.Right), height=0, size=0.2) +
+        geom_text_repel() + theme_classic() +
+        xlab(xlabel) +
+        ylab(ylabel)
+
+    return(plasmid_dup_correlation_plot)
+}
+
+
+ARG_plasmid_dup_correlation_plot <- make.plasmid.duplication.cor.plot(
+    duplicate.proteins,
+    singleton.proteins,
+    order.by.total.isolates,
+    antibiotic.keywords,
+    "proportion of isolates with plasmid-borne ARGs",
+    "proportion of isolates with duplicated ARGs")
+
+photosynthesis_plasmid_dup_correlation_plot <- make.plasmid.duplication.cor.plot(
+    duplicate.proteins,
+    singleton.proteins,
+    order.by.total.isolates,
+    "photosystem",
+    "proportion of isolates with plasmid-borne photosystems",
+    "proportion of isolates with duplicated photosystems")
+
+N2_fixation_plasmid_dup_correlation_plot <- make.plasmid.duplication.cor.plot(
+    duplicate.proteins,
+    singleton.proteins,
+    order.by.total.isolates,
+    "nitrogenase",
+    "proportion of isolates with plasmid-borne nitrogenases",
+    "proportion of isolates with duplicated nitrogenases")
+
+toxic_metal_plasmid_dup_correlation_plot <- make.plasmid.duplication.cor.plot(
+    duplicate.proteins,
+    singleton.proteins,
+    order.by.total.isolates,
+    "mercury|cadmium|arsen",
+    "proportion of isolates with plasmid-borne toxic metal resistances",
+    "proportion of isolates with duplicated toxic metal resistances")
+
+heme_plasmid_dup_correlation_plot <- make.plasmid.duplication.cor.plot(
+    duplicate.proteins,
+    singleton.proteins,
+    order.by.total.isolates,
+    "heme",
+    "proportion of isolates with plasmid-borne heme metabolic genes",
+    "proportion of isolates with duplicated heme metabolic genes")
+
+ggsave("../results/ARG-plasmid-vs-duplicate-isolates.pdf", ARG_plasmid_dup_correlation_plot)
+ggsave("../results/photosynthesis-plasmid-vs-duplicate-isolates.pdf", photosynthesis_plasmid_dup_correlation_plot)
+ggsave("../results/nitrogenase-plasmid-vs-duplicate-isolates.pdf", N2_fixation_plasmid_dup_correlation_plot)
+ggsave("../results/toxic-metal-plasmid-vs-duplicate-isolates.pdf", toxic_metal_plasmid_dup_correlation_plot)
+ggsave("../results/heme-plasmid-vs-duplicate-isolates.pdf", heme_plasmid_dup_correlation_plot)
+##########################################################################
 ## Calculate TF-IDF (Term Frequency times Inverse Document Frequency)
 ## for each ecological category, using protein sequences.
 ## see "Mining of Massive Datasets"
@@ -1473,3 +1761,5 @@ dup.prot.seq.tf_idf.plot <- top.dup.prot.seq.tf_idf %>%
 ggsave("../results/duplicate-protein-seq-TF-IDF.pdf",
        dup.prot.seq.tf_idf.plot,
        height=21,width=21)
+
+
