@@ -394,9 +394,11 @@ S1FigA <- genera.isolate.comparison.df %>%
                y = sqrt(duplicated.ARG.genome.count),
                label = Genus,
                color = in.top.ARG.genera)) +
-    theme_classic() + geom_jitter() + geom_text_repel() +
+    theme_classic() + geom_jitter() + geom_text_repel(fontface = "italic") +
     scale_color_manual(values=c("black", "red")) +
-    guides(color=FALSE)
+    guides(color=FALSE) +
+    xlab("sqrt(Number of isolates)") +
+    ylab("sqrt(Number of isolates with duplicated ARGs)")
 
 ## 4,559 isolates are in the top ARG genera.
 top.ARG.genera.isolates <- gbk.annotation %>%
@@ -412,7 +414,7 @@ filtered.duplicate.proteins <- duplicate.proteins %>%
 filtered.TableS1 <- make.TableS1(filtered.gbk.annotation, filtered.duplicate.proteins)
 S1FigB <- make.confint.figure.panel(filtered.TableS1, order.by.total.isolates, "Duplicated ARGs after filtering top genera")
 
-S1Fig <- plot_grid(S1FigA, S1FigB, labels = c("A", "B"), nrow = 2)
+S1Fig <- plot_grid(S1FigA, S1FigB, labels = c("A", "B"), nrow = 2, rel_heights = c(1.5,1))
 ggsave("../results/S1Fig.pdf", S1Fig)
 
 ###########################################################################
@@ -652,67 +654,6 @@ S3Fig <- plot_grid(NULL, S3FigA, S3FigB, S3FigC, S3Fig.legend, ncol = 1,
                    rel_heights=c(0.2,1,1,1,0.25))
 ggsave("../results/S3Fig.pdf", S3Fig)
 
-##################################################################################
-
-## Let's take a closer look at duplicated EF-Tu sequences,
-## and examine ribosomal proteins too.
-
-Fig4A.summary <- Fig4.data %>% group_by(Episome, Category) %>%
-    summarize(count = sum(Count))
-
-## Remember: singleton is based on 100% sequence identity.
-## so a pair of duplicate gene with a single amino acid difference
-## is counted as a pair of singletons.
-
-Fig4B.summary <- Fig4B.data %>% group_by(Episome, Category) %>%
-    summarize(count = sum(Count))
-
-duplicated.EF.Tu <- duplicate.proteins %>%
-    tibble() %>% filter(str_detect(product,EFTu.keywords))
-singleton.EF.Tu <- singleton.proteins %>%
-    tibble() %>% filter(str_detect(product,EFTu.keywords))
-
-## find average number of EF-Tu sequences per genome. 1.52 per genome.
-num.genomes <- nrow(gbk.annotation)
-(sum(filter(Fig4A.summary,Category=="EF-Tu")$count) +
- sum(filter(Fig4B.summary,Category=="EF-Tu")$count))/num.genomes
-
-duplicated.EF.Tu.genera.summary <- duplicated.EF.Tu %>%
-    mutate(Genus = stringr::word(Organism, 1)) %>%
-    group_by(Genus, Annotation) %>%
-    summarize(duplicated.EF.Tu.count = n()) %>%
-    arrange(desc(duplicated.EF.Tu.count))
-
-singleton.EF.Tu.genera.summary <- singleton.EF.Tu %>%
-    mutate(Genus = stringr::word(Organism, 1)) %>%    
-    group_by(Genus, Annotation) %>%
-    summarize(singleton.EF.Tu.count = n()) %>%
-    arrange(desc(singleton.EF.Tu.count))
-
-EF.Tu.genera.summary <- full_join(
-    duplicated.EF.Tu.genera.summary,
-    singleton.EF.Tu.genera.summary) %>%
-    ## turn NAs to zeros.
-    replace(is.na(.), 0)
-
-duplicate.ribosomal.proteins <- duplicate.proteins %>%
-    tibble() %>% filter(str_detect(product,"\\bribosomal protein\\b"))
-
-duplicate.ribosomal.protein.genera.summary <- duplicate.ribosomal.proteins %>%
-    mutate(Genus = stringr::word(Organism, 1)) %>%
-    group_by(Genus, Annotation) %>%
-    summarize(duplicated.ribosomal.proteins.count = n()) %>%
-    arrange(desc(duplicated.ribosomal.proteins.count))
-
-duplicate.ribosomal.protein.genera.isolate.summary <- duplicate.ribosomal.proteins %>%
-    ## next two lines is to count isolates rather than genes
-    select(Annotation_Accession, Organism, Strain, Annotation) %>%
-    distinct() %>%
-    tibble() %>%
-    mutate(Genus = stringr::word(Organism, 1)) %>%
-    group_by(Genus) %>%
-    summarize(duplicated.ribosomal.proteins.isolates = n()) %>%
-    arrange(desc(duplicated.ribosomal.proteins.isolates))
 ######################################################################
 ## Table S4. Show number of duplicated genes on chromosomes, and number of
 ## duplicate genes on plasmids, for each category, for duplicated genes
@@ -1275,6 +1216,7 @@ photosynthesis.selection.plot <- photosynthesis.selection.test.df %>%
     xlab("proportion of function among duplicate genes / proportion of function among single-copy genes") +
     ggtitle("Photosynthesis")
 
+
 N2.fixation.selection.plot <- N2.fixation.selection.test.df %>%
     ggplot(aes(y = Annotation, x = dup.singleton.ratio)) +
     geom_point() + theme_classic() +
@@ -1296,51 +1238,66 @@ heme.selection.plot <- heme.selection.test.df %>%
     xlab("proportion of function among duplicate genes / proportion of function among single-copy genes") +
     ggtitle("Heme metabolism")
 
-## Make current version of Figure 5.
-Fig5A <- make.confint.figure.panel(
+ggsave("../results/photosynthesis-selection-plot.pdf",
+       height = 3, width = 7,
+       photosynthesis.selection.plot)
+ggsave("../results/nitrogenase-selection-plot.pdf",
+       height = 3, width = 7,
+       N2.fixation.selection.plot)
+ggsave("../results/toxic-metal-selection-plot.pdf",
+       height = 3, width = 7,
+       toxic.metal.selection.plot)
+ggsave("../results/heme-selection-plot.pdf",
+       height = 3, width = 7,
+       heme.selection.plot)
+
+#####################################################
+## Make current version of Figure 7.
+Fig7A <- make.confint.figure.panel(
     photosynthesis.table, order.by.total.isolates,
     "Duplicated photosystem genes")
 
-Fig5B <- make.confint.figure.panel(
+Fig7B <- make.confint.figure.panel(
     photosynthesis.control.table, order.by.total.isolates,
     "Single-copy photosystem genes",
     no.category.label = TRUE)
 
-Fig5C <- make.confint.figure.panel(
+Fig7C <- make.confint.figure.panel(
     N2.fixation.table, order.by.total.isolates,
     "Duplicated nitrogenases")
 
-Fig5D <- make.confint.figure.panel(
+Fig7D <- make.confint.figure.panel(
     N2.fixation.control.table, order.by.total.isolates,
     "Single-copy nitrogenases",
     no.category.label = TRUE)
 
-Fig5E <- make.confint.figure.panel(
+Fig7E <- make.confint.figure.panel(
     toxic.metal.table, order.by.total.isolates,
     "Duplicated toxic-metal resistance")
 
-Fig5F <- make.confint.figure.panel(
+Fig7F <- make.confint.figure.panel(
     toxic.metal.control.table, order.by.total.isolates,
     "Single-copy toxic-metal resistance",
     no.category.label = TRUE)
 
-Fig5G <- make.confint.figure.panel(
+Fig7G <- make.confint.figure.panel(
     heme.table, order.by.total.isolates,
-    "Duplicated heme metabolic genes")
+    "Duplicated heme metabolism genes")
 
-Fig5H <- make.confint.figure.panel(
+Fig7H <- make.confint.figure.panel(
     heme.control.table, order.by.total.isolates,
-    "Single-copy heme metabolic genes",
+    "Single-copy heme metabolism genes",
     no.category.label = TRUE)
 
-Fig5 <- plot_grid(Fig5A, Fig5B, Fig5C, Fig5D, Fig5E, Fig5F, Fig5G, Fig5H,
+Fig7 <- plot_grid(Fig7A, Fig7B, Fig7C, Fig7D, Fig7E, Fig7F, Fig7G, Fig7H,
                   labels = c("A","B","C","D", "E", "F", "G", "H"),
                   ncol = 2,
                   rel_widths = c(1.4, 1, 1.4, 1, 1.4, 1, 1.4, 1))
 
-ggsave(Fig5, file = "../results/Fig5.pdf", width = 8, height = 8)
+ggsave(Fig7, file = "../results/Fig6.pdf", width = 8, height = 8)
+
 ##########################################################################
-## Figure 8:
+## Figure 8?:
 
 ## Lingchong suggested the following central point for the manuscript:
 ## The propensity for jumping to a plasmid is proportional to the propensity
@@ -1470,14 +1427,24 @@ heme_plasmid_dup_correlation_plot <- make.plasmid.duplication.cor.plot(
     singleton.proteins,
     order.by.total.isolates,
     "heme",
-    "proportion of isolates with plasmid-borne heme metabolic genes",
-    "proportion of isolates with duplicated heme metabolic genes")
+    "proportion of isolates with plasmid-borne heme metabolism genes",
+    "proportion of isolates with duplicated heme metabolism genes")
 
-ggsave("../results/ARG-plasmid-vs-duplicate-isolates.pdf", ARG_plasmid_dup_correlation_plot)
-ggsave("../results/photosynthesis-plasmid-vs-duplicate-isolates.pdf", photosynthesis_plasmid_dup_correlation_plot)
-ggsave("../results/nitrogenase-plasmid-vs-duplicate-isolates.pdf", N2_fixation_plasmid_dup_correlation_plot)
-ggsave("../results/toxic-metal-plasmid-vs-duplicate-isolates.pdf", toxic_metal_plasmid_dup_correlation_plot)
-ggsave("../results/heme-plasmid-vs-duplicate-isolates.pdf", heme_plasmid_dup_correlation_plot)
+ggsave("../results/ARG-plasmid-vs-duplicate-isolates.pdf",
+       height = 5, width = 5,
+       ARG_plasmid_dup_correlation_plot)
+ggsave("../results/photosynthesis-plasmid-vs-duplicate-isolates.pdf",
+       height = 5, width = 5,
+       photosynthesis_plasmid_dup_correlation_plot)
+ggsave("../results/nitrogenase-plasmid-vs-duplicate-isolates.pdf",
+       height = 5, width = 5,
+       N2_fixation_plasmid_dup_correlation_plot)
+ggsave("../results/toxic-metal-plasmid-vs-duplicate-isolates.pdf",
+       height = 5, width = 5,
+       toxic_metal_plasmid_dup_correlation_plot)
+ggsave("../results/heme-plasmid-vs-duplicate-isolates.pdf",
+       height = 5, width = 5,
+       heme_plasmid_dup_correlation_plot)
 ##########################################################################
 ## Calculate TF-IDF (Term Frequency times Inverse Document Frequency)
 ## for each ecological category, using protein sequences.
