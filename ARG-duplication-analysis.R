@@ -423,6 +423,9 @@ single.organism.gbk.annotation <- gbk.annotation %>%
 single.organism.duplicate.proteins <- duplicate.proteins %>%
     filter(Annotation_Accession %in% single.organism.gbk.annotation$Annotation_Accession)
 
+single.organism.singleton.proteins <- singleton.proteins %>%
+    filter(Annotation_Accession %in% single.organism.gbk.annotation$Annotation_Accession)
+
 single.organism.TableS1 <- make.TableS1(
     single.organism.gbk.annotation, single.organism.duplicate.proteins)
 S1FigC <- make.confint.figure.panel(
@@ -1494,6 +1497,7 @@ single.organism.heme.table <- make.IsolateEnrichmentTable(
 
 make.plasmid.duplication.cor.plot <- function(duplicate.proteins,
                                               singleton.proteins,
+                                              gbk.annotation,
                                               order.by.total.isolates,
                                               keywords,
                                               xlabel,
@@ -1574,6 +1578,7 @@ make.plasmid.duplication.cor.plot <- function(duplicate.proteins,
 ARG_plasmid_dup_correlation_plot <- make.plasmid.duplication.cor.plot(
     duplicate.proteins,
     singleton.proteins,
+    gbk.annotation,
     order.by.total.isolates,
     antibiotic.keywords,
     "proportion of isolates with plasmid-borne ARGs",
@@ -1582,6 +1587,7 @@ ARG_plasmid_dup_correlation_plot <- make.plasmid.duplication.cor.plot(
 photosynthesis_plasmid_dup_correlation_plot <- make.plasmid.duplication.cor.plot(
     duplicate.proteins,
     singleton.proteins,
+    gbk.annotation,
     order.by.total.isolates,
     "photosystem",
     "proportion of isolates with plasmid-borne photosystems",
@@ -1590,6 +1596,7 @@ photosynthesis_plasmid_dup_correlation_plot <- make.plasmid.duplication.cor.plot
 N2_fixation_plasmid_dup_correlation_plot <- make.plasmid.duplication.cor.plot(
     duplicate.proteins,
     singleton.proteins,
+    gbk.annotation,
     order.by.total.isolates,
     "nitrogenase",
     "proportion of isolates with plasmid-borne nitrogenases",
@@ -1598,6 +1605,7 @@ N2_fixation_plasmid_dup_correlation_plot <- make.plasmid.duplication.cor.plot(
 toxic_metal_plasmid_dup_correlation_plot <- make.plasmid.duplication.cor.plot(
     duplicate.proteins,
     singleton.proteins,
+    gbk.annotation,
     order.by.total.isolates,
     "mercury|cadmium|arsen",
     "proportion of isolates with plasmid-borne toxic metal resistances",
@@ -1606,6 +1614,7 @@ toxic_metal_plasmid_dup_correlation_plot <- make.plasmid.duplication.cor.plot(
 heme_plasmid_dup_correlation_plot <- make.plasmid.duplication.cor.plot(
     duplicate.proteins,
     singleton.proteins,
+    gbk.annotation,
     order.by.total.isolates,
     "heme",
     "proportion of isolates with plasmid-borne heme metabolism genes",
@@ -1626,6 +1635,69 @@ ggsave("../results/toxic-metal-plasmid-vs-duplicate-isolates.pdf",
 ggsave("../results/heme-plasmid-vs-duplicate-isolates.pdf",
        height = 5, width = 5,
        heme_plasmid_dup_correlation_plot)
+
+## now, remake these plots, using the species-downsampled data.
+single.organism.ARG_plasmid_dup_correlation_plot <- make.plasmid.duplication.cor.plot(
+    single.organism.duplicate.proteins,
+    single.organism.singleton.proteins,
+    single.organism.gbk.annotation,
+    order.by.total.isolates,
+    antibiotic.keywords,
+    "proportion of isolates with plasmid-borne ARGs",
+    "proportion of isolates with duplicated ARGs")
+
+single.organism.photosynthesis_plasmid_dup_correlation_plot <- make.plasmid.duplication.cor.plot(
+    single.organism.duplicate.proteins,
+    single.organism.singleton.proteins,
+    single.organism.gbk.annotation,
+    order.by.total.isolates,
+    "photosystem",
+    "proportion of isolates with plasmid-borne photosystems",
+    "proportion of isolates with duplicated photosystems")
+
+single.organism.N2_fixation_plasmid_dup_correlation_plot <- make.plasmid.duplication.cor.plot(
+    single.organism.duplicate.proteins,
+    single.organism.singleton.proteins,
+    single.organism.gbk.annotation,
+    order.by.total.isolates,
+    "nitrogenase",
+    "proportion of isolates with plasmid-borne nitrogenases",
+    "proportion of isolates with duplicated nitrogenases")
+
+single.organism.toxic_metal_plasmid_dup_correlation_plot <- make.plasmid.duplication.cor.plot(
+    single.organism.duplicate.proteins,
+    single.organism.singleton.proteins,
+    single.organism.gbk.annotation,
+    order.by.total.isolates,
+    "mercury|cadmium|arsen",
+    "proportion of isolates with plasmid-borne toxic metal resistances",
+    "proportion of isolates with duplicated toxic metal resistances")
+
+single.organism.heme_plasmid_dup_correlation_plot <- make.plasmid.duplication.cor.plot(
+    single.organism.duplicate.proteins,
+    single.organism.singleton.proteins,
+    single.organism.gbk.annotation,
+    order.by.total.isolates,
+    "heme",
+    "proportion of isolates with plasmid-borne heme metabolism genes",
+    "proportion of isolates with duplicated heme metabolism genes")
+
+ggsave("../results/single-organism-ARG-plasmid-vs-duplicate-isolates.pdf",
+       height = 5, width = 5,
+       single.organism.ARG_plasmid_dup_correlation_plot)
+ggsave("../results/single-organism-photosynthesis-plasmid-vs-duplicate-isolates.pdf",
+       height = 5, width = 5,
+       single.organism.photosynthesis_plasmid_dup_correlation_plot)
+ggsave("../results/single-organism-nitrogenase-plasmid-vs-duplicate-isolates.pdf",
+       height = 5, width = 5,
+       single.organism.N2_fixation_plasmid_dup_correlation_plot)
+ggsave("../results/single-organism-toxic-metal-plasmid-vs-duplicate-isolates.pdf",
+       height = 5, width = 5,
+       single.organism.toxic_metal_plasmid_dup_correlation_plot)
+ggsave("../results/single-organism-heme-plasmid-vs-duplicate-isolates.pdf",
+       height = 5, width = 5,
+       single.organism.heme_plasmid_dup_correlation_plot)
+
 ##########################################################################
 ## Calculate TF-IDF (Term Frequency times Inverse Document Frequency)
 ## for each ecological category, using protein sequences.
@@ -1668,6 +1740,7 @@ ggsave("../results/heme-plasmid-vs-duplicate-isolates.pdf",
 ## IMPORTANT: These are the functions that are actually used.
 make.dup.annotation.freq.table <- partial(.f = .make.annotation.freq.table, duplicate.proteins)
 make.sing.annotation.freq.table <- partial(.f = .make.annotation.freq.table, singleton.proteins)
+## function for doing TF-IDF for duplicate proteins on plasmids.
 plasmid.duplicate.proteins <- duplicate.proteins %>% filter(plasmid_count >= 1)
 make.plas.dup.annotation.freq.table <- partial(.f = .make.annotation.freq.table, duplicate.proteins)
 
@@ -1678,6 +1751,33 @@ make.plas.dup.annotation.freq.table <- partial(.f = .make.annotation.freq.table,
 ## The analysis here closely follows the text mining example here:
 ## https://www.tidytextmining.com/tfidf.html
 
+## run for duplicate proteins on plasmids.
+big.plas.dup.prot.annotation.freq.table <- map_dfr(unique(plasmid.duplicate.proteins$Annotation),
+                                              .f = make.plas.dup.annotation.freq.table) %>%
+    ungroup() %>% ## have to ungroup before summing up all annotations in the table.
+    mutate(total.annotation.count = sum(annotation.count))
+
+plas.dup.prot.annotation.tf_idf <- big.plas.dup.prot.annotation.freq.table %>%
+  bind_tf_idf(product, Annotation, annotation.count) %>%
+  arrange(desc(tf_idf))
+
+plas.top.dup.prot.annotation.tf_idf <- plas.dup.prot.annotation.tf_idf %>%
+    group_by(Annotation) %>%
+    slice_max(tf_idf, n = 5) %>%
+    ungroup()
+
+plas.dup.prot.annotation.tf_idf.plot <- plas.top.dup.prot.annotation.tf_idf %>%
+    ggplot(aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
+  geom_col(show.legend = TRUE) +
+  facet_wrap(~Annotation, ncol = 2, scales = "free") +
+  labs(x = "tf-idf", y = NULL)
+
+ggsave("../results/plasmid-duplicate-protein-annotation-TF-IDF.pdf",
+       plas.dup.prot.annotation.tf_idf.plot,
+       height=21,width=21)
+
+
+## run for all duplicate proteins.
 big.dup.prot.annotation.freq.table <- map_dfr(unique(duplicate.proteins$Annotation),
                                               .f = make.dup.annotation.freq.table) %>%
     ungroup() %>% ## have to ungroup before summing up all annotations in the table.
