@@ -195,7 +195,7 @@ end
 
 # ╔═╡ 19d506a1-a53d-4a10-8f99-280301933d7b
 md""" 
-For Figure S4, use the following parameter settings:  
+For Figure 6, use the following parameter settings:  
 
 Antibiotic Concentration = 5.0
 
@@ -367,6 +367,19 @@ function ConcAndCostToDuplicationIndex(antibiotic_conc::Float64, my_cost::Float6
 	return DuplicationIndex(my_sol)
 end
 
+# ╔═╡ 2bd8a623-2334-44ae-81b4-963979ece485
+function ConcAndCostToPlasmidIndex(antibiotic_conc::Float64, my_cost::Float64, fixed_parameters)
+	
+	r, d, η, D = fixed_parameters
+	antibiotic_conc_func = t->antibiotic_conc
+
+	my_parameters = [r, d, η, antibiotic_conc_func, my_cost, D]
+	
+	my_prob = ODEProblem(dynamics!, u₀, tspan, my_parameters)
+	my_sol = solve(my_prob)
+	return PlasmidIndex(my_sol)
+end
+
 # ╔═╡ 7f2414bc-5fe4-11eb-1557-73f27ec8ddc9
 function ConcAndCostToXTotal(antibiotic_conc::Float64, my_cost::Float64, fixed_parameters)
 	
@@ -386,14 +399,33 @@ let
 	
 	p = plot()
 	for cost in 0:0.1:0.3
-	antibiotic_concs = [x for x in 0:0.02:4]
-	dup_indices = [ConcAndCostToDuplicationIndex(x, cost, fixed_parameters) for x in antibiotic_concs]
-	my_label = "cost = $cost"
-	plot!(antibiotic_concs, dup_indices, label=my_label,
+		antibiotic_concs = [x for x in 0:0.02:4]
+		dup_indices = [ConcAndCostToDuplicationIndex(x, cost, fixed_parameters) for x in antibiotic_concs]
+		my_label = "cost = $cost"
+		plot!(antibiotic_concs, dup_indices, label=my_label,
 			legend=:bottomright,ylabel="Duplication Index",
 			xlabel="Antibiotic Concentration")
 	end
-	savefig(p, "../results/linear-ODE-model-figures/S4FigC-DI-versus-selection.pdf")
+	
+	savefig(p, "../results/linear-ODE-model-figures/Fig6C-DI-versus-selection.pdf")
+	p
+end
+
+# ╔═╡ a5c5571c-69c9-4724-a6d6-4d5dcb4c90eb
+let
+	fixed_parameters = [r, d, η, D]
+	
+	p = plot()
+	for cost in 0:0.1:0.3
+		antibiotic_concs = [x for x in 0:0.02:4]
+		plas_indices = [ConcAndCostToPlasmidIndex(x, cost, fixed_parameters) for x in antibiotic_concs]
+		my_label = "cost = $cost"
+		plot!(antibiotic_concs, plas_indices, label=my_label,
+			legend=:bottomright,ylabel="Plasmid Index",
+			xlabel="Antibiotic Concentration")
+	end
+	
+	savefig(p, "../results/linear-ODE-model-figures/Fig6D-PI-versus-selection.pdf")
 	p
 end
 
@@ -415,6 +447,28 @@ end
 
 # ╔═╡ 3133d7ba-5fe9-11eb-08af-3d21f659e7ba
 md"""fitnesses of x1, x2, x3, x4, x5. Set cost to 0.1 and antibiotic concentration to 2.4 to see the transition between x3 being the most fit to x5 being the most fit. """
+
+# ╔═╡ 9ee10372-fa28-4cc8-a46e-37518c2a40ef
+md""" now, let's make a correlation plot between frequency of ARGs on plasmids and duplicated ARGs, as antibiotic concentration varies.
+"""
+
+# ╔═╡ 463ca968-4701-4348-8f6a-5f338ba30c63
+let
+	fixed_parameters = [r, d, η, D]
+	
+	p = plot()
+	for cost in 0:0.1:0.3
+	antibiotic_concs = [x for x in 0:0.02:4]
+	dup_indices = [ConcAndCostToDuplicationIndex(x, cost, fixed_parameters) for x in antibiotic_concs]
+	plas_indices = [ConcAndCostToPlasmidIndex(x, cost, fixed_parameters) for x in antibiotic_concs]
+	my_label = "cost = $cost"
+	plot!(plas_indices, dup_indices, label=my_label,
+			legend=:bottomright,ylabel="Duplication Index",
+			xlabel="Plasmid Index")
+	end
+	savefig(p, "../results/linear-ODE-model-figures/Fig7A-DI-versus-PI.pdf")
+	p
+end
 
 # ╔═╡ c6d3267c-1930-11eb-3164-871a29bfeaad
 md""" **Acknowledgements**
@@ -2420,14 +2474,18 @@ version = "0.9.1+5"
 # ╠═9c2038bc-5ff2-11eb-1eb8-df1d0766dbeb
 # ╟─3a9451de-1d56-11eb-0011-5df5238d4a71
 # ╟─0eeaa15a-4f71-11eb-193c-a10a3c7a964b
-# ╟─13def1fa-4f71-11eb-20b3-41fecdd8c073
-# ╟─194c7fa4-4f71-11eb-09cf-4f347b7bd421
+# ╠═13def1fa-4f71-11eb-20b3-41fecdd8c073
+# ╠═194c7fa4-4f71-11eb-09cf-4f347b7bd421
 # ╟─1d679736-4f71-11eb-113a-bd2569486e09
-# ╟─22f819a0-4f71-11eb-03bb-d9e161b7fd27
-# ╟─7f2414bc-5fe4-11eb-1557-73f27ec8ddc9
+# ╠═22f819a0-4f71-11eb-03bb-d9e161b7fd27
+# ╠═2bd8a623-2334-44ae-81b4-963979ece485
+# ╠═7f2414bc-5fe4-11eb-1557-73f27ec8ddc9
 # ╠═27b28d24-4f71-11eb-1291-0b1c965aa0e0
+# ╠═a5c5571c-69c9-4724-a6d6-4d5dcb4c90eb
 # ╟─6baaa82e-5fe4-11eb-3e2b-c1dbf419ffda
 # ╟─3133d7ba-5fe9-11eb-08af-3d21f659e7ba
+# ╠═9ee10372-fa28-4cc8-a46e-37518c2a40ef
+# ╠═463ca968-4701-4348-8f6a-5f338ba30c63
 # ╟─c6d3267c-1930-11eb-3164-871a29bfeaad
 # ╟─d5cb6b2c-0a66-11eb-1aff-41d0e502d5e5
 # ╟─00000000-0000-0000-0000-000000000001

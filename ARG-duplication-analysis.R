@@ -350,8 +350,6 @@ duplicated.genera.seq.summary <- duplicate.proteins %>%
     arrange(desc(duplicated.seq.count))
 
 all.genera.isolate.summary <- gbk.annotation %>%
-    filter(Annotation != "Unannotated") %>%
-    filter(Annotation != "blank") %>%
     tibble() %>%
     mutate(Genus = stringr::word(Organism, 1)) %>%
     group_by(Genus) %>%
@@ -414,7 +412,23 @@ filtered.duplicate.proteins <- duplicate.proteins %>%
 filtered.TableS1 <- make.TableS1(filtered.gbk.annotation, filtered.duplicate.proteins)
 S1FigB <- make.confint.figure.panel(filtered.TableS1, order.by.total.isolates, "Duplicated ARGs after filtering top genera")
 
-S1Fig <- plot_grid(S1FigA, S1FigB, labels = c("A", "B"), nrow = 2, rel_heights = c(1.5,1))
+## Let's try an alternative strategy: downsample the data such that only one
+## sample for each organism is allowed.
+
+single.organism.gbk.annotation <- gbk.annotation %>%
+    group_by(Organism) %>%
+    filter(row_number() == 1) %>% ## take the first one in the group.
+    ungroup()
+
+single.organism.duplicate.proteins <- duplicate.proteins %>%
+    filter(Annotation_Accession %in% single.organism.gbk.annotation$Annotation_Accession)
+
+single.organism.TableS1 <- make.TableS1(
+    single.organism.gbk.annotation, single.organism.duplicate.proteins)
+S1FigC <- make.confint.figure.panel(
+    single.organism.TableS1, order.by.total.isolates, "Duplicated ARGs after downsampling species")
+
+S1Fig <- plot_grid(S1FigA, S1FigB, S1FigC, labels = c("A", "B", "C"), nrow = 3, rel_heights = c(1.5,1,1))
 ggsave("../results/S1Fig.pdf", S1Fig)
 
 ###########################################################################
@@ -1294,7 +1308,174 @@ Fig7 <- plot_grid(Fig7A, Fig7B, Fig7C, Fig7D, Fig7E, Fig7F, Fig7G, Fig7H,
                   ncol = 2,
                   rel_widths = c(1.4, 1, 1.4, 1, 1.4, 1, 1.4, 1))
 
-ggsave(Fig7, file = "../results/Fig6.pdf", width = 8, height = 8)
+ggsave(Fig7, file = "../results/Fig7.pdf", width = 8, height = 8)
+##########################################################################
+## run additional controls for taxonomy, as before.
+
+## Control for Taxonomy (simpler control than for phylogeny)
+
+## let's look at the taxonomic distribution of strains with duplicated function genes.
+make.taxonomy.control.figure <- function(duplicate.proteins, gbk.annotation, keywords, title.text) {
+
+    ## Let's mark the most commonly sampled genera, and recalculate a version
+    ## of TableS1, and the associated figure.
+    top.photosystem.genera <- c("Nostoc")
+    top.N2.fixation.genera <- c("Rhizobium")
+    top.toxic.metal.genera <- c("Klebsiella", "Citrobacter","Enterobacter",
+                                "Escherichia", "Salmonella", "Pseudomonas",
+                                "Staphylococcus")
+    top.heme.genera <- c("Salmonella")
+
+    gene.type <- keywords ## change for toxic metal.
+    
+    if (keywords == "photosystem") {
+        top.func.genera <- top.photosystem.genera
+    } else if (keywords == "nitrogenase") {
+        top.func.genera <- top.N2.fixation.genera
+    } else if (keywords == "mercury|cadmium|arsen") {
+        top.func.genera <- top.toxic.metal.genera
+        gene.type = "toxic metal"
+    } else if (keywords == "heme") {
+        top.func.genera <- top.heme.genera
+    }
+    
+    duplicated.func.seq.genera.summary <- duplicate.proteins %>%
+        tibble() %>% filter(str_detect(product,keywords)) %>%
+        mutate(Genus = stringr::word(Organism, 1)) %>%
+        group_by(Genus) %>%
+        summarize(duplicated.func.count = n()) %>%
+        arrange(desc(duplicated.func.count))
+    
+    duplicated.genera.seq.summary <- duplicate.proteins %>%
+        tibble() %>%
+        mutate(Genus = stringr::word(Organism, 1)) %>%
+        group_by(Genus) %>%
+        summarize(duplicated.seq.count = n()) %>%
+        arrange(desc(duplicated.seq.count))
+    
+    all.genera.isolate.summary <- gbk.annotation %>%
+        tibble() %>%
+        mutate(Genus = stringr::word(Organism, 1)) %>%
+        group_by(Genus) %>%
+        summarize(genome.count = n()) %>%
+        arrange(desc(genome.count))
+    
+    duplicated.genera.isolate.summary <- duplicate.proteins %>%
+        filter(str_detect(.$product,keywords)) %>%
+        ## next two lines is to count isolates rather than genes
+        select(Annotation_Accession, Organism, Strain, Annotation) %>%
+        distinct() %>%
+        tibble() %>%
+        mutate(Genus = stringr::word(Organism, 1)) %>%
+        group_by(Genus) %>%
+        summarize(duplicated.func.genome.count = n()) %>%
+        arrange(desc(duplicated.func.genome.count))
+    
+    
+    genera.isolate.comparison.df <- full_join(
+        duplicated.genera.isolate.summary,
+        all.genera.isolate.summary) %>%
+        ## turn NAs to zeros.
+        replace(is.na(.), 0) %>%
+        mutate(percent.genomes.with.dup.funcs = duplicated.func.genome.count/genome.count) %>%
+        mutate(in.top.func.genera = ifelse(Genus %in% top.func.genera, TRUE, FALSE))
+
+    ## Hmmm... sampling biases could be problematic.
+    FigA <- genera.isolate.comparison.df %>%
+        ggplot(aes(x=sqrt(genome.count),
+                   y = sqrt(duplicated.func.genome.count),
+                   label = Genus,
+                   color = in.top.func.genera)) +
+        theme_classic() + geom_jitter() + geom_text_repel(fontface = "italic") +
+        scale_color_manual(values=c("black", "red")) +
+        guides(color=FALSE) +
+        xlab("sqrt(Number of isolates)") +
+        ylab("sqrt(Number of isolates with duplicated genes)")
+
+    top.func.genera.isolates <- gbk.annotation %>%
+        filter(Genus %in% top.func.genera)
+    
+    filtered.gbk.annotation <- gbk.annotation %>%
+        filter(!(Genus %in% top.func.genera))
+    
+    filtered.duplicate.proteins <- duplicate.proteins %>%
+        filter(!(Genus %in% top.func.genera))
+    
+    filtered.func.Table <- make.IsolateEnrichmentTable(filtered.gbk.annotation,
+                                                       filtered.duplicate.proteins,
+                                                       keywords)
+    
+    FigB <- make.confint.figure.panel(filtered.func.Table,
+                                      order.by.total.isolates,
+                                      "Duplicated genes after filtering top genera")
+
+    ## Let's try an alternative strategy: downsample the data such that only one
+    ## sample for each organism is allowed.
+    single.organism.gbk.annotation <- gbk.annotation %>%
+        group_by(Organism) %>%
+        filter(row_number() == 1) %>% ## take the first one in the group.
+        ungroup()
+    
+    single.organism.duplicate.proteins <- duplicate.proteins %>%
+        filter(Annotation_Accession %in% single.organism.gbk.annotation$Annotation_Accession)
+    
+    single.organism.func.table <- make.IsolateEnrichmentTable(
+    single.organism.gbk.annotation,
+    single.organism.duplicate.genes,
+    keywords)
+
+    FigC <- make.confint.figure.panel(
+        single.organism.func.table, order.by.total.isolates,
+    "Duplicated genes after downsampling species")
+
+    title <- ggdraw() + draw_label(title.text, fontface='bold')
+    
+    FullFig <- plot_grid(title, FigA, FigB, FigC, labels = c("","A", "B", "C"),
+                         nrow=4, rel_heights=c(0.1,1.5,1,1))
+    return(FullFig)
+}
+
+S4Fig <- make.taxonomy.control.figure(
+    duplicate.proteins, gbk.annotation, "photosystem",
+    "Duplicated photosystem genes")
+ggsave("../results/S4Fig.pdf", height=10)
+
+S5Fig <- make.taxonomy.control.figure(
+    duplicate.proteins, gbk.annotation, "nitrogenase",
+    "Duplicated nitrogenase genes")
+ggsave("../results/S5Fig.pdf",height=10)
+
+S6Fig <- make.taxonomy.control.figure(
+    duplicate.proteins, gbk.annotation, "mercury|cadmium|arsen",
+    "Duplicated toxic metal resistance genes")
+ggsave("../results/S6Fig.pdf",height=10)
+
+S7Fig <- make.taxonomy.control.figure(
+    duplicate.proteins, gbk.annotation, "heme",
+    "Duplicated heme metabolism genes")
+ggsave("../results/S7Fig.pdf",height=10)
+
+## Make the single-organism filtered tables, in order to look at the
+## numbers themselves.
+single.organism.photosynthesis.table <- make.IsolateEnrichmentTable(
+    single.organism.gbk.annotation,
+    single.organism.duplicate.genes,
+    "photosystem")
+
+single.organism.N2.fixation.table <- make.IsolateEnrichmentTable(
+    single.organism.gbk.annotation,
+    single.organism.duplicate.genes,
+    "nitrogenase")
+
+single.organism.toxic.metal.table <- make.IsolateEnrichmentTable(
+    single.organism.gbk.annotation,
+    single.organism.duplicate.genes,
+    "mercury|cadmium|arsen")
+
+single.organism.heme.table <- make.IsolateEnrichmentTable(
+    single.organism.gbk.annotation,
+    single.organism.duplicate.genes,
+    "heme")
 
 ##########################################################################
 ## Figure 8?:
@@ -1487,6 +1668,8 @@ ggsave("../results/heme-plasmid-vs-duplicate-isolates.pdf",
 ## IMPORTANT: These are the functions that are actually used.
 make.dup.annotation.freq.table <- partial(.f = .make.annotation.freq.table, duplicate.proteins)
 make.sing.annotation.freq.table <- partial(.f = .make.annotation.freq.table, singleton.proteins)
+plasmid.duplicate.proteins <- duplicate.proteins %>% filter(plasmid_count >= 1)
+make.plas.dup.annotation.freq.table <- partial(.f = .make.annotation.freq.table, duplicate.proteins)
 
 
 ## let's make a big table of product annotations per annotation category,
