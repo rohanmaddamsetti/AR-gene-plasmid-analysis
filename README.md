@@ -12,7 +12,7 @@ wget https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/prokaryotes.txt
 Then, filter the prokaryotes genome data for those that have both
 plasmids and chromosomes:
 
-python filter-genome-reports.py > ../results/prokaryotes-with-plasmids.txt
+python filter-genome-reports-for-plasmids.py > ../results/prokaryotes-with-plasmids.txt
 
 Then, fetch genome annotation for each row in prokaryotes-with-plasmids.txt,
 and fetch the protein-coding genes for all chromosomes and plasmids for

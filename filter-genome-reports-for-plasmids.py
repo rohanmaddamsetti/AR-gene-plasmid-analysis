@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
 ''' 
-filter-genome-reports.py by Rohan Maddamsetti.
+filter-genome-reports-for-plasmids.py by Rohan Maddamsetti.
 
 This script goes through the genome report in data/prokaryotes.txt, and filters
 for lines with plasmids and chromosomes.
 
-Usage: python filter-genome-reports.py > ../results/AR-gene-duplication/prokaryotes-with-plasmids.txt
+Usage: python filter-genome-reports-for-plasmids.py > ../results/prokaryotes-with-plasmids.txt
 
 '''
 

@@ -3,7 +3,7 @@
 '''
 fetch-genome-and-plasmid-cds.py by Rohan Maddamsetti.
 
-This script reads in ../results/prokaryotes-with-plasmids.txt.
+This script reads in ../results/prokaryotes-with-complete-genomes.txt.
 
 NOTE: for path names to be processed properly, this script must be run
 from the src/ directory as python fetch-genome-and-plasmid-cds.py.
@@ -21,7 +21,7 @@ with open("../results/gene_db.fna", "w") as gene_db_fh:
     ## create an empty protein database file.
     with open("../results/protein_db.faa", "w") as protein_db_fh:
         ## open the genome report file, and parse line by line.
-        with open("../results/prokaryotes-with-plasmids.txt", "r") as genome_report_fh:
+        with open("../results/prokaryotes-with-complete-genomes.txt", "r") as genome_report_fh:
             for i, line in enumerate(tqdm(genome_report_fh)):
                 line = line.strip()
                 if i == 0: ## get the names of the columns from the header.
