@@ -20,8 +20,7 @@ each row in prokaryotes-with-plasmids.txt.
 
 Both steps can be done at the same time on the Duke Compute Cluster (DCC).
 And make sure these scripts are called from the src directory.
-fetch-gbk-annotation should take about 3 hours,
-and fetch-genome-and-plasmid-cds.py should take about 6 hours.
+fetch-gbk-annotation and fetch-genome-and-plasmid-cds.py run overnight..
 
 sbatch --mem=16G -t 24:00:00 --wrap="python fetch-gbk-annotation.py"  
 sbatch --mem=16G -t 24:00:00 --wrap="python fetch-genome-and-plasmid-cds.py"  
@@ -31,16 +30,16 @@ quite quickly, so no need to submit them to a partition on DCC--
 just run them in an interactive session on DCC.
 
 python make-chromosome-plasmid-table.py  
-python make-gbk-annotation-table.py ## this runs for ~9 min on DCC.  
+python make-gbk-annotation-table.py ## this runs for ~35 min on DCC.  
 
-## this runs for 5 min on DCC. 
+## this runs for 20 min on DCC. 
 python count-cds.py > ../results/protein_db_CDS_counts.csv
 
-## this runs for ~6h on DCC.
-sbatch --mem=16G -t 8:00:00 --wrap="python tabulate-proteins.py" 
+## this runs for ~36h on DCC.
+sbatch --mem=16G -t 48:00:00 --wrap="python tabulate-proteins.py" 
 
-## this runs for ~6h on DCC.
-sbatch --mem=16G -t 8:00:00 --wrap="python tabulate-proteins.py --ignore-singletons"
+## this runs for ~36h on DCC.
+sbatch --mem=16G -t 48:00:00 --wrap="python tabulate-proteins.py --ignore-singletons"
 
 Then, copy the following files from the results/
 directory onto my local machine (same directory name and file structure).

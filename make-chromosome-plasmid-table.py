@@ -3,7 +3,7 @@
 '''
 make-chromosome-plasmid-table.py by Rohan Maddamsetti.
 
-This script reads in ../results/prokaryotes-with-plasmids.txt.
+This script reads in ../results/prokaryotes-with-complete-genomes.txt.
 '''
 import os
 
@@ -11,7 +11,7 @@ with open("../results/chromosome-plasmid-table.csv",'w') as out_fh:
     header = "Organism,Strain,NCBI_Nucleotide_Accession,SequenceType,Annotation_Accession\n"
     out_fh.write(header)
     ## open the genome report file, and parse line by line.
-    with open("../results/prokaryotes-with-plasmids.txt", "r") as genome_report_fh:
+    with open("../results/prokaryotes-with-complete-genomes.txt", "r") as genome_report_fh:
         for i, line in enumerate(genome_report_fh):
             line = line.strip()
             if i == 0: ## get the names of the columns from the header.
