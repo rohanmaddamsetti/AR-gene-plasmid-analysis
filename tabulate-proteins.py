@@ -53,6 +53,10 @@ with open(outf, 'w') as outfh:
     for gbk_gz in tqdm(os.listdir("../results/gbk-annotation")):
         if not gbk_gz.endswith(".gbff.gz"): continue
         annotation_accession = gbk_gz.split("_genomic.gbff.gz")[0]
+        ## IMPORTANT TODO: make sure chromosome-plasmid-table.csv
+        ## and the data in ../results/gbk-annotation are consistent.
+        ## The next line is a temporary consistency check.
+        if annotation_accession not in replicon_type_lookup_table: continue
         infile = "../results/gbk-annotation/" + gbk_gz
         with gzip.open(infile, "rt") as genome_fh:
             protein_dict = {}
