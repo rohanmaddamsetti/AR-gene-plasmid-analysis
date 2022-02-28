@@ -48,7 +48,7 @@ unknown.protein.keywords <- "unknown|Unknown|hypothetical|Hypothetical|Uncharact
 ## Set up the key data structures for the analysis:
 ## gbk.annotation, in particular.
 
-## import the 17GB file containing all proteins, including singletons.
+## import the 26.5GB file containing all proteins, including singletons.
 ## I can save a ton of memory if I don't import the sequence column,
 ## and by using the data.table package for import.
 all.proteins <- data.table::fread("../results/all-proteins.csv",

@@ -62,7 +62,7 @@ prokaryotes-with-plasmids.txt
 Then, run the follow scripts to annotate the genomes, and to cross-check
 the computational annotation against a subset of annotations that were conducted manually.
 
-python annotate-ecological-category.py > ../results/computationally-annotated-gbk-annotated-table.csv  
+python annotate-ecological-category.py > ../results/computationally-annotated-gbk-annotation-table.csv  
 
 python check-ecological-annotation.py  
 
