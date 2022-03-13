@@ -6,27 +6,47 @@ annotate-ecological-category.py by Vincent Huang and Rohan Maddamsetti.
 This script annotates the ecology for each analyzed genome, based on the metadata in the
 'host' and 'isolation_source' tags in its genome file from Genbank.
 
-Some definitions for annotation: soil is everything from dirt, whether an agricultural field or not.
+Some definitions: soil is everything from dirt, whether an agricultural field or not.
 agriculture, on the other hand, refers strictly to crop plants-- soil is not included.
 
 In addition, "rhizosphere" always maps to the Soil annotation.
 
-"Animal" also includes fungi and protists-- basically all non-plant eukaryotes.
+The "Animal" category also includes fungi and protists-- basically all non-plant eukaryotes.
 
 Usage: python annotate-ecological-category.py > ../results/computationally-annotated-gbk-annotation-table.csv
 '''
 
-########################################################################################################################
+#################################################################################################
 ## Keywords for Annotating Ecological Categories.
-########################################################################################################################
+#################################################################################################
 
 animal_hosts = [
-    "paulinella",
+    "lophura swinhoei",
+    "finch", "anopheles sinensis", "cicindelidae", "hirondellea gigas",
+    "heteropsylla cubana", "syrphidae", "salvelinus namaycush (lean lake trout)",
+    "heteropsylla texana", "snail", "wild rodents", "sponge", "hymeniacidon perleve",
+    "dirofilaria (dirofilaria) immitis", "graphocephala atropunctata",
+    "mogannia minuta", "microtus fortis", "chauliognathus", "rhynchophorus ferrugineus",
+    "macrobrachium rosenbergii", "holotrichia parallela", "steno bredanensis",
+    "bemisia tabaci", "camel", "tabanus", "finespotted flounder", "ochotona curzoniae (pika)",
+    "cunner fish", "aspidiotus nerii bouche", "crocodylus niloticus", "seal", "cantharis",
+    "bluespotted ribbontail ray (taeniura lymma)", "hemlock woolly adelgid", "psyllid",
+    "bathymodiolus thermophilus", "macrosteles quadrilineatus", "vulpes vulpes",
+    "macrosteles quadripunctulatus", "ursus americanus", "tibetan wild ass", "peacock",
+    "diuraphis noxia", "koala", "black soldier fly", "gyna capucina", "guinea fowl",
+    "oreochromis niloticus (tilapia)", "hyalessa maculaticollis", "kosemia yezoensis",
+    "netuma thalassina", "yezoterpnosia vacua", "mirounga angustirostris (northern elephant seal)",
+    "eriocheir sinensis", "calyptogena fausta", "sea squirt", "paratemnopteryx sp.",
+    "passer hispaniolensis", "caenorhabditis elegans my316", "pika", "cinereous vulture",
+    "pantholops hodgsonii (tibetan antelope)", "euphyllodromia sp.", "hilsa fish",
+    "bemisia tabaci (biotype b)", "liposcelis bostrychophila", "microtus arvalis",
+    "paulinella", "ranissus scytha", "cicadellidae", "tetraponera penzigi",
+    "tettigades undata", "ctenarytaina spatulata", "tettigades limbata", "sogatella furcifera",
     "gut of protaetia brevitarsis seulensis (larva)", "entylia carinata", "ectobius sp.",
-    "oncorhynchus mykiss (Rainbow trout)", "drosophila mauritania", "meriones meridianus",
+    "oncorhynchus mykiss (rainbow trout)", "drosophila mauritiana", "meriones meridianus",
     "ctenopharyngodon idella (grass carp)", "siniperca chuatsi", "oncorhynchus tshawytscha",
     "tabanus nigrovittatus (horsefly)", "reticulitermes speratus", "curculio caryae",
-    "rabbit tick", "rhopalodia gibberula", "ornithodoros parkeri",
+    "rabbit tick", "rhopalodia gibberula", "ornithodoros parkeri", "zalophus californianus",
     "auritibicen bihamatus", "prairie dog", "protaetia brevitarsis seulensis larva",
     "diestrammena coreana (camel cricket)", "sycon capricorn", "euscepes postfasciatus",
     "mediastinia sp.", "cosmozosteria sp.", "amblyomma americanum", "platyzosteria sp.",
@@ -116,7 +136,7 @@ animal_hosts = [
     "pteropus livingstonii", "pteropus poliocephalus", "bat", "skate", "red kangaroo",
     "moschus berezovskii", "macaca silenus", "panulirus ornatus","pavona duerdeni",
     "odontobutis platycephala", "lutjanus guttatus (rose snapper)", "kentomonas sorsogonicus",
-    "ostrea edulis (flat oyster)", "beluga whale", "shinkaia crosnieri",
+    "ostrea edulis (flat oyster)", "beluga whale", "shinkaia crosnieri", "haematopota pluvialis",
     "pelteobagrus fulvidraco", "aquila chrysaetos", "graptopsaltria bimaculata",
     "vultur gryphus","penaeus monodon","tanakia koreensis", "dicentrarchus labrax",
     "zophobas atratus", "pigeon", "turtle", "penaeus (litopenaeus) vannamei (whiteleg shrimp)",
@@ -125,7 +145,7 @@ animal_hosts = [
     "macaca mulatta", "thelaxes californica","bactrocera dorsalis","apostichopus japonicus",
     "ovis aries", "leptinotarsa decemlineata", "phyllophaga sp.","bombyx mori",
     "pthirus pubis","manis javanica (pangolin)", "sipalinus gigas", "geodia barretti",
-    "macrosiphoniella sanborni", "muscaphis stroyani","aphis urticata",
+    "macrosiphoniella sanborni", "muscaphis stroyani","aphis urticata", "cotinis nitida",
     "crassostrea gigas (pacific oyster)", "crassostrea virginica", "ellychnia corrusca",
     "glossina brevipalpis","marine sponge lissodendoryx isodictyalis in the bahamas",
     "catfish", "morone chrysops x morone saxatilis", "pediculus humanus", "rattus norvegicus",
@@ -149,19 +169,28 @@ animal_hosts = [
     "plateumaris pusilla","gilthead seabream", "ixodes pacificus (western blackleg tick)",
     "coregonus clupeaformis (lake whitefish)", "wax moth", "galleria mellonella",
     "cyclopterus lumpus","cockatiel", "melanocetus johnsonii", "acheta domesticus",
-    "blatta orientalis", "seriola dumerili", "white stork", "canis latrans",
+    "blatta orientalis", "seriola dumerili", "white stork", "canis latrans", "scallop",
     "drosophila neotestacea","shrimps", "bird of prey", "ardea cinerea", "korean rockfish",
     "c57bl/6ntac mice", "phascolarctos cinereus", "neopsylla setosa", "haliclona simulans",
     "rhopalosiphum padi", "silurus asotus", "uroleucon ambrosiae","mustela putorius furo",
     "meimuna kuroiwae", "tettigades ulnaria", "cystophora cristata", "porites pukoensis",
-    "ringed seal", "holothuroidea", "tilapia", "macropus giganteus",
-    "exterior surface of the shell of an abalone sold in a fish market in tokyo; japan",
+    "ringed seal", "holothuroidea", "tilapia", "macropus giganteus", "haliotis gigantea",
     "ailuropoda melanoleuca","spermophilus sp.", "squirrel", "dendrolimus sibiricus", "cormorant",
-    "melanozosteria sp.", "protagonista lugubris", "therea regularis"]
+    "melanozosteria sp.", "protagonista lugubris", "therea regularis", "owl",
+    "hymenochaete rubiginosa", "himantormia", "veronaeopsis simplex y34",
+    "fusarium oxysporum f. sp. cucumerinum", "flammulina filiformis", "rhizoctonia solani",
+    "white-rot fungus phanerochaete chrysosporium", "mushroom", "flammulina velutipes"]
+
 
 animal_isolation_sources = [
-    "isolated from haemaphysalis hystricis",
-    "feces of an oriental stork (ciconia boyciana)", "reptile",
+    "coelomic fluid of a sand dollar", "animal - avian",
+    "drosophila melanogaster", "isolated from larva of dermacentor taiwanensis",
+    "rodent", "oyster", "moribund muskrat (ondatra zibethica)", "muskrat spleen",
+    "exterior surface of the shell of an abalone sold in a fish market in tokyo; japan",
+    "isolated from nymph of haemaphysalis hystricis", "tunicate", "termite gut",
+    "murine model", "mus musculus", "liposcelis bostrychophila", "hilsa fish",
+    "isolated from haemaphysalis hystricis", "squid", "abalone haliotis discus hannai",
+    "feces of an oriental stork (ciconia boyciana)", "reptile", "tortoise tubercle",
     "crayfish", "iguana iguana", "crustacean shell", "malayan pangolin",
     "animal", "wild rat", "coho salmon", "fruit fly","diaphorina citri", "south china tiger",
     "iguana", "bat", "wild yak feces", "white-crowned sparrow", "african elephants",
@@ -182,7 +211,7 @@ animal_isolation_sources = [
     "shrimp", "black-headed gull", "psittacus erithacus feces", "salmon", "silkworm excrement",
     "separated from the corpses of silkworms that had died due to bb natural infection in daiyue district; taian city; shandong province; china.", "rabbit feces", "jellyfish",
     "rabbit", "animal hide","tuna scrape; yellowfin", "myocastor coypus",
-    "cybister lewisianus", "intestinal contents of plateau pika", "vole",
+    "cybister lewisianus", "cybister brevis", "intestinal contents of plateau pika", "vole",
     "tuna scrape; frozen yellowfin nakaoachi", "brook charr", "penaeus japonicus",
     "aphis craccivora (cowpea aphid) on robinia pseudoacacia (locust)", "insects",
     "swiss alpine ibex feces", "psittacus erithacus", "penaeus vannamei (whiteleg shrimp)",
@@ -190,9 +219,15 @@ animal_isolation_sources = [
     "neophocaena phocaenoides", "loach","unidentified actinians", "fish",
     "waxworms gut", "flea", "intestinal contents of termite nasutitermes nigriceps",
     "muskrat during outbreak", "invertebrate gut", "cockless", "herring gull; cloacal swab",
-    "gromphadorhina portentosa cockroaches"]
+    "gromphadorhina portentosa cockroaches", "mushroom substrate", "brewery yeast",
+    "white-rot fungus phanerochaete", "hyphae","white-rot fungus phanerochaete chrysosporium"]
+
 
 plant_hosts = [
+    "cenchrus macrourus",
+    "ulva fenestrata (green alga)", "calystegia hederacea", "dioscorea sansibarensis",
+    "quercus sp.", "euonymus japonicus", "quercus", "crassulaceae", "tectona grandis",
+    "tripsacum laxum", "paullinia cupana", "phyllanthus urinaria l", "fetuca",
     "suaeda salsa","cladonia borealis","medicago truncatula", "ulva pertusa (algae)",
     "allamanda cathartica","astragalus pelecinus","lebeckia ambigua","lotus corniculatus",
     "trifolium repens", "curcuma aromatica", "curcuma wenyujin y.h. chen et c. ling",
@@ -219,7 +254,7 @@ plant_hosts = [
     "zantedeschia aethiopica","rosa", "prunus cerasifera", "medicago",
     "leontopodium nivale","nusuttodinium aeruginosum","prosopis cineraria",
     "oryza glumipatula","acacia farnesiana", "catalpa", "populus", "jatropha curcas",
-    "populus alba x (p. davidiana + p. simonii) x p. tomentosa",
+    "populus alba x (p. davidiana + p. simonii) x p. tomentosa", "antarctic ice algae",
     "salvia splendens","panax ginseng", "vicia alpestris","phaeoceros",
     "commiphora wightii", "alhagi sparsifolia shap.", "acacia farnesiana",
     "lobaria pulmonaria thallus", "lotus", "erigeron annuus l. pers",
@@ -230,35 +265,42 @@ plant_hosts = [
     "catharanthus roseus","dracaena sanderiana","parthenium argentatum gray (guayule shrubs)",
     "medicago arborea", "medicago lupulina l.", "dongxiang wild rice",
     "euonymus sp.","eucalyptus grandis","broussonetia papyrifera","lichen stereocaulon sp.",
-    "lotus sp.","weed", "thlaspi arvense", "grass",
-    "blasia pusilla","calliandra grandiflora","brittle root","digitaria eriantha","vavilovia formosa",
+    "lotus sp.","weed", "thlaspi arvense", "grass", "tichocarpus crinitus (red alga)",
+    "blasia pusilla","calliandra grandiflora","brittle root","digitaria eriantha",
+    "vavilovia formosa", "bossiaea ensata", "liriodendron tulipifera", 
     "plant", "sesame", "salix sp.", "hibiscus", "hibiscus rosa-sinensis"]
 
 plant_isolation_sources = [
+    "arabidopsis thaliana seedling from surface sterilized seed", "plant matter",
     "flower of forsythia koreana", "algal phycosphere", "lotus corniculatus nodule",
     "malus sylvestris", "morning glory", "dongxiang wild rice", "pistachios",
     "flower of rhododendron schlippenbachii", "root of codonopsis pilosula", "root nodules",
     "chrysochromulina tobin phycosphere", "algae","artificially infected catharanthus",
-    "leaf spots", "poplar tree gall", "gardenia fruit", "plant root",
+    "leaf spots", "poplar tree gall", "gardenia fruit", "plant root", "bark of cypress",
     "peltigera membranacea thallus","angelica gigas nakai root surface",
-    "galega orientalis root nodule", "seaweed", "xylem", "red seaweed",
-    "plant","broussonetia papyrifera","lichen", "lowbush blueberries",
+    "galega orientalis root nodule", "seaweed", "xylem", "red seaweed", "macrocystis pyrifera",
+    "plant","broussonetia papyrifera","lichen", "lowbush blueberries", "root",
     "seaweed; enteromorpha linza (coastal marine sediments); aburatsubo inlet; australia",
     "flower","leaf of fig tree", "grass from the park in a vetenary clinic",
     "plant roots","galega officinalis root nodule","lichen thallus","ginseng","gladiolus",
     "sesbania spp. root nodule","plant leaf","origanum marjorana","malus sp.","algae",
-    "flower of shittah tree", "himalayan blackberry",
+    "flower of shittah tree", "himalayan blackberry", "endosphere environment",
     "inner tissues of halophyte limonium sinense (girard) kuntze","leaf",
-    "root nodule of sesbania cannabina", "wood",
-    "fallen leaves of virgin forest", "flower of chiness redbud",
+    "root nodule of sesbania cannabina", "wood", "necrotic oak lesion",
+    "fallen leaves of virgin forest", "flower of chiness redbud", "calliandra haematocephalus",
     "flower of rhododendron sclippenbachii", "plant xylem"]
 
 terrestrial_isolation_sources = [
-    "solfataric thermal field close to moutnovsky volcano",
+    "salt crystallizer of the great rann of kutch",
+    "isolated from slime streamers and attached to pyrite surfaces at a sulfide ore body",
+    "2.8-km deep subsurface aquifer", "subsurface mine microbial mat",
+    "64.1 degree centigrade; ph 3.72 in naghaso; the philippines",
+    "64.1 degree centigrade; ph 3.72", "rock from karst cave", "dead sea",
+    "solfataric thermal field close to moutnovsky volcano", "halite rock",
     "iron hydroxide deposits", "solar salt", "air", "elton hypersaline lake",
     "brazilian saline-alkaline lake", "desert", "saltpan", "hyperthermophilic compost",
     "coal bed","moderate hot spring","salt marsh","alkaline pool submerged anode electrode",
-    "kulunda steppe hypersaline lake", "hypersaline environment",
+    "kulunda steppe hypersaline lake", "hypersaline environment", "saline lake",
     "chronically low temperature and dry polar region", "thermophilic environment",
     "solar saltern", "dust", "beach sand", "salar de atacama; atacama desert",
     "weathered rock sample", "antimony mine", "sand", "weathered tuff",
@@ -271,29 +313,32 @@ terrestrial_isolation_sources = [
     "lava", "brine", "saltern", "baengnokdam summit crater area; mt. halla",
     "taibei marine solar saltern near lianyungang city","orthoquartzite cave surface","cave",
     "the bange salt-alkaline lake in tibet", "the surfaces of weathered potassic trachyte",
-    "deep subseafloor coal bed", "deep subsurface anoxic brine",
+    "deep subseafloor coal bed", "deep subsurface anoxic brine", "chaqia salt lake",
     "phototrophic microbial mat in hot lake; a shallow mgso4 dominated salt lake",
-    "geothermal isolate", "salt crust", "coal spoil heap",
+    "geothermal isolate", "salt crust", "coal spoil heap", "salt lake", "acidic salty water",
     "flat; laminated microbial mat in a salt marsh", "solar saltern of 19% salinity",
     "rock (envo:00001995)", "saline saltern", "hypersaline lake", "yates shaft; surf",
     "thiodendron' bacterial sulfur mat from mineral sulfide spring"]
 
+soil_hosts = ["decaying wood"]
+
 soil_isolation_sources = [
     "agricultural field", "tundra wetland", "permafrost", "compost", "mixed sand sample",
-    "sphagnum peat from the bog obukhovskoe (acidic wetland)",
-    "paddy field; sungai manik; malaysia", "dune grassland",
+    "sphagnum peat from the bog obukhovskoe (acidic wetland)", "norway spruce forest humus",
+    "paddy field; sungai manik; malaysia", "dune grassland", "decaying wood",
     "rice fields", "sphagnum peat", "soil around hot spring", "dirt",
     "sphagnum bog", "fertilizer", "ancient permafrost from mammoth","montane grasslands",
     "solar salt farm", "enriched culture of compost", "farmland", "permafrost; kolyma lowland",
     "siberian permafrost","particulate matter", "pine forest", "mushroom compost",
     "manure compost", "angelo meadow plot 1; 20cm depth; 2 days after second rain event (91mm)",
-    "composted cattle manure", "agricultural waste material",
-    "long-term organic manure fertilized",
+    "composted cattle manure", "agricultural waste material", "wood decay material",
+    "long-term organic manure fertilized", "compost sample from farm",
     "Microscale soil grain", "ermafrost region of qilian mountains"]
 
 agri_hosts = [
+    "cabbage", "phaseolus lunatus", "tapioca",
     "coffea", "grape", "citrus spp.", "prunus avium", "capsicum sp.","phaseolus vulgaris",
-    "sugarcane", "lolium perenne", "zingiber officinale", "raspberry",
+    "sugarcane", "lolium perenne", "zingiber officinale", "raspberry", 
     "phaseolus", "punica granatum", "pyrus pyrifolia var. culta","alfalfa","cucumis sativus",
     "cucurbita maxima", "lentil", "lathyrus sativus", "coffea arabica",
     "solanum melongena", "vitis vinifera","vitis vinifera l. cv. seto giants", "grapevine",
@@ -309,7 +354,7 @@ agri_hosts = [
     "saccharum officinarum", "cotton", "soybean","mandarin orange", "fava bean",
     "vitis vinifera l. cv. aurora black","ziziphus mauritiana lam", "pyrus pyrifolia",
     "sesame seedling", "tobacco","peanut", "carrot", "apple tree", "banana",
-    "soybean (glycine max (l.) merrill)", "ipomoea aquatica",
+    "soybean (glycine max (l.) merrill)", "ipomoea aquatica", "elaeis guineensis",
     "panicum miliaceum", "solanum lycopersicum", "plantain", "pear", "winter wheat",
     "pyrus communis 'williams'", "fragariae ananassa", "hordeum vulgare",
     "actinidia", "zea mays", "turfgrass", "prunus dulcis","glycine soja", "potato",
@@ -323,12 +368,15 @@ agri_hosts = [
     "gossypium hirsutum","solanum lycopersicoides", "vicia faba", "eggplant", "pear tree",
     "glycine max cv. jinju1", "lycopersicon esculentum", "camellia oleifera",
     "allium cepa (onion)", "brassica rapa ssp. pekinensis (chinese cabbage)",
-    "musa sp.", "apium graveolens",
+    "musa sp.", "apium graveolens", "cucumber",
     "triticum aestivum l.", "coffee plant", "pineapple", "citrus sinensis", "gossypium sp.",
     "musa spp."]
 
 agri_isolation_sources = [
-    "styrian pumpkin anthrosphere", "citrus paradisi",
+    "vegetable(malt)", "plant (maize/sorghum/rice)", "walnut", "hay",
+    "the tomato root in nanchang", "inner tissues of cotton plant (gossypium sp.)",
+    "leaves of field beans", "grape plant", "ginger", "baby spinach", "grape", "rotten onion",
+    "styrian pumpkin anthrosphere", "citrus paradisi", "soy bean root", "cotton root",
     "greenhouse grown plants with black leg infection", "marjoram", "affected cabbage tissue",
     "ucb-1 pistachio rootstock", "pineapple", "plants with moko disease","mangoes", "chives",
     "raw almonds", "chilli", "eggplant", "cucumber", "rice leaves", "campbell early grape",
@@ -351,15 +399,24 @@ agri_isolation_sources = [
     "naturally-infected soybean leaf tissue", "apple tree", "banana", "cabbage seeds",
     "white nectarines fire pearl variety", "soybean nodules", "pistachio", "field isolate"]
 
-marine_hosts = ["argopecten purpuratus", "seawater", "pyropia tenera",
+marine_hosts = ["argopecten purpuratus", "seawater", "pyropia tenera", "red alga",
                 "trichodesmium erythraeum ims101", "asterionellopsis glacialis strain a3",
                 "rhodosorus marinus", "red alga", "pyropia", "galaxea fascicularis",
-                "heterostera chilensis", "grateloupia sp.", "brown algae"]
+                "gracilariopsis lemaneiformis", "rotten red algae",
+                "heterostera chilensis", "grateloupia sp.", "brown algae", "comscasia"]
 
 marine_isolation_sources = [
+    "leaf surface of zostera marina",
+    "3 m depth in a coral reef", "coastal lagoon", "japan trench; off sanriku",
+    "sme medium under anaerobic conditions at 100a degrees c from a black smoker chimney fragment",
+    "collected at a depth of 1 meter; isolated by plating on solid media", "red alga",
+    "surface water (5 m depth) of the central baltic sea", "chukchi sea",
+    "2600 m depth", "seaweed/starfish/sea water", "sea water of a tidal flat",
+    "east pacific ocean ridge; black smoker", "chesapeake bay",
+    "flow cytometry enriched sample from station aloha", "open ocean",
     "edge of california current after nitrate enrichment and low light incubation",
     "black smoker wall; 3500 m depth", "surface of plastic from ocean",
-    "salt lake", "hydrothermal vent area derived", "deep sea", "ocean water",
+    "hydrothermal vent area derived", "deep sea", "ocean water",
     "water from the baltic sea", "envo:00000227", "sea", "envo:00002149",
     "sea water", "deep-sea hydrothermal vent", "sea ice", "oceanic water",
     "cold seep", "envo:01000301", "tidal pool", "coral; primnoid",
@@ -367,12 +424,12 @@ marine_isolation_sources = [
     "chrysochromulina tobin phycosphere", "gulf of finland", "cyanobacterial bloom",
     "glass slide place on reef flat in natural environment",
     "surface water of the southern north sea","antarctic iceberg",
-    "hydrothermal vent", "acidic salty water", "marker113 at caldera of axial seamount",
+    "hydrothermal vent", "marker113 at caldera of axial seamount",
     "shallow tropical waters; normally from coral reef substrate","open ocean water",
     "sulfidic waters (60 m) from the peruvian upwelling region","shellfish hatchery",
-    "bay of bengal", "pacific plankton",
+    "bay of bengal", "pacific plankton", "sargasso sea",
     "culture of roseovarius sp. tm1035", "coastal","runway 10 reef (10-12 m)",
-    "german wadden sea", "surface of pikea pinnata",
+    "german wadden sea", "surface of pikea pinnata", "myojin knoll; izu-bonin arc",
     "microbial mat material from brackish estuary", "hydrothermal precipitates",
     "shallow sea; symbiosis with algae", "surface of macroalgae",
     "beach sand","estuarine water [envo:01000301]", "150 km offshore",
@@ -384,7 +441,7 @@ freshwater_hosts = ["water (environment)", "water", "mesostigma viride"]
 freshwater_isolation_sources = [
     "creek","pond","tianshan glacier", "environmental (pond)", "oligrotrophic pond",
     "glomma river","snow","microcystis culture","glacial stream",
-    "envo:00002011", "stream biofilm",
+    "envo:00002011", "stream biofilm", "freshwater",
     "euglena gracilis from city ponds", "glacier from lahual spiti valley","river",
     "pool at botanical garden",
     "ayakekumsalt lake", "envo:00002006"]
@@ -394,6 +451,7 @@ food_hosts = ["kimchi cabbage", "mung bean", "kombucha scoby", "seujeot", "pickl
               "beef", "koumiss", "dairy cattle", "nostoc flagelliforme", "sichuan pickle"]
 
 food_isolation_sources = [
+    "rye sourdough", "sake mash", "traditional greek wheat sourdough", "bulgogi",
     "saeng-gimol meju", "rubing cheese", "instant soup", "soybean paste",
     "futsai", "koumiss", "soybean paste (chonggugjang)", "mashed potatoes", "fermented food",
     "kombucha scoby", "kefir", "cheese product", "instant pork", "pork &cabbage dumplings",
@@ -404,7 +462,7 @@ food_isolation_sources = [
     "isolated from salted brown alga laminaria", "shima dofu (okinawan-style tofu)",
     "salted brown alga laminaria", "stinky xiancaigeng", "sake(hatsuzoe)",
     "blue cheese in wax", "tibicos symbiotic community", "pickled cabbage",
-    "ready to eat mixed salad leaves (obtained from discount store)",
+    "ready to eat mixed salad leaves (obtained from discount store)", 
     "degraded sugar thick juice","fresh alfalfa sprouts", "scallop", "chinese sausages",
     "ground turkey", "gimbap", "product-eggs-raw-whites", "traditional dairy product",
     "frozen peas", "palm wine", "natural whey culture from gruyere cheese",
@@ -444,14 +502,14 @@ food_isolation_sources = [
     "doenjang", "flour", "unsweetened puffed rice cereal", "pinot noir wine",
     "alfalfa sprouts", "ground turkey sausage", "turkey; ground", "sponge cake"
     "jogaejeotgal; a traditional korean", "korean soybean paste",
-    "retail chichen", "ground red chili pepper", "makgeollli",
+    "retail chichen", "ground red chili pepper", "makgeollli", "cucumbers",
     "raw milk cheese", "maotai daqu", "jeotgal", "zha-chili", "heat treated raw milk",
     "dairy product", "isolate obtained from campbell's soup", "retail pork",
     "traditional homemade dairy product", "gochujang(korean red pepper paste)",
     "tuna steaks; frozen yellowfin", "retail chicken", "retail chichen",
     "chicken carcass", "malted barley", "bee honey", "anaheim pepper",
     "chicken product", "pork steak", "algal food product", "ganjang(korean soy sauce)",
-    "bakery environment - concentrated whipped topping",
+    "bakery environment - concentrated whipped topping", "congee",
     "fish part (head) sold as asian bighead carp; muscle",
     "plant derived food stuff; onion; allium cepa", "the brine of stinky tofu",
     "cold-stored modified atmosphere packaged broiler filet strips with the first signs of spoilage"]
@@ -466,15 +524,17 @@ livestock_hosts = [
     "mare", "calf", "gallus", "canicola", "hen", "meat duck", "diseased pig",
     "equus caballus ferus", "pork", "sus", "bubalus bubalis", "water buffalo",
     "goat", "sheep", "equus ferus caballus", "bos bovis","turkey", "rabbit",
-    "bos primigenius taurus", "canine", "laoshan milk goat",
+    "bos primigenius taurus", "canine", "laoshan milk goat", "black pig",
     "canis lupus familiaris","bos taurus coreanae", "yak", "dog", "equine", "ovis aries",
-    "young chicken", "gallus gallus domesticus isa15",
+    "young chicken", "gallus gallus domesticus isa15", "beef cattle",
     "dairy cow", "poultry", "piglets", "lama glama", "ovis aries (domestic sheep)",
     "duck with tremor",
     "sus domesticus"]
 
 
 livestock_isolation_sources = [
+    "pig; intestine", "duckling with tremor", "manure", "horse manure",
+    "choanal cleft of a commercial layer hen with respiratory disease",
     "cattle", "chicken", "farm", "turkey feces", "wastewater from pig manure",
     "chicken feces", "nasal cavities of a calf", "bos taurus", "nasal cavities of a pig",
     "pig", "swine nasal swab", "the intestine membrane of a diarrheic piglet",
@@ -496,7 +556,7 @@ livestock_isolation_sources = [
     "pig feed from feed plant", "fjerkrae", "liver of poult", "horse feces",
     "tissue and/or biological fluid (swine)", "swine cecum", "raw cow milk",
     "heifer vaginal mucus", "cloaca", "buffalo calf", "aborted piglet fetus",
-    "calf", "animal feed", "rectal swab of cattle in slaughterhouse",
+    "calf", "animal feed", "rectal swab of cattle in slaughterhouse", "horse faces",
     "retail chicken","canine oral plaque","bovine pre-evisceration carcass at",
     "novine (bobby calf; fecal)", "a feces sample of chicken origin",
     "lung of aborted horse fetus", "beef liver", "swine", "chicken intestine",
@@ -509,6 +569,7 @@ livestock_isolation_sources = [
     "pooled sheep faecal samples collected from floor of farm", "poultry litter",
     "pooled pig faecal samples collected from floor of farm", "bull calf intestinal microflora",
     "pooled cattle faecal samples collected from floor of farm",
+    "abomasum content of an aborted sheep's fetus",
     "rectal fecal grab samples from a commercial feedlot", "chicken tissues"]
 
 
@@ -516,12 +577,17 @@ anthropogenic_hosts = ["sewage", "soil (polluted)", "dsmz strain"]
 
 
 anthropogenic_isolation_sources = [
+    "gold-copper mining",
+    "petroleum polluted river", "corrosion products from a corroded pipe in an fpso",
+    "vinegar factory", "freshwater ras system; circulating water",
+    "chemical and physical mutagen treatment of atcc 25486", "lactic starter",
+    "snottite biofilm from former pyrite mine", "dairy fan", "dsmz",
     "cleaning system aquaculture", "clam larvae aquaculture", "mineral salt medium",
     "combined sewer", "oil", "roundup", "culture mutant", "turbot fish farm",
-    "commercial lactic starter", "beet pulp; sugar refinery",
+    "commercial lactic starter", "beet pulp; sugar refinery", "mural paintings",
     "high concentration of fluoride", "fish larvae aquaculture", "sewage water",
     "combined sewer effluent", "feed additive imported from china", "wolfram mine tailing",
-    "swab from a follow-up assessment of the tap handles and sink edges after a first disinfection attempt",
+    "swab from a follow-up assessment of the tap handles and sink edges after a first disinfection attempt", "compost windrow",
     "storage tank", "zc4 compost from a compost operation of sao paulo zoo",
     "swab from a hand-washing sink as part of the hospital routine surveillance program",
     "potash salt dump","bakery environment - hallway", "r2a medium", "polystyrene",
@@ -530,7 +596,7 @@ anthropogenic_isolation_sources = [
     "the sample was isolated from cell culture after 9 month of microevolution experiment",
     "salt mine","bioreactor", "sewage & soil", "tung meal", "cooling tower",
     "surface of a polyethylene microplastic particle present in tank 6 of a marine aquarium containing stony-coral fragments and water maintained at 26 degree c",
-    "aquarium water", "biofilm sample", "medium", "dairy slurry uk",
+    "aquarium water", "biofilm sample", "medium", "dairy slurry uk", "landfill",
     "detritus agregates formed in tank 6 of a marine aquarium containing stony-coral fragments and water maintained at 26 degree c", "duedonoscope instrument", "air in a school dining room",
     "non-filtered water from the water column of tank 6 of a marine aquarium containing stony-coral fragments. water maintained at 26 degree c", "cheddar cheese factory", "mine",
     "anabaena culture", "dairy environment", "genome shuffling", "jugular catheter",
@@ -593,20 +659,15 @@ anthropogenic_isolation_sources = [
 sediment_isolation_sources = [
     "mud","black mud", "hydrothermal vent area derived sediment", "envo:01001050",
     "marine mud", "muddy water", "pit mud", "tidal marsh", "freshwater mud",
-    "mangrove swamp", "sea mud","mud flat", "the pit mud of a chinese liquor", "tidal flat sample",
-    "muddy water", "organically rich wetland",
+    "mangrove swamp", "sea mud","mud flat", "the pit mud of a chinese liquor",
+    "tidal flat sample", "pink berry consortia", "submerged sand bank",
+    "muddy water", "organically rich wetland", "bog",
     "mangrove wetland ecosystem", "subseafloor basaltic crust","lake mainaki salt",
     "mud from a salt lagoon"]
 
-fungal_hosts = ["hymenochaete rubiginosa", "himantormia", "veronaeopsis simplex y34",
-                "fusarium oxysporum f. sp. cucumerinum", "flammulina filiformis",
-                "white-rot fungus phanerochaete chrysosporium", "mushroom"]
-
-fungal_isolation_sources = ["mushroom substrate", "brewery yeast",
-                            "white-rot fungus phanerochaete",
-                            "hyphae","white-rot fungus phanerochaete chrysosporium"]
-
 human_isolation_sources = [
+    "bronchoalveolar lavage",
+    "baby feces", "high vaginal swab", "vagina of healthy woman", "thumb", "abscess",
     "from patient with pneumonia", "blood", "stool","saliva","skin swab", "homo sapiens",
     "wound", "dental abscess", "compound fracture", "dog bite", "oral mucosa",
     "rectal swab", "skin", "fecal", "oral", "nosocomial environment",
@@ -623,11 +684,11 @@ human_isolation_sources = [
     "human feces (woman; 24 years old)","human stool","urine","faeces","inflamed gingiva",
     "skin abscess", "hepatic abscess", "burn wound", "medical specimen",
     "tibia/osteomyelitis", "patient", "lung sample", "infant faecal",
-    "isolated from blood of a patient with","16-year-old boy with bubonic plague",
+    "isolated from blood of a patient with", "16-year-old boy with bubonic plague",
     "fecal sample","tissue", "ascites", "vaginal secretions", "diarrhea", "genital tract",
     "kidney", "liver", "nose swab", "throat swab", "mouth", "dental plaque", 
     "blood of a hospitalized patient","brain","human feces (woman; 60 years old)",
-    "foodborne disease surveillance", "supragingival dental plaque",
+    "foodborne disease surveillance", "supragingival dental plaque", "gingival sulcus",
     "korean infant feces", "healthy adult male gut","oropharynx","human foot","vein blood",
     "perirectal swab", "rectal", "anal swab", "human skin tissue", "a diarrheal child",
     "blood specimen","rectal fecal grab samples from a","throat", "cystic fibrosis patient",
@@ -719,6 +780,8 @@ with open("../results/gbk-annotation-table.csv", "r") as annotation_fh:
             annotation = "Soil"
         elif "rhizosphere" in isolation_source or "rhizosphere" in host:
             annotation = "Soil"
+        elif host in soil_hosts:
+            annotation = "Soil"
 
         ## Agriculture
         elif host in agri_hosts and host not in plant_hosts and isolation_source not in food_isolation_sources:
@@ -739,8 +802,9 @@ with open("../results/gbk-annotation-table.csv", "r") as annotation_fh:
             annotation = "Plant-host"
         elif isolation_source in plant_isolation_sources:
             annotation = "Plant-host"
+
             
-        # Marine
+        ## Marine
         elif host in marine_hosts:
             annotation = "Marine"
         elif isolation_source in marine_isolation_sources:
@@ -756,6 +820,7 @@ with open("../results/gbk-annotation-table.csv", "r") as annotation_fh:
               and "sponge" not in isolation_source and "aquarium" not in isolation_source):
             annotation = "Marine"
 
+            
         ## Freshwater
         elif host in freshwater_hosts:
             annotation = "Freshwater"
@@ -775,7 +840,8 @@ with open("../results/gbk-annotation-table.csv", "r") as annotation_fh:
         elif isolation_source in freshwater_isolation_sources:
             annotation = "Freshwater"
 
-        # Food
+            
+        ## Food
         elif host in food_hosts:
             annotation = "Food"
         elif "pickle" in host:
@@ -804,6 +870,7 @@ with open("../results/gbk-annotation-table.csv", "r") as annotation_fh:
         elif host == "na" and "yogurt" in isolation_source:
             annotation = "Food"
 
+            
         ## Livestock
         elif host in livestock_hosts and isolation_source not in food_isolation_sources:
             annotation = "Livestock"
@@ -818,16 +885,22 @@ with open("../results/gbk-annotation-table.csv", "r") as annotation_fh:
         elif isolation_source == "turkey" and host == "na":
             annotation = "Livestock"
 
+            
         ## Animal-host
         elif host in animal_hosts:
             annotation = "Animal-host"
         elif isolation_source in animal_isolation_sources:
             annotation = "Animal-host"
 
+
         ## Anthropogenic-environment
         elif host in anthropogenic_hosts:
-            annotation = "Anthropogenic-environment"
+            annotation = "Anthropogenic-environment" 
         elif host == "na" and isolation_source in anthropogenic_isolation_sources:
+            annotation = "Anthropogenic-environment"
+        elif host == "environmental" and isolation_source in anthropogenic_isolation_sources:
+            annotation = "Anthropogenic-environment"
+        elif host == "sediment" and isolation_source in anthropogenic_isolation_sources:
             annotation = "Anthropogenic-environment"
         elif host == "na" and "aquaculture" in isolation_source:
             annotation = "Anthropogenic-environment"
@@ -867,6 +940,7 @@ with open("../results/gbk-annotation-table.csv", "r") as annotation_fh:
             annotation = "Anthropogenic-environment"
         elif host ==  "sofa":
             annotation = "Anthropogenic-environment"
+
             
         ## Sediment
         elif "sediment" in isolation_source and "contamina" not in isolation_source and "pollute" not in isolation_source:
@@ -884,9 +958,6 @@ with open("../results/gbk-annotation-table.csv", "r") as annotation_fh:
         elif "estuary" in isolation_source:
             annotation = "Sediment"
             
-        ## Fungal-host
-        elif host in fungal_hosts or isolation_source in fungal_isolation_sources:
-            annotation = "Fungal-host"
 
         ## Human-host
         elif host != "na" and host not in livestock_hosts and host not in animal_hosts and "homo" in host:
