@@ -3,7 +3,7 @@
 '''
 fetch-gbk-annotation.py by Rohan Maddamsetti.
 
-This script reads in ../results/AR-gene-duplication/best-prokaryotes.txt.
+This script reads in ../results/best-prokaryotes.txt.
 
 NOTE: for path names to be processed properly, this script must be run
 from the src/ directory as python fetch-gbk-annotation.py.
