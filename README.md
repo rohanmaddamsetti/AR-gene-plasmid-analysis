@@ -9,19 +9,14 @@ First, download plasmids.txt and prokaryotes.txt into
 wget https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/plasmids.txt
 wget https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/prokaryotes.txt
 
-Then, filter the prokaryotes genome data for those that have both
+Then, filter the prokaryotes genome data for those that have either complete genomes or both
 plasmids and chromosomes:
 
-python filter-genome-reports-for-plasmids.py > ../results/prokaryotes-with-plasmids.txt
+python filter-genome-reports.py > ../results/best-prokaryotes.txt
 
-And, filter the prokaryotes genome data for those that have complete genomes,
-even those without plasmids:
-
-python filter-genome-reports-for-complete-genomes.py > ../results/prokaryotes-with-complete-genomes.txt
-
-Then, fetch genome annotation for each row in prokaryotes-with-complete-genomes.txt,
+Then, fetch genome annotation for each row in best-prokaryotes.txt,
 and fetch the protein-coding genes for all chromosomes and plasmids for
-each row in prokaryotes-with-plasmids.txt.
+each row in best-prokaryotes.txt.
 
 Both steps can be done at the same time on the Duke Compute Cluster (DCC).
 And make sure these scripts are called from the src directory.
@@ -29,8 +24,6 @@ fetch-gbk-annotation and fetch-genome-and-plasmid-cds.py run overnight..
 
 sbatch --mem=16G -t 24:00:00 --wrap="python fetch-gbk-annotation.py"  
 sbatch --mem=16G -t 24:00:00 --wrap="python fetch-genome-and-plasmid-cds.py"  
-
-# IMPORTANT TODO: edit fetch-gbk-annotation.py and fetch-genome-and-plasmid-cds.py to work with both prokaryotes-with-plasmids.txt and prokaryotes-with-complete-genomes.txt, so that we analyze the union of these datasets. And work through the whole pipeline to verify consistency.
 
 Once the data has downloaded, run the following scripts. Some run
 quite quickly, so no need to submit them to a partition on DCC--

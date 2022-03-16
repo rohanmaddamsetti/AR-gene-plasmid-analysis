@@ -3,7 +3,7 @@
 '''
 fetch-gbk-annotation.py by Rohan Maddamsetti.
 
-This script reads in ../results/AR-gene-duplication/prokaryotes-with-complete-genomes.txt.
+This script reads in ../results/AR-gene-duplication/best-prokaryotes.txt.
 
 NOTE: for path names to be processed properly, this script must be run
 from the src/ directory as python fetch-gbk-annotation.py.
@@ -16,7 +16,7 @@ import os
 from tqdm import tqdm
 
 ## open the genome report file, and parse line by line.
-with open("../results/prokaryotes-with-complete-genomes.txt", "r") as genome_report_fh:
+with open("../results/best-prokaryotes.txt", "r") as genome_report_fh:
     for i, line in enumerate(tqdm(genome_report_fh)):
         line = line.strip()
         if i == 0: ## get the names of the columns from the header.
