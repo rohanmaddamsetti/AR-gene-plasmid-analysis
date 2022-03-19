@@ -1,6 +1,7 @@
 ## ARG-duplication-analysis.R by Rohan Maddamsetti.
-## analyse the distribution of AR genes on chromosomes versus plasmids in
-## fully-sequenced genomes and plasmids in the NCBI Nucleotide database.
+## analyse the distribution of antibiotic resistance genes (ARGs)
+## on chromosomes versus plasmids in  fully-sequenced genomes and plasmids
+## in the NCBI Nucleotide database.
 ## This is a rewrite of Aim1-analysis.R, using a different statistical framework.
 
 library(tidyverse)
@@ -21,8 +22,15 @@ fancy_scientific <- function(x) {
 ################################################################################
 ## Regular expressions used in this analysis.
 
+## unknown protein keywords.
+unknown.protein.keywords <- "unknown|Unknown|hypothetical|Hypothetical|Uncharacterized|Uncharacterised|uncharacterized|uncharacterised|DUF|unknow|putative protein in bacteria|Unassigned|unassigned"
+
+## NOTE: some hypothetical proteins are "ISXX family insertion sequence hypothetical protein"
+## so filter out those cases, when counting unknown proteins.
+
+
 ## match MGE genes using the following keywords in the "product" annotation
-IS.keywords <- "IS|transposon|Transposase|transposase|Transposable|transposable|hypothetical protein|Phage|phage|integrase|Integrase|tail|intron|Mobile|mobile|antitoxin|toxin|capsid|plasmid|Plasmid|conjug"
+IS.keywords <- "IS|transposon|Transposase|transposase|Transposable|transposable|virus|Phage|phage|integrase|Integrase|baseplate|tail|intron|Mobile|mobile|antitoxin|toxin|capsid|plasmid|Plasmid|conjug|Tra"
 
 ## Elongation Factor Tu (2 copies in most bacteria).
 ## \\b is a word boundary.
@@ -30,10 +38,21 @@ IS.keywords <- "IS|transposon|Transposase|transposase|Transposable|transposable|
 EFTu.keywords <- "\\bTu | Tu\\b|-Tu\\b"
 
 ## antibiotic-specific keywords.
-antibiotic.keywords <- "lactamase|chloramphenicol|quinolone|antibiotic resistance|tetracycline|VanZ"
+chloramphenicol.keywords <- "chloramphenicol|Chloramphenicol"
+tetracycline.keywords <- "tetracycline|Tetracycline"
+MLS.keywords <- "macrolide|lincosamide|streptogramin"
+multidrug.keywords <- "multidrug"
+beta.lactam.keywords <- "lactamase"
+glycopeptide.keywords <- "glycopeptide resistance|VanZ"
+polypeptide.keywords <- "bacitracin|polymyxin B"
+diaminopyrimidine.keywords <- "trimethoprim-resistant"
+sulfonamide.keywords <- "sulfonamide-resistant"
+quinolone.keywords <- "quinolone|Quinolone|oxacin"
+aminoglycoside.keywords <- "aminoglycoside|streptomycin|Streptomycin|kanamycin|Kanamycin|tobramycin|Tobramycin|gentamicin|Gentamicin|neomycin|Neomycin"
+macrolide.keywords <- "macrolide|ketolide|Azithromycin|azithromycin|Clarithromycin|clarithromycin|Erythromycin|erythomycin"
 
-## unknown protein keywords
-unknown.protein.keywords <- "unknown|Unknown|hypothetical|Hypothetical|Uncharacterized|Uncharacterised|uncharacterized|uncharacterised|DUF|unknow|putative protein in bacteria|Unassigned|unassigned"
+antibiotic.keywords <- "chloramphenicol|Chloramphenicol|tetracycline|Tetracycline|macrolide|lincosamide|streptogramin|multidrug|lactamase|glycopeptide resistance|VanZ|bacitracin|polymyxin B|trimethoprim-resistant|sulfonamide-resistant|quinolone|Quinolone|oxacin|aminoglycoside|streptomycin|Streptomycin|kanamycin|Kanamycin|tobramycin|Tobramycin|gentamicin|Gentamicin|neomycin|Neomycin|macrolide|ketolide|Azithromycin|azithromycin|Clarithromycin|clarithromycin|Erythromycin|erythomycin|antibiotic resistance"
+
 
 ## The regular expressions used by Zeevi et al. (2019).
 ## These are not used in this analysis, but nice to have on hand.
@@ -48,7 +67,7 @@ unknown.protein.keywords <- "unknown|Unknown|hypothetical|Hypothetical|Uncharact
 ## Set up the key data structures for the analysis:
 ## gbk.annotation, in particular.
 
-## import the 26.5GB file containing all proteins, including singletons.
+## import the 35GB file containing all proteins, including singletons.
 ## I can save a ton of memory if I don't import the sequence column,
 ## and by using the data.table package for import.
 all.proteins <- data.table::fread("../results/all-proteins.csv",
@@ -80,7 +99,7 @@ gbk.annotation <- read.csv(
 ## all-proteins.csv
 ## These should be the genomes that do not have
 ## CDS annotated in their GFF annotation.
-## list the 1,064 strains missing from the singletons data.
+## list the 2,848 strains missing from the singletons data.
 missing.ones <- gbk.annotation %>%
     filter(!(Annotation_Accession %in% all.proteins$Annotation_Accession))
 write.csv(missing.ones, file= "../results/strains-without-proteins.csv")
@@ -1136,7 +1155,7 @@ make.IsolateEnrichmentTable <- function(gbk.annotation, duplicate.genes, keyword
 
 make.IsolateEnrichmentControlTable <- function(gbk.annotation, singleton.genes, keywords) {
     ## count the number of isolates with singleton genes of interest in each category.
-    category.counts <- singleton.proteins %>%
+    category.counts <- singleton.genes %>%
         filter(str_detect(.$product, keywords)) %>%
         ## next two lines is to count isolates rather than genes
         select(Annotation_Accession, Annotation) %>%
@@ -1268,7 +1287,250 @@ ggsave("../results/heme-selection-plot.pdf",
        height = 3, width = 7,
        heme.selection.plot)
 
-#####################################################
+##########################################################################
+## IMPORTANT: let's repeat the duplicated ARG analysis for each individual
+## antibiotic class. 12 total classes!
+
+## Supplementary Figure XXX.
+
+## Tables for ARG-class genes.
+chloramphenicol.table <- make.IsolateEnrichmentTable(
+    gbk.annotation,
+    duplicate.proteins,
+    chloramphenicol.keywords)
+##write.csv(x=chloramphenicol.table, file="../results/XXX.csv")
+
+chloramphenicol.control.table <- make.IsolateEnrichmentControlTable(
+    gbk.annotation,
+    singleton.proteins,
+    chloramphenicol.keywords)
+
+
+tetracycline.table <- make.IsolateEnrichmentTable(
+    gbk.annotation,
+    duplicate.proteins,
+    tetracycline.keywords)
+##write.csv(x=tetracycline.table, file="../results/XXX.csv")
+
+tetracycline.control.table <- make.IsolateEnrichmentControlTable(
+    gbk.annotation,
+    singleton.proteins,
+    tetracycline.keywords)
+
+MLS.table <- make.IsolateEnrichmentTable(
+    gbk.annotation,
+    duplicate.proteins,
+    MLS.keywords)
+##write.csv(x=MLS.table, file="../results/XXX.csv")
+
+MLS.control.table <- make.IsolateEnrichmentControlTable(
+    gbk.annotation,
+    singleton.proteins,
+    MLS.keywords)
+
+multidrug.table <- make.IsolateEnrichmentTable(
+    gbk.annotation,
+    duplicate.proteins,
+    multidrug.keywords)
+##write.csv(x=multidrug.table, file="../results/XXX.csv")
+
+multidrug.control.table <- make.IsolateEnrichmentControlTable(
+    gbk.annotation,
+    singleton.proteins,
+    multidrug.keywords)
+
+beta.lactam.table <- make.IsolateEnrichmentTable(
+    gbk.annotation,
+    duplicate.proteins,
+    beta.lactam.keywords)
+##write.csv(x=beta.lactam.table, file="../results/XXX.csv")
+
+beta.lactam.control.table <- make.IsolateEnrichmentControlTable(
+    gbk.annotation,
+    singleton.proteins,
+    beta.lactam.keywords)
+
+glycopeptide.table <- make.IsolateEnrichmentTable(
+    gbk.annotation,
+    duplicate.proteins,
+    glycopeptide.keywords)
+##write.csv(x=glycopeptide.table, file="../results/XXX.csv")
+
+glycopeptide.control.table <- make.IsolateEnrichmentControlTable(
+    gbk.annotation,
+    singleton.proteins,
+    glycopeptide.keywords)
+
+polypeptide.table <- make.IsolateEnrichmentTable(
+    gbk.annotation,
+    duplicate.proteins,
+    polypeptide.keywords)
+##write.csv(x=polypeptide.table, file="../results/XXX.csv")
+
+polypeptide.control.table <- make.IsolateEnrichmentControlTable(
+    gbk.annotation,
+    singleton.proteins,
+    polypeptide.keywords)
+
+diaminopyrimidine.table <- make.IsolateEnrichmentTable(
+    gbk.annotation,
+    duplicate.proteins,
+    diaminopyrimidine.keywords)
+##write.csv(x=diaminopyrimidine.table, file="../results/XXX.csv")
+
+diaminopyrimidine.control.table <- make.IsolateEnrichmentControlTable(
+    gbk.annotation,
+    singleton.proteins,
+    diaminopyrimidine.keywords)
+
+sulfonamide.table <- make.IsolateEnrichmentTable(
+    gbk.annotation,
+    duplicate.proteins,
+    sulfonamide.keywords)
+##write.csv(x=sulfonamide.table, file="../results/XXX.csv")
+
+sulfonamide.control.table <- make.IsolateEnrichmentControlTable(
+    gbk.annotation,
+    singleton.proteins,
+    sulfonamide.keywords)
+
+quinolone.table <- make.IsolateEnrichmentTable(
+    gbk.annotation,
+    duplicate.proteins,
+    quinolone.keywords)
+##write.csv(x=quinolone.table, file="../results/XXX.csv")
+
+quinolone.control.table <- make.IsolateEnrichmentControlTable(
+    gbk.annotation,
+    singleton.proteins,
+    quinolone.keywords)
+
+aminoglycoside.table <- make.IsolateEnrichmentTable(
+    gbk.annotation,
+    duplicate.proteins,
+    aminoglycoside.keywords)
+##write.csv(x=aminoglycoside.table, file="../results/XXX.csv")
+
+aminoglycoside.control.table <- make.IsolateEnrichmentControlTable(
+    gbk.annotation,
+    singleton.proteins,
+    aminoglycoside.keywords)
+
+
+macrolide.table <- make.IsolateEnrichmentTable(
+    gbk.annotation,
+    duplicate.proteins,
+    macrolide.keywords)
+##write.csv(x=macrolide.table, file="../results/XXX.csv")
+
+macrolide.control.table <- make.IsolateEnrichmentControlTable(
+    gbk.annotation,
+    singleton.proteins,
+    macrolide.keywords)
+
+
+newFigA <- make.confint.figure.panel(chloramphenicol.table,
+                                      order.by.total.isolates,
+                                      "Duplicated chloramphenicol resistance")
+newFigB <- make.confint.figure.panel(chloramphenicol.control.table,
+                                      order.by.total.isolates,
+                                      "Single-copy chloramphenicol resistance",
+                                      no.category.label = TRUE)
+newFigC <- make.confint.figure.panel(tetracycline.table,
+                                      order.by.total.isolates,
+                                      "Duplicated tetracycline resistance")
+newFigD <- make.confint.figure.panel(tetracycline.control.table,
+                                      order.by.total.isolates,
+                                      "Single-copy tetracycline resistance",
+                                      no.category.label = TRUE)
+newFigE <- make.confint.figure.panel(MLS.table,
+                                      order.by.total.isolates,
+                                      "Duplicated MLS resistance")
+newFigF <- make.confint.figure.panel(MLS.control.table,
+                                      order.by.total.isolates,
+                                      "Single-copy MLS resistance",
+                                      no.category.label = TRUE)
+newFigG <- make.confint.figure.panel(multidrug.table,
+                                      order.by.total.isolates,
+                                      "Duplicated multidrug resistance")
+newFigH <- make.confint.figure.panel(multidrug.control.table,
+                                      order.by.total.isolates,
+                                      "Single-copy multidrug resistance",
+                                      no.category.label = TRUE)
+newFigI <- make.confint.figure.panel(beta.lactam.table,
+                                      order.by.total.isolates,
+                                      "Duplicated beta-lactam resistance")
+newFigJ <- make.confint.figure.panel(beta.lactam.control.table,
+                                      order.by.total.isolates,
+                                      "Single-copy beta-lactam resistance",
+                                      no.category.label = TRUE)
+newFigK <- make.confint.figure.panel(glycopeptide.table,
+                                      order.by.total.isolates,
+                                      "Duplicated glycopeptide resistance")
+newFigL <- make.confint.figure.panel(glycopeptide.control.table,
+                                      order.by.total.isolates,
+                                      "Single-copy glycopeptide resistance",
+                                      no.category.label = TRUE)
+newFigM <- make.confint.figure.panel(polypeptide.table,
+                                      order.by.total.isolates,
+                                      "Duplicated polypeptide resistance")
+newFigN <- make.confint.figure.panel(polypeptide.control.table,
+                                      order.by.total.isolates,
+                                      "Single-copy polypeptide resistance",
+                                      no.category.label = TRUE)
+newFigO <- make.confint.figure.panel(diaminopyrimidine.table,
+                                      order.by.total.isolates,
+                                      "Duplicated diaminopyrimidine resistance")
+newFigP <- make.confint.figure.panel(diaminopyrimidine.control.table,
+                                      order.by.total.isolates,
+                                      "Single-copy diaminopyrimidine resistance",
+                                      no.category.label = TRUE)
+newFigQ <- make.confint.figure.panel(sulfonamide.table,
+                                      order.by.total.isolates,
+                                      "Duplicated sulfonamide resistance")
+newFigR <- make.confint.figure.panel(sulfonamide.control.table,
+                                      order.by.total.isolates,
+                                      "Single-copy sulfonamide resistance",
+                                      no.category.label = TRUE)
+newFigS <- make.confint.figure.panel(quinolone.table,
+                                      order.by.total.isolates,
+                                      "Duplicated quinolone resistance")
+newFigT <- make.confint.figure.panel(quinolone.control.table,
+                                      order.by.total.isolates,
+                                      "Single-copy quinolone resistance",
+                                      no.category.label = TRUE)
+newFigU <- make.confint.figure.panel(aminoglycoside.table,
+                                      order.by.total.isolates,
+                                      "Duplicated aminoglycoside resistance")
+newFigV <- make.confint.figure.panel(aminoglycoside.control.table,
+                                      order.by.total.isolates,
+                                      "Single-copy aminoglycoside resistance",
+                                      no.category.label = TRUE)
+newFigW <- make.confint.figure.panel(macrolide.table,
+                                      order.by.total.isolates,
+                                      "Duplicated macrolide resistance")
+newFigX <- make.confint.figure.panel(macrolide.control.table,
+                                      order.by.total.isolates,
+                                      "Single-copy macrolide resistance",
+                                      no.category.label = TRUE)
+
+newFigABCDEFGH <- plot_grid(newFigA, newFigB,
+                     newFigC, newFigD,
+                     newFigE, newFigF,
+                     newFigG, newFigH, ncol=2)
+
+newFigIJKLMNOP <- plot_grid(newFigI, newFigJ,
+                     newFigK, newFigL,
+                     newFigM, newFigN,
+                     newFigO, newFigP, ncol=2)
+
+newFigQRSTUVWX <- plot_grid(newFigQ, newFigR,
+                     newFigS, newFigT,
+                     newFigU, newFigV,
+                     newFigW, newFigX, ncol=2)
+
+
+##########################################################################
 ## Make current version of Figure 7.
 Fig7A <- make.confint.figure.panel(
     photosynthesis.table, order.by.total.isolates,
@@ -2011,5 +2273,77 @@ dup.prot.seq.tf_idf.plot <- top.dup.prot.seq.tf_idf %>%
 ggsave("../results/duplicate-protein-seq-TF-IDF.pdf",
        dup.prot.seq.tf_idf.plot,
        height=21,width=21)
+
+
+#######################################################################################
+## Let's analyze duplicated genes in the 12 GN0XXXX genomes that were sequenced with
+## long-read technology (PacBio) by Vance Fowler's lab.
+## Jon Bethke characterized the resistances of these strains, and additionally
+## sequenced another 7 ESBL genomes with PacBio technology.
+
+## 58,092 types of protein sequences in the 12 ESBL genomes.
+Duke.ESBL.all.proteins <- data.table::fread("../results/Duke-ESBL-all-proteins.csv",
+                                  drop="sequence")
+
+## 57,263 single-copy protein sequences.
+Duke.ESBL.singleton.proteins <- Duke.ESBL.all.proteins %>%
+    filter(count == 1)
+
+## 829 protein sequences have duplicates in the 12 ESBL genomes (not counting the duplicates)
+Duke.ESBL.duplicate.proteins <- read.csv(
+    "../results/Duke-ESBL-duplicate-proteins.csv") %>%
+    select(-sequence)
+
+## 6 of the 12 strains have duplicated ARGs.
+## 10 ARG sequences have duplicates.
+Duke.ESBL.duplicate.ARGs <- Duke.ESBL.duplicate.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords))
+sum(Duke.ESBL.duplicate.ARGs$count) ## 23 duplicated ARGs in total.
+
+## 215 MGE protein sequences are duplicated.
+Duke.ESBL.duplicate.MGE.proteins <- Duke.ESBL.duplicate.proteins %>%
+    filter(str_detect(.$product,IS.keywords))
+sum(Duke.ESBL.duplicate.MGE.proteins$count) ## 547 duplicated MGE proteins in total.
+
+## 208 unknown protein sequences are duplicated.
+Duke.ESBL.duplicate.unknown.proteins <- Duke.ESBL.duplicate.proteins %>%
+    ## some hypothetical proteins are "ISXX family insertion sequence hypothetical protein"
+    ## so filter out those cases.
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(str_detect(.$product,unknown.protein.keywords))
+sum(Duke.ESBL.duplicate.unknown.proteins$count) ## 450 duplicated unknown proteins in total.
+
+## 396 remaining cases of duplicated proteins.
+Duke.ESBL.remaining.duplicate.proteins <- Duke.ESBL.duplicate.proteins %>%
+    filter(!str_detect(.$product,antibiotic.keywords)) %>%
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,unknown.protein.keywords))
+sum(Duke.ESBL.remaining.duplicate.proteins$count) ## 821 other duplicate proteins in total.
+
+################################################
+###### Now, let's look at the singleton proteins.
+
+## 558 singleton ARGs in the genomes.
+Duke.ESBL.singleton.ARGs <- Duke.ESBL.singleton.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords))
+
+
+## 3181 singleton MGE protein sequences in the genomes.
+Duke.ESBL.singleton.MGE.proteins <- Duke.ESBL.singleton.proteins %>%
+    filter(str_detect(.$product,IS.keywords))
+
+
+## 6475 unknown singleton protein sequences in the genomes.
+Duke.ESBL.singleton.unknown.proteins <- Duke.ESBL.singleton.proteins %>%
+    ## some hypothetical proteins are "ISXX family insertion sequence hypothetical protein"
+    ## so filter out those cases.
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(str_detect(.$product,unknown.protein.keywords))
+
+## 47049 remaining cases of singleton proteins in the genomes.
+Duke.ESBL.remaining.singleton.proteins <- Duke.ESBL.singleton.proteins %>%
+    filter(!str_detect(.$product,antibiotic.keywords)) %>%
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,unknown.protein.keywords))
 
 
