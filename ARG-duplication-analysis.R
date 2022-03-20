@@ -1070,18 +1070,18 @@ make.selection.test.df <- function(duplicate.proteins, singleton.proteins,
         group_by(Annotation) %>%
         summarize(function.singletons = sum(count))
     
-    singleton.genes.per.category <- singleton.proteins %>%
+    singleton.proteins.per.category <- singleton.proteins %>%
         group_by(Annotation) %>%
-        summarize(singleton.genes = sum(count))
+        summarize(singleton.proteins = sum(count))
     
     selection.test.df <- duplicated.function.per.category %>%
         full_join(duplicated.genes.per.category) %>%
         full_join(singleton.function.per.category) %>%
-        full_join(singleton.genes.per.category) %>%
+        full_join(singleton.proteins.per.category) %>%
         ## turn NAs to zeros.
         replace(is.na(.), 0) %>%
         mutate(p = function.duplicates / gene.duplicates) %>%
-        mutate(q = function.singletons / singleton.genes) %>%
+        mutate(q = function.singletons / singleton.proteins) %>%
         mutate(dup.singleton.ratio = p/q) %>%
         mutate(Annotation = factor(
                    Annotation,
@@ -1133,7 +1133,7 @@ ggsave("../results/Fig5BC.pdf", Fig5BC, width=9.5, height=5)
 ## generic version of make.TableS1, for examining classes of genes other than
 ## antibiotic resistance genes.
 
-make.IsolateEnrichmentTable <- function(gbk.annotation, duplicate.genes, keywords) {
+make.IsolateEnrichmentTable <- function(gbk.annotation, duplicate.proteins, keywords) {
     ## count the number of isolates with duplicated genes of interest in each category.
     category.counts <- duplicate.proteins %>%
         filter(str_detect(.$product, keywords)) %>%
@@ -1153,9 +1153,9 @@ make.IsolateEnrichmentTable <- function(gbk.annotation, duplicate.genes, keyword
     return(Table)
 }
 
-make.IsolateEnrichmentControlTable <- function(gbk.annotation, singleton.genes, keywords) {
+make.IsolateEnrichmentControlTable <- function(gbk.annotation, singleton.proteins, keywords) {
     ## count the number of isolates with singleton genes of interest in each category.
-    category.counts <- singleton.genes %>%
+    category.counts <- singleton.proteins %>%
         filter(str_detect(.$product, keywords)) %>%
         ## next two lines is to count isolates rather than genes
         select(Annotation_Accession, Annotation) %>%
@@ -1176,47 +1176,47 @@ make.IsolateEnrichmentControlTable <- function(gbk.annotation, singleton.genes, 
 ## Tables for duplicate genes.
 photosynthesis.table <- make.IsolateEnrichmentTable(
     gbk.annotation,
-    duplicate.genes,
+    duplicate.proteins,
     "photosystem")
 write.csv(x=photosynthesis.table, file="../results/TableS6.csv")
 
 N2.fixation.table <- make.IsolateEnrichmentTable(
     gbk.annotation,
-    duplicate.genes,
+    duplicate.proteins,
     "nitrogenase")
 write.csv(x=N2.fixation.table, file="../results/TableS7.csv")
 
 toxic.metal.table <- make.IsolateEnrichmentTable(
     gbk.annotation,
-    duplicate.genes,
+    duplicate.proteins,
     "mercury|cadmium|arsen")
 write.csv(x=toxic.metal.table, file="../results/TableS8.csv")
 
 heme.table <- make.IsolateEnrichmentTable(
     gbk.annotation,
-    duplicate.genes,
+    duplicate.proteins,
     "heme")
 write.csv(x=heme.table, file="../results/TableS9.csv")
 
 ## Tables for single-copy genes.
 photosynthesis.control.table <- make.IsolateEnrichmentControlTable(
     gbk.annotation,
-    singleton.genes,
+    singleton.proteins,
     "photosystem")
 
 N2.fixation.control.table <- make.IsolateEnrichmentControlTable(
     gbk.annotation,
-    singleton.genes,
+    singleton.proteins,
     "nitrogenase")
 
 toxic.metal.control.table <- make.IsolateEnrichmentControlTable(
     gbk.annotation,
-    singleton.genes,
+    singleton.proteins,
     "mercury|cadmium|arsen")
 
 heme.control.table <- make.IsolateEnrichmentControlTable(
     gbk.annotation,
-    singleton.genes,
+    singleton.proteins,
     "heme")
 
 ## tests for selection.
@@ -1686,7 +1686,7 @@ make.taxonomy.control.figure <- function(duplicate.proteins, gbk.annotation, key
     
     single.organism.func.table <- make.IsolateEnrichmentTable(
     single.organism.gbk.annotation,
-    single.organism.duplicate.genes,
+    single.organism.duplicate.proteins,
     keywords)
 
     FigC <- make.confint.figure.panel(
@@ -1724,22 +1724,22 @@ ggsave("../results/S7Fig.pdf",height=10)
 ## numbers themselves.
 single.organism.photosynthesis.table <- make.IsolateEnrichmentTable(
     single.organism.gbk.annotation,
-    single.organism.duplicate.genes,
+    single.organism.duplicate.proteins,
     "photosystem")
 
 single.organism.N2.fixation.table <- make.IsolateEnrichmentTable(
     single.organism.gbk.annotation,
-    single.organism.duplicate.genes,
+    single.organism.duplicate.proteins,
     "nitrogenase")
 
 single.organism.toxic.metal.table <- make.IsolateEnrichmentTable(
     single.organism.gbk.annotation,
-    single.organism.duplicate.genes,
+    single.organism.duplicate.proteins,
     "mercury|cadmium|arsen")
 
 single.organism.heme.table <- make.IsolateEnrichmentTable(
     single.organism.gbk.annotation,
-    single.organism.duplicate.genes,
+    single.organism.duplicate.proteins,
     "heme")
 
 ##########################################################################
