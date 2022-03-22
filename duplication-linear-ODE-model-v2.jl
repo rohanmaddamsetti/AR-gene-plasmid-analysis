@@ -23,6 +23,7 @@ begin
 	using Images
 	using StatsPlots
 	using DataFrames
+	using ColorSchemes
 end
 
 # ╔═╡ 49567f8e-09a2-11eb-34c1-bb5c0b642fe8
@@ -302,9 +303,12 @@ antibiotic_sol_array = transpose(hcat(antibiotic_sol.u...))
 
 # ╔═╡ 9c2038bc-5ff2-11eb-1eb8-df1d0766dbeb
 let
-S4FigB = groupedbar(antibiotic_sol_array, bar_position = :stack, bar_width=0.7,legend=:bottom, ylabel="Total biomass",
-			xlabel="Time", label = ["Type 1" "Type 2" "Type 3" "Type 4" "Type 5"])
-savefig(S4FigB, "../results/linear-ODE-model-figures/S4FigB-pop-dynamics.pdf")
+S4FigB = groupedbar(antibiotic_sol_array, bar_position = :stack,
+					bar_width = 0.7, legend = :bottom, fontfamily = "Helvetica",
+					ylabel = "Total biomass",
+					xlabel = "Time",
+					label = ["Type 1" "Type 2" "Type 3" "Type 4" "Type 5"])
+savefig(S4FigB, "../results/linear-ODE-model-figures/Fig6B-pop-dynamics.pdf")
 S4FigB
 end
 
@@ -388,13 +392,17 @@ let
 	fixed_parameters = [r, d, η, D]
 	
 	p = plot()
-	for cost in 0:0.1:0.3
+	for cost in 0:0.01:0.08
 		antibiotic_concs = [x for x in 0:0.02:4]
 		dup_indices = [ConcAndCostToDuplicationIndex(x, cost, fixed_parameters) for x in antibiotic_concs]
 		my_label = "cost = $cost"
 		plot!(antibiotic_concs, dup_indices, label=my_label,
-			legend=:bottomright,ylabel="Duplication Index",
-			xlabel="Antibiotic Concentration")
+			legend = false,
+			ylabel="Duplication Index",
+			palette = :YlGnBu_9,
+			xlabel="Antibiotic Concentration",
+			fontfamily="Helvetica",
+			grid = false)
 	end
 	
 	savefig(p, "../results/linear-ODE-model-figures/Fig6C-DI-versus-selection.pdf")
@@ -406,13 +414,14 @@ let
 	fixed_parameters = [r, d, η, D]
 	
 	p = plot()
-	for cost in 0:0.1:0.3
+	for cost in 0:0.01:0.08
 		antibiotic_concs = [x for x in 0:0.02:4]
 		plas_indices = [ConcAndCostToPlasmidIndex(x, cost, fixed_parameters) for x in antibiotic_concs]
 		my_label = "cost = $cost"
 		plot!(antibiotic_concs, plas_indices, label=my_label,
-			legend=:bottomright,ylabel="Plasmid Index",
-			xlabel="Antibiotic Concentration")
+			legend= false, ylabel="Plasmid Index",
+			xlabel="Antibiotic Concentration", grid = false,
+			fontfamily="Helvetica", palette = :YlGnBu_9)
 	end
 	
 	savefig(p, "../results/linear-ODE-model-figures/Fig6D-PI-versus-selection.pdf")
@@ -424,13 +433,15 @@ let
 	fixed_parameters = [r, d, η, D]
 	
 	p = plot()
-	for cost in 0:0.1:0.3
+	for cost in 0:0.01:0.08
 	antibiotic_concs = [x for x in 0:0.02:4]
 	xtotals = [ConcAndCostToXTotal(x, cost, fixed_parameters) for x in antibiotic_concs]
 	my_label = "cost = $cost"
-	plot!(antibiotic_concs, xtotals, label=my_label,
-			legend=:bottom,ylabel="Total population size",
-			xlabel="Antibiotic Concentration")
+	plot!(antibiotic_concs, xtotals, label = my_label,
+			legend = false, palette = :YlGnBu_9,
+			ylabel = "Total population size",
+			xlabel="Antibiotic Concentration", grid = false,
+			fontfamily="Helvetica")
 	end
 	p
 end
@@ -453,10 +464,12 @@ let
 	plas_indices = [ConcAndCostToPlasmidIndex(x, cost, fixed_parameters) for x in antibiotic_concs]
 	my_label = "cost = $cost"
 	plot!(plas_indices, dup_indices, label=my_label,
-			legend=:topright,ylabel="Duplication Index",
-			xlabel="Plasmid Index")
+			legend = false, palette = :YlGnBu_9,
+			fontfamily="Helvetica",
+			ylabel="Duplication Index",
+			xlabel="Plasmid Index", grid = false)
 	end
-	savefig(p, "../results/linear-ODE-model-figures/Fig7A-DI-versus-PI.pdf")
+	savefig(p, "../results/linear-ODE-model-figures/Fig6E-DI-versus-PI.pdf")
 	p
 end
 
@@ -471,6 +484,7 @@ bigbreak = html"<br><br><br><br>";
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
+ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
 Images = "916415d5-f1e6-5110-898d-aaa5f9f070e0"
@@ -480,6 +494,7 @@ PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 
 [compat]
+ColorSchemes = "~3.17.1"
 DataFrames = "~1.3.2"
 DifferentialEquations = "~7.1.0"
 Images = "~0.25.1"
@@ -640,9 +655,9 @@ version = "0.14.2"
 
 [[ColorSchemes]]
 deps = ["ColorTypes", "Colors", "FixedPointNumbers", "Random"]
-git-tree-sha1 = "6b6f04f93710c71550ec7e16b650c1b9a612d0b6"
+git-tree-sha1 = "12fc73e5e0af68ad3137b886e3f7c1eacfca2640"
 uuid = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
-version = "3.16.0"
+version = "3.17.1"
 
 [[ColorTypes]]
 deps = ["FixedPointNumbers", "Random"]
@@ -2476,7 +2491,7 @@ version = "0.9.1+5"
 # ╠═7f2414bc-5fe4-11eb-1557-73f27ec8ddc9
 # ╠═27b28d24-4f71-11eb-1291-0b1c965aa0e0
 # ╠═a5c5571c-69c9-4724-a6d6-4d5dcb4c90eb
-# ╟─6baaa82e-5fe4-11eb-3e2b-c1dbf419ffda
+# ╠═6baaa82e-5fe4-11eb-3e2b-c1dbf419ffda
 # ╟─3133d7ba-5fe9-11eb-08af-3d21f659e7ba
 # ╠═9ee10372-fa28-4cc8-a46e-37518c2a40ef
 # ╠═463ca968-4701-4348-8f6a-5f338ba30c63
