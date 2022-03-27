@@ -1,0 +1,19 @@
+## svgfinder-environment.yml by Rohan Maddamsetti.
+## to create the conda environment to run SGVFinder
+## (Zeevi et al. 2019 from Eran Segal's lab),
+## run the following command:
+##
+## conda env create -f sgvfinder-environment.yml
+
+name: sgvfinder-env
+channels:
+ - bioconda
+ - conda-forge
+dependencies:
+ - python=2.7
+ - numpy=1.14.2
+ - biopython=1.68
+ - ujson=1.35
+ - pandas=0.23.4
+ - scipy=1.1.0
+ - bokeh=0.12.6
