@@ -12,10 +12,20 @@ from os.path import join, splitext, basename
 from ICRA import single_file
 import os
 
-INPUT_FOLDER = "../data/DIABIMMUNE-filtered-reads/E010481"
-OUTPUT_FOLDER = "../results/DIABIMMUNE/E010481"
+INPUT_FOLDER = "/work/rm431/SGVFinder/data/DIABIMMUNE-filtered-reads"
+OUTPUT_FOLDER = "/work/rm431/SGVFinder/results/DIABIMMUNE"
+## make the folder if it doesn't exist.
+## see this stackoverflow answer-- this code avoids a possible race condition.
+## https://stackoverflow.com/questions/273192/how-can-i-safely-create-a-nested-directory
+try:
+    os.makedirs(OUTPUT_FOLDER)
+except OSError:
+    if not os.path.isdir(OUTPUT_FOLDER):
+        raise
+
 fastqs_1 = glob(join(INPUT_FOLDER, '*.1.fastq'))
-for f in fastqs_1: #Parallelize on your cluster
-    print f
-    ##single_file(f, f.replace('.1.fastq', '.2.fastq'), OUTPUT_FOLDER, 8, True, 1e-6, 100, 10, 100, 100, 60, 1e5, 2e7, 'genomes', False)
+idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
+## This trick depends on running this script using a slurm jobarray.
+f = fastqs_1[idx]
+single_file(f, f.replace('.1.fastq', '.2.fastq'), OUTPUT_FOLDER, 8, True, 1e-6, 100, 10, 100, 100, 60, 1e5, 2e7, 'genomes', False)
 
