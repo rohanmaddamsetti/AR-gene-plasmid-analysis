@@ -45,15 +45,15 @@ md"""
 
 I built a toy model to illustrate why multiple identical copies of a protein sequence in a genome may reveal recent positive selection. A diagram of the model is shown above.
 
-There are five subpopulations of bacteria. Each cell contains a chromosome and a multi-copy plasmid. Each chromosome and plasmid may contain an antibiotic resistance gene (ARG). An ARG on a chromosome is shown as a large black bar, and an ARG on the plasmid is shown as a small black bar.
+There are three subpopulations of bacteria. Each cell contains a chromosome and a multi-copy plasmid. Each chromosome and plasmid may contain an antibiotic resistance gene (ARG). An ARG on a chromosome is shown as a large black bar, and an ARG on the plasmid is shown as a small black bar.
 
-We are interested in the dynamics of the five subpopulations due to growth and mutation (duplication, loss, and transfer dynamics of the ARG). I roughly follow the modeling framework used by Lopatkin et al. (2017) "Persistence and reversal of plasmid-mediated antibiotic resistance", and described in that paper's Supplementary Information.
+We are interested in the dynamics of the three subpopulations due to growth and mutation (duplication, loss, and transfer dynamics of the ARG). I roughly follow the modeling framework used by Lopatkin et al. (2017) "Persistence and reversal of plasmid-mediated antibiotic resistance", and described in that paper's Supplementary Information.
 
 **Model Assumptions**
 
 *Growth dynamics*. We assume that there is a steady inflow of nutrients and antibiotic, and a steady outflow of depleted media and cells, reflected by a constant dilution rate, $D$. This assumption allows the population to grow continously at a steady-state population size. We normalize the number of cells by the carrying capacity, such that each state variable represents the percentage of carrying capacity that is taken up by the subpopulation-- note that this is *not* the relative frequency of cells in the population, because the total population may be at a steady state that is less than carrying capacity. The growth rate of each subpopulation is modeled by  growth functions $f_i > 0$, that we describe in greater detail below.
 
-*Mutation dynamics.* We define a mutation as a transition from one state to another, due to gene duplication, gene loss through recombination, and transposition. Each event occurs at a constant rate $d$, $r$, and $\eta$, respectively. We assume that transposition occurs through a cut-and-paste mechanism, such that the transposition of an ARG from the chromosome to the plasmid removes the ARG from the plasmid. Since we assume a multi-copy plasmid, a transposition from a plasmid to a chromosome removes the ARG from one plasmid copy, but not the others. This justifies the transition from state $x_3$ to state $x_5$.
+*Mutation dynamics.* We define a mutation as a transition from one state to another, due to gene duplication, gene loss through recombination, and transposition. Each event occurs at a constant rate $d$, $r$, and $\eta$, respectively. We assume that excision rates are negligible, such that transpositions leave the original copy unchanged in the chromosome.
 
 These assumptions lead to a system of differential equations of the form:
 
@@ -73,7 +73,7 @@ $\frac{dx_3}{dt} = f_3x_3 (1 - \Sigma x_i) - Dx_3 + \eta x_1 - r x_3$
 
 $f_i = (1-c)^x \frac{K_j^n}{K_j^n + A^n}$ where $A$ is antibiotic concentration and $K_i$ is the concentration of antibiotic that reduces growth by 50%, $n$ is a Hill coefficient, $(1-c)$ is the cost of expressing the ARG, and $x$ is the physical number of ARGs in the cell.
 
-We assume that the plasmid has a copy number of 3. We assume a Hill cofficient $n = 3$. We also assume that $0 < c < 1$, and that $A > 0$. $K$ varies depending on the configuration of genes on chromosome or plasmid:
+We assume that the plasmid has a copy number of 4. We assume a Hill cofficient $n = 3$. We also assume that $0 < c < 1$, and that $A > 0$. $K$ varies depending on the configuration of genes on chromosome or plasmid:
 
 $f_1 = (1-c) \frac{1^3}{1^3 + A^3}$
 
@@ -105,7 +105,7 @@ function dynamics!(du, u, p, t)
 
 		r, d, η, antibiotic_conc_func, c, D = p
 		
-		k1, k2, k3 = [1, 2, 5]
+		k1, k2, k3 = [1 2 5]
 		n = 3 # Hill coefficient
 	
 		f1 = calc_f(antibiotic_conc_func(t), k1, n, c)
@@ -140,7 +140,7 @@ md""" Antibiotic Concentration Slider"""
 md""" Duplication Cost Slider"""
 
 # ╔═╡ b0bd8e9e-bbad-4c7b-a2d9-6a8504c574fc
-@bind DuplicationCost Slider(0:0.01:0.1, show_value=true)
+@bind DuplicationCost Slider(0:0.01:0.5, show_value=true)
 
 # ╔═╡ c8bbb48b-936d-49c4-8103-3b55669e6785
 md""" Transfer Rate Slider"""
@@ -200,14 +200,14 @@ end
 # ╔═╡ b7340adf-428d-4aaa-84f2-5f6545bda9d6
 md""" ### plots of the fitness functions. 
 
-fitnesses of x1, x2, x3, x4, x5. Set cost to 0.1 and antibiotic concentration to 2.4 to see the transition between x3 being the most fit to x5 being the most fit. 
+fitnesses of x1, x2, x3. 
 
 """
 
 # ╔═╡ ecc7bfec-76c1-4e85-af7f-4ae583812167
 let ## local scope block
 	
-	k1, k2, k3, k4, k5 = [1, 5.0, 2]
+	k1, k2, k3 = [1 2 5]
 	n = 3 # Hill coefficient
 	
 	f1 = calc_f(AntibioticConcentration, k1, n, c)
@@ -293,21 +293,12 @@ end
 # ╔═╡ be87a0ec-bedb-417f-a9fb-ecae82e7a281
 savefig(p3, "../results/linear-ODE-model-figures/toy-model-dynamics-v0.5.pdf")
 
-# ╔═╡ e51ad7e0-8a50-47a0-b694-b071c8081196
-
-
 # ╔═╡ 75397597-6f4f-4e50-b5f5-8cdf3b06e31a
 md""" __Duplication Index calculation__
 
-DI  (duplication index) = $(x_3 + x_4 + x_5)/ x_total$, that is, the fraction of the gene that will be duplicated (for a certain duplication cost).
+DI  (duplication index) = $(x_2 + x_3)/ x_{total}$, that is, the fraction of the gene that will be duplicated (for a certain ARG cost).
 
-DI ~ duplication cost (c) and antibiotic concentration (which controls relative fitnesses).
-
-I can also consider the following alternative metrics:
-
-$x_2 + x_4 + x_5$ fraction of populations containing the gene in the plasmid
-
-$(x_4+x_5)/(x_3+x_4+x_5)$  fraction of duplicated genes in the plasmid
+PI  (duplication index) = $(x_3)/ x_{total}$, that is, the fraction of the gene on the plasmid (for a certain ARG cost).
 
 
 """
@@ -2421,22 +2412,22 @@ version = "0.9.1+5"
 
 # ╔═╡ Cell order:
 # ╠═f68c9a74-b452-11ec-1ea4-476924c26b22
-# ╠═39a00ba5-abbe-424a-a260-be87a51bf50a
-# ╠═7ec09a6e-eadd-49a3-aeb3-2fd94a7b5f8e
-# ╠═5a11508d-1bd1-494a-a370-6e9b77050551
+# ╟─39a00ba5-abbe-424a-a260-be87a51bf50a
+# ╟─7ec09a6e-eadd-49a3-aeb3-2fd94a7b5f8e
+# ╟─5a11508d-1bd1-494a-a370-6e9b77050551
 # ╠═5f3e692c-3d96-4ca3-a843-ae2e9b5e6b10
 # ╟─7d7e8322-9f1e-46f8-8586-27515ea24441
 # ╠═2edcc207-0c4b-4717-a9ca-df23b6354acc
-# ╠═12bfa0be-8c2b-465c-874a-7e41f47c4337
+# ╟─12bfa0be-8c2b-465c-874a-7e41f47c4337
 # ╟─629c7707-18b9-48ab-84c0-a88d41dd5686
 # ╟─abe253e9-93b3-4c73-a2a9-843b9e332981
-# ╠═bfe80764-5b9b-41d8-94b7-d6a1ec833207
+# ╟─bfe80764-5b9b-41d8-94b7-d6a1ec833207
 # ╠═b0bd8e9e-bbad-4c7b-a2d9-6a8504c574fc
-# ╠═c8bbb48b-936d-49c4-8103-3b55669e6785
-# ╠═088c465a-ca90-460f-88b3-8db002375473
-# ╠═405eb76d-bad8-4d53-9f20-fe503c404dbf
-# ╠═32a2e8bd-c362-4d10-8753-16eff0dae431
-# ╠═6d8a3135-35c4-4763-b330-d5ee98821354
+# ╟─c8bbb48b-936d-49c4-8103-3b55669e6785
+# ╟─088c465a-ca90-460f-88b3-8db002375473
+# ╟─405eb76d-bad8-4d53-9f20-fe503c404dbf
+# ╟─32a2e8bd-c362-4d10-8753-16eff0dae431
+# ╟─6d8a3135-35c4-4763-b330-d5ee98821354
 # ╠═b979eee9-f1e0-4ef3-8c03-859482a3157d
 # ╠═b7340adf-428d-4aaa-84f2-5f6545bda9d6
 # ╠═ecc7bfec-76c1-4e85-af7f-4ae583812167
@@ -2452,16 +2443,15 @@ version = "0.9.1+5"
 # ╠═9e329cfb-c94b-4a50-95ae-2a4d4c10c111
 # ╠═2b07c81f-1385-4c4f-9da5-4fa44af41fdb
 # ╠═be87a0ec-bedb-417f-a9fb-ecae82e7a281
-# ╠═e51ad7e0-8a50-47a0-b694-b071c8081196
 # ╠═75397597-6f4f-4e50-b5f5-8cdf3b06e31a
 # ╠═29574837-97a9-4059-8f37-1751a791d338
 # ╠═199b65d5-e9ee-49ec-9820-e381d49f2a64
-# ╠═a07e98b3-2de6-4758-8de0-a0e1990d4bf4
+# ╟─a07e98b3-2de6-4758-8de0-a0e1990d4bf4
 # ╠═f41ca80d-fd80-4063-b475-eaf5b7ca2b36
 # ╠═15c7e2c7-bceb-46c3-85c6-6842f04f6f9a
 # ╠═c9834d62-49aa-40eb-ae02-050330b95e61
 # ╠═4affcb2d-c017-4b11-b77e-8c1ea3869534
 # ╠═7ab991f7-83a5-4d79-8051-1c32f5413aba
-# ╠═168db078-f02b-4fae-a53d-aab122fa98c8
+# ╟─168db078-f02b-4fae-a53d-aab122fa98c8
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
