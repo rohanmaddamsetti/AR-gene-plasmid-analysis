@@ -92,19 +92,35 @@ april.14.results <- april.14.data %>%
     calc.tet.cm.CNV.with.day0.control() %>%
     mutate(Replicate = as.factor(Replicate)) %>%
     mutate(TetConc = as.factor(TetConc))
-    
 
-april.14.fig <- ggplot(april.14.results,
+## Day 2 of experiment, using DH5a as strain.
+april.15.data <- read.csv("../data/qPCR/2022-04-15_DH5a_Tet5-day2-culture_qPCR.csv")
+
+april.15.results <- april.15.data %>%
+    calc.tet.cm.CNV.with.day0.control() %>%
+    mutate(Replicate = as.factor(Replicate)) %>%
+    mutate(TetConc = as.factor(TetConc))
+
+## let's join the results and make one figure.
+april.14.15.results <- rbind(april.14.results,april.15.results)
+
+april.14.15.fig <- ggplot(april.14.15.results,
                        aes(x = Day,
                            y = transposons.per.chromosome,
-                           color = TetConc)) +
+                           color = Replicate,
+                           shape = TetConc)) +
     facet_wrap(.~Plasmid, scales="free") +
     geom_point() +
+    geom_line() +
     theme_classic() +
     theme(legend.position = "bottom") +
-    scale_color_discrete(name = "tetracycline concentration\n(ug/mL)") +
+    scale_shape_discrete(name = "tetracycline concentration\n(ug/mL)") +
+    guides(color=FALSE) +
     geom_hline(yintercept = 1, color = "red", linetype = "dashed") +
     ylab("Transposons per chromosome") +
     ggtitle("Selection for tetracycline resistance causes transposition-mediated duplications")
 
-ggsave("../results/DH5a-qPCR-day1-2022-4-14.pdf", april.14.fig, width=7, height=3)
+ggsave("../results/DH5a-qPCR-2022-4-14-and-15.pdf", april.14.15.fig, width=7, height=3)
+
+    
+
