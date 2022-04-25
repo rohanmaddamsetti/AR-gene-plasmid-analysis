@@ -36,7 +36,7 @@ for each genome:
 
 import os
 from os.path import basename
-from pprint import pprint
+import re
 import gzip
 from Bio import SeqIO
 from tqdm import tqdm
@@ -101,6 +101,7 @@ with open(outf, "w") as out_fh:
             for replicon in SeqIO.parse(genome_fh, "gb"):
                 replicon_id = replicon.id
                 replicon_type = "NA"
+                replicon_length = len(replicon.seq)
                 if replicon_id in replicon_type_lookup_table[annotation_accession]:
                     replicon_type = replicon_type_lookup_table[annotation_accession][replicon_id]
                 else: ## replicon is not annotated as a plasmid or chromosome
@@ -168,9 +169,14 @@ with open(outf, "w") as out_fh:
         for my_dup_region_index, dup_region in enumerate(duplicated_regions, start=1):
             my_region_startloc = dup_region[0]["location"]
             my_region_endloc = dup_region[-1]["location"]
-            my_region_start = int(my_region_startloc.split(':')[0].split('[')[-1])
-            my_region_end = int(my_region_endloc.split(':')[-1].split(']')[0])
-            my_region_length = str(my_region_end - my_region_start)
+            ## the regex is to remove any non-digit characters, as for some corner cases.
+            ## this hack is a bit dangerous, but probably good enough for now.
+            my_region_start = int(re.sub('[^\d]','', my_region_startloc.split(':')[0].split('[')[-1]))
+            my_region_end = int(re.sub('[^\d]','', my_region_endloc.split(':')[-1].split(']')[0]))
+            if (my_region_start < my_region_end): 
+                my_region_length = str(my_region_end - my_region_start)
+            else: ## we are dealing with a wraparound duplication.
+                my_region_length = str(my_region_end + (replicon_length - my_region_start))
             for my_dup_index, dup in enumerate(dup_region, start=1):
                 row_data = [annotation_accession,replicon_id,replicon_type,my_dup_region_index,my_region_length,my_region_startloc,my_region_endloc,my_dup_index,dup["id"],dup["location"],dup["product"],dup["seq"]]
                 row = ','.join([str(x) for x in row_data]) + '\n'
