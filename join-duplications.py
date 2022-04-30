@@ -189,7 +189,3 @@ with open(outf, "w") as out_fh:
                         row = ','.join([str(x) for x in row_data]) + '\n'
                         out_fh.write(row)
 
-
-
-
-

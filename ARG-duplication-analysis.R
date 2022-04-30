@@ -32,6 +32,8 @@ unknown.protein.keywords <- "unknown|Unknown|hypothetical|Hypothetical|Uncharact
 ## match MGE genes using the following keywords in the "product" annotation
 IS.keywords <- "IS|transposon|Transposase|transposase|Transposable|transposable|virus|Phage|phage|integrase|Integrase|baseplate|tail|intron|Mobile|mobile|antitoxin|toxin|capsid|plasmid|Plasmid|conjug|Tra"
 
+MGE.or.unknown.protein.keywords <- paste(IS.keywords,unknown.protein.keywords,sep="|")
+
 ## Elongation Factor Tu (2 copies in most bacteria).
 ## \\b is a word boundary.
 ## see: https://stackoverflow.com/questions/62430498/detecting-whole-words-using-str-detect-in-r
@@ -2530,36 +2532,51 @@ human.joined.regions.table <- make.ARG.MGE.region.contingency.table(human.joined
 
 livestock.joined.regions.table <- make.ARG.MGE.region.contingency.table(livestock.joined.duplications, antibiotic.keywords, IS.keywords)
 
-## CRITICAL TODO: CRITICAL CONTROL! I need to repeat this analysis after removing duplicated regions
-## that only contain a single MGE gene, in order to control for the possibility that this result is driven
-## by the duplication of transposons that are not associated with any other functions.
+
+## Control analysis:
+## Let's repeat this analysis, removing all duplicated regions that only contain MGE
+## or unknown genes,
+## to control for the possibility that this result is driven by the transposition of MGEs
+## that don't have any passenger genes.
+## This actually seems like the case.
+## My feeling now is that it is probably better just to report the numbers for
+## associations between ARGs and MGEs in the text, rather than making a figure
+## about this point.
+
+only.MGE.or.unknown.joined.regions <- joined.duplications %>%
+    filter(str_detect(.$product, MGE.or.unknown.protein.keywords)) %>%
+    group_by(Annotation_Accession, Replicon_Accession, Replicon_type, region_index) %>%
+    mutate(num.MGE.genes = n()) %>%
+    ## get the regions-- drop the sequence information.
+    select(Annotation_Accession, Replicon_Accession, Replicon_type,
+           region_index, num_proteins_in_region, num.MGE.genes) %>%
+    distinct() %>%
+    filter(num.MGE.genes == num_proteins_in_region) %>%
+    mutate(MGE.region.filter.key = paste0(Annotation_Accession,Replicon_Accession,region_index))
+
+
+not.just.MGE.joined.duplications <- joined.duplications %>%
+    mutate(MGE.region.filter.key = paste0(Annotation_Accession,Replicon_Accession,region_index)) %>%
+    filter(!(MGE.region.filter.key %in% only.MGE.or.unknown.joined.regions$MGE.region.filter.key))
+write.csv("../results/no-only-MGE-or-unknown-joined-duplications.csv",
+          x=not.just.MGE.joined.duplications)
+
+not.just.MGE.joined.regions.contingency.table <- make.ARG.MGE.region.contingency.table(
+    not.just.MGE.joined.duplications, antibiotic.keywords, IS.keywords)
+fisher.test(not.just.MGE.joined.regions.contingency.table)
+
+
+human.not.just.MGE.joined.duplications <- not.just.MGE.joined.duplications %>%
+    filter(Annotation_Accession %in% human.isolates$Annotation_Accession)
+
+livestock.not.just.MGE.joined.duplications <- not.just.MGE.joined.duplications %>%
+    filter(Annotation_Accession %in% livestock.isolates$Annotation_Accession)
+
+human.not.just.MGE.joined.regions.table <- make.ARG.MGE.region.contingency.table(
+    human.not.just.MGE.joined.duplications, antibiotic.keywords, IS.keywords)
+
+livestock.not.just.MGE.joined.regions.table <- make.ARG.MGE.region.contingency.table(
+    livestock.not.just.MGE.joined.duplications, antibiotic.keywords, IS.keywords)
+
 
 ## let's make a figure in terms of percentages to make a simpler visualization of this pattern.
-
-
-## let's plot the distribution of region lengths in these categories.
-## CRITICAL TODO! There are bugs here that need to be fixed before this can be
-## trusted.
-## compare plasmids and chromosomes separately.
-
-joined.dup.regions <- joined.duplications %>%
-    select(Annotation_Accession, Replicon_Accession, Replicon_type,
-           region_index, region_length, num_proteins_in_region) %>%
-    distinct() %>%
-    arrange(desc(region_length))
-
-joined.dup.length.plot <- joined.dup.regions %>%
-    ggplot(aes(region_length)) +
-    theme_classic() +
-    geom_histogram(binwidth=1000) +
-    facet_wrap(.~Replicon_type)
-
-
-## CRITICAL CASE TO CHECK!!! make sure there are no negative lengths.
-region.length.bug <- joined.duplications %>%
-    filter(region_length < 0)
-write.csv("../results/buggy-region-lengths.csv",x=region.length.bug)
-
-
-## CRITICAL BUG TO FIX!!! some of the regions have lengths that are unrealistically
-## long.
