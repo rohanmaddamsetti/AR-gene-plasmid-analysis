@@ -82,26 +82,24 @@ gbk_annotation_dir = "../results/gbk-annotation/"
 outf = "../results/joined-duplicate-proteins.csv"
 
 with open(outf, "w") as out_fh:
-    header = "Annotation_Accession,Replicon_Accession,Replicon_type,region_index,region_length,region_start_location,region_end_location,protein_index,protein_id,location,product,sequence\n"
+    header = "Annotation_Accession,Replicon_Accession,Replicon_type,region_index,region_length,num_proteins_in_region,region_start,region_end,protein_index,protein_id,protein_start,protein_end,protein_length,product,sequence\n"
     out_fh.write(header)
 
     gbk_gz_files = [x for x in os.listdir(gbk_annotation_dir) if x.endswith("_genomic.gbff.gz")]
-    
-    for gbk_gz in tqdm(gbk_gz_files):
+    for gbk_gz in tqdm(gbk_gz_files):        
         infile = gbk_annotation_dir + gbk_gz
         annotation_accession = basename(infile).split("_genomic.gbff.gz")[0]
         ## IMPORTANT TODO: make sure chromosome-plasmid-table.csv
         ## and the data in ../results/gbk-annotation are consistent.
         ## The next line is a temporary consistency check.
         if annotation_accession not in replicon_type_lookup_table: continue
-
+        
         with gzip.open(infile,'rt') as genome_fh:
-            observed_locations = set()
-            duplicated_regions = []
             for replicon in SeqIO.parse(genome_fh, "gb"):
                 replicon_id = replicon.id
                 replicon_type = "NA"
                 replicon_length = len(replicon.seq)
+        
                 if replicon_id in replicon_type_lookup_table[annotation_accession]:
                     replicon_type = replicon_type_lookup_table[annotation_accession][replicon_id]
                 else: ## replicon is not annotated as a plasmid or chromosome
@@ -109,6 +107,8 @@ with open(outf, "w") as out_fh:
                     ## assume that this is an unassembled contig or scaffold.
                     replicon_type = "contig"
 
+                observed_locations = set() ## check for artifactual duplication due to duplicated annotation.
+                duplicated_regions = []
                 cur_duplication = []
                 if annotation_accession not in duplicated_proteins_lookup_table:
                     ## then there are no duplications in this genome.
@@ -117,6 +117,7 @@ with open(outf, "w") as out_fh:
                 hit_first_prot = False
                 first_prot = ""
                 last_prot = ""
+                            
                 for feat in replicon.features:
                     if feat.type != "CDS": continue
                     try:
@@ -128,8 +129,8 @@ with open(outf, "w") as out_fh:
                         prot_product = feat.qualifiers['product'][0].replace(',',';')
                     except:
                         prot_product = "NA"
+                    
                     prot_location = str(feat.location)
-
                     if prot_location in observed_locations:
                         continue
                     else: ## if not seen before, then add to observed_locations.
@@ -140,13 +141,13 @@ with open(outf, "w") as out_fh:
                     if not hit_first_prot:
                         my_first_prot = prot_id
                         hit_first_prot = True
-
+                        
                     ## check if the gene is duplicated.
                     if prot_seq in my_dup_dict: ## if so, add to the current dup.
                         cur_prot = { "seq" : prot_seq,
                                      "id" : prot_id,
                                      "product" : prot_product,
-                                     "location" : prot_location }
+                                     "location" : feat.location }
                         cur_duplication.append(cur_prot)
                     else:
                         if len(cur_duplication):
@@ -165,22 +166,28 @@ with open(outf, "w") as out_fh:
                             duplicated_regions[0] = wrapped_duplication
                         else:
                             duplicated_regions.append(cur_duplication)
-        ## write out the duplicated regions in this genome. use 1-based indexing for R.
-        for my_dup_region_index, dup_region in enumerate(duplicated_regions, start=1):
-            my_region_startloc = dup_region[0]["location"]
-            my_region_endloc = dup_region[-1]["location"]
-            ## the regex is to remove any non-digit characters, as for some corner cases.
-            ## this hack is a bit dangerous, but probably good enough for now.
-            my_region_start = int(re.sub('[^\d]','', my_region_startloc.split(':')[0].split('[')[-1]))
-            my_region_end = int(re.sub('[^\d]','', my_region_endloc.split(':')[-1].split(']')[0]))
-            if (my_region_start < my_region_end): 
-                my_region_length = str(my_region_end - my_region_start)
-            else: ## we are dealing with a wraparound duplication.
-                my_region_length = str(my_region_end + (replicon_length - my_region_start))
-            for my_dup_index, dup in enumerate(dup_region, start=1):
-                row_data = [annotation_accession,replicon_id,replicon_type,my_dup_region_index,my_region_length,my_region_startloc,my_region_endloc,my_dup_index,dup["id"],dup["location"],dup["product"],dup["seq"]]
-                row = ','.join([str(x) for x in row_data]) + '\n'
-                out_fh.write(row)
+                
+                ## write out the duplicated regions in this replicon.
+                ## use 1-based indexing for R.
+                for my_dup_region_index, dup_region in enumerate(duplicated_regions,start=1):
+                    ## IMPORTANT NOTE: unfortunately, CompoundLocations that span the
+                    ## beginning/end of the replicon will have a start of 0 and end
+                    ## that is the size of the replicon. The length should be correct though.
+                    my_region_start = dup_region[0]["location"].start
+                    my_region_end = dup_region[-1]["location"].end
+                    ## for simplicity, define the length of the region as
+                    ## the sum of the lengths of the duplicated proteins.
+                    my_region_length = sum([len(prot["location"]) for prot in dup_region])
+                    for my_dup_index, dup in enumerate(dup_region, start=1):
+                        row_data = [annotation_accession,replicon_id,replicon_type,
+                                    my_dup_region_index, my_region_length,
+                                    len(dup_region), ## number of proteins in the region.
+                                    my_region_start, my_region_end,
+                                    my_dup_index,dup["id"],dup["location"].start,
+                                    dup["location"].end, len(dup["location"]),
+                                    dup["product"],dup["seq"]]
+                        row = ','.join([str(x) for x in row_data]) + '\n'
+                        out_fh.write(row)
 
 
 

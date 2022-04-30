@@ -2437,3 +2437,129 @@ Fig8B <- plot_grid(Fig8B.title,
 ## now make the full Figure 8.
 Fig8 <- plot_grid(Fig8A, Fig8B, Fig8legend, ncol = 1, rel_heights = c(2,2,0.25))
 ggsave("../results/Fig8.pdf", Fig8, height = 7, width = 10)
+
+
+################################################################################
+## Analysis of chains of duplications, produced by join-duplications.py.
+## Look at basic statistics
+## for duplicated ARGs and associations with MGE genes,
+## and re-calculate statistics for duplicated ARGs associated with MGEs,
+## and duplicated ARGs that are not associated with MGEs.
+
+joined.duplications <- read.csv("../results/joined-duplicate-proteins.csv") %>%
+    tibble() %>%
+    ## for numeric consistency, remove all duplications with NA product annotations.
+    filter(!is.na(product))
+
+
+make.ARG.MGE.region.contingency.table <- function(joined.duplications,
+                                                  antibiotic.keywords,
+                                                  IS.keywords) {
+
+    ARG.joined.duplications <- joined.duplications %>%
+        filter(str_detect(.$product,antibiotic.keywords))
+
+    MGE.joined.duplications <- joined.duplications %>%
+        filter(str_detect(.$product, IS.keywords))
+    
+    ## get the regions-- drop the sequence information.
+    ## There are 756,165 regions in total.
+    joined.regions <- joined.duplications %>%
+        select(Annotation_Accession, Replicon_Accession, Replicon_type, region_index) %>%
+        distinct()
+    
+    ARG.joined.regions <- ARG.joined.duplications %>%
+        select(Annotation_Accession, Replicon_Accession, Replicon_type, region_index) %>%
+        distinct()
+    
+    no.ARG.joined.regions <- anti_join(joined.regions, ARG.joined.regions)
+    
+    MGE.joined.regions <- MGE.joined.duplications %>%
+        select(Annotation_Accession, Replicon_Accession, Replicon_type, region_index) %>%
+        distinct()
+    
+    no.MGE.joined.regions <- anti_join(joined.regions, MGE.joined.regions)
+    
+    ## count regions (groups) that contain both ARGs and MGE genes.
+    ## 3166 regions contain both ARGs and MGE genes.
+    ARG.and.MGE.joined.regions <- inner_join(ARG.joined.regions, MGE.joined.regions)
+    
+    ## count regions (groups) that contain ARGs but no MGE genes.
+    ## 2710 regions contain ARGs but no MGE genes.
+    ARG.and.no.MGE.joined.regions <- inner_join(ARG.joined.regions, no.MGE.joined.regions)
+    
+    ## count regions (groups) that contain MGE genes but no ARGs.
+    ## 572375 regions contain MGE genes but no ARGs.
+    MGE.and.no.ARG.joined.regions <- inner_join(no.ARG.joined.regions, MGE.joined.regions)
+    
+    ## count regions (groups) that have neither MGE genes nor ARGs.
+    ## 177363 regions contain neither MGE genes nor ARGs.
+    no.MGE.and.no.ARG.joined.regions <- inner_join(no.ARG.joined.regions,no.MGE.joined.regions)
+    
+    ## now use a contingency table to test whether duplicated ARGs and duplicated MGEs
+    ## are associated.
+    joined.regions.contingency.table <- matrix(c(nrow(ARG.and.MGE.joined.regions),
+                                                 nrow(ARG.and.no.MGE.joined.regions),
+                                                 nrow(MGE.and.no.ARG.joined.regions),
+                                                 nrow(no.MGE.and.no.ARG.joined.regions)),
+                                               nrow = 2,
+                                               dimnames = list(hasMGE = c("Yes","No"),
+                                                               hasARG = c("Yes","No")))
+    return(joined.regions.contingency.table)
+}
+
+joined.regions.contingency.table <- make.ARG.MGE.region.contingency.table(joined.duplications, antibiotic.keywords, IS.keywords)
+fisher.test(joined.regions.contingency.table)
+
+## the anti-correlation between duplicated MGEs and duplicated ARGs is stronger
+## when just examining isolates from humans and livestock.
+
+human.isolates <- gbk.annotation %>%
+    filter(Annotation == "Human-host")
+
+livestock.isolates <- gbk.annotation %>%
+    filter(Annotation == "Livestock")
+
+human.joined.duplications <- joined.duplications %>%
+    filter(Annotation_Accession %in% human.isolates$Annotation_Accession)
+
+livestock.joined.duplications <- joined.duplications %>%
+    filter(Annotation_Accession %in% livestock.isolates$Annotation_Accession)
+
+human.joined.regions.table <- make.ARG.MGE.region.contingency.table(human.joined.duplications, antibiotic.keywords, IS.keywords)
+
+livestock.joined.regions.table <- make.ARG.MGE.region.contingency.table(livestock.joined.duplications, antibiotic.keywords, IS.keywords)
+
+## CRITICAL TODO: CRITICAL CONTROL! I need to repeat this analysis after removing duplicated regions
+## that only contain a single MGE gene, in order to control for the possibility that this result is driven
+## by the duplication of transposons that are not associated with any other functions.
+
+## let's make a figure in terms of percentages to make a simpler visualization of this pattern.
+
+
+## let's plot the distribution of region lengths in these categories.
+## CRITICAL TODO! There are bugs here that need to be fixed before this can be
+## trusted.
+## compare plasmids and chromosomes separately.
+
+joined.dup.regions <- joined.duplications %>%
+    select(Annotation_Accession, Replicon_Accession, Replicon_type,
+           region_index, region_length, num_proteins_in_region) %>%
+    distinct() %>%
+    arrange(desc(region_length))
+
+joined.dup.length.plot <- joined.dup.regions %>%
+    ggplot(aes(region_length)) +
+    theme_classic() +
+    geom_histogram(binwidth=1000) +
+    facet_wrap(.~Replicon_type)
+
+
+## CRITICAL CASE TO CHECK!!! make sure there are no negative lengths.
+region.length.bug <- joined.duplications %>%
+    filter(region_length < 0)
+write.csv("../results/buggy-region-lengths.csv",x=region.length.bug)
+
+
+## CRITICAL BUG TO FIX!!! some of the regions have lengths that are unrealistically
+## long.
