@@ -8,8 +8,7 @@ library(cowplot)
 
 
 calc.probe.fold.differences <- function(well.df) {
-    ## this is a helper function for calculating probe fold differences
-    ## per well.
+    ## calculate probe fold differences per well.
 
     ## data analysis using constants calculated from Yi's standard curve calibration.
     T.per.C.constant <- 0.39071847356712
@@ -44,57 +43,14 @@ calc.probe.fold.differences <- function(well.df) {
     return(return.df)
 }
 
-
-calc.tet.cm.CNV.with.day0.control <- function(df.with.day0.control) {
-
-    m.cm <- 2^1.055 ## calibrated with May 6 2021 standard curve.
-    m.tet <- 2^0.904 ## calibrated with May 6 2021 standard curve.
-
-    control.data <- filter(df.with.day0.control, Day == 0)
-    tet.control.data <- filter(control.data, probe == "Tet")
-    cm.control.data <- filter(control.data, probe == "Cm")
-
-    ## question: maybe I should be using geometric mean here instead?
-    mean.control.tet.Cq <- mean(tet.control.data$cycle_at_threshold)
-    mean.control.cm.Cq <- mean(cm.control.data$cycle_at_threshold)
-    
-    beta <- 2^(m.tet * mean.control.tet.Cq - m.cm * mean.control.cm.Cq)
-
-    helper.func <- function(well.df) {
-        ## note: this helper uses the beta variable defined above.
-        C <- filter(well.df, probe == 'Cm')$cycle_at_threshold
-        T <- filter(well.df, probe == 'Tet')$cycle_at_threshold
-        T.per.C <- beta * 2^(m.cm * C - m.tet * T)
-
-        return.df <- data.frame(Well = unique(well.df$Well),
-                                Transposon = unique(well.df$Transposon),
-                                Plasmid = unique(well.df$Plasmid),
-                                Day = unique(well.df$Day),
-                                TetConc = unique(well.df$TetConc),
-                                Replicate = unique(well.df$Replicate),
-                                transposons.per.chromosome = T.per.C)
-        return(return.df)
-    }
-
-    
-    results <- df.with.day0.control %>%
-        split(.$Well) %>%
-        map_dfr(helper.func)
-    return(results)
-}
-
 ######################################################################
 
 ## Day 1 of experiment, using DH5a as strain.
 april.14.data <- read.csv("../data/qPCR/2022-04-14_DH5a_Tet5-day1-culture_qPCR.csv")
 
-april.14.results <- april.14.data %>%
-    calc.tet.cm.CNV.with.day0.control() %>%
-    mutate(Replicate = as.factor(Replicate)) %>%
-    mutate(TetConc = as.factor(TetConc))
 
-## repeating, but using Yi's calibration curve.
-april.14.results2 <- april.14.data %>%
+## Use Yi's calibration curve.
+april.14.results <- april.14.data %>%
     split(.$Well) %>%
     map_dfr(calc.probe.fold.differences) %>%
     mutate(Replicate = as.factor(Replicate)) %>%
@@ -104,13 +60,8 @@ april.14.results2 <- april.14.data %>%
 ## Day 2 of experiment, using DH5a as strain.
 april.15.data <- read.csv("../data/qPCR/2022-04-15_DH5a_Tet5-day2-culture_qPCR.csv")
 
-april.15.results <- april.15.data %>%
-    calc.tet.cm.CNV.with.day0.control() %>%
-    mutate(Replicate = as.factor(Replicate)) %>%
-    mutate(TetConc = as.factor(TetConc))
 
-## repeating, but using Yi's calibration curve.
-april.15.results2 <- april.15.data %>%
+april.15.results <- april.15.data %>%
     split(.$Well) %>%
     map_dfr(calc.probe.fold.differences) %>%
     mutate(Replicate = as.factor(Replicate)) %>%
@@ -119,8 +70,8 @@ april.15.results2 <- april.15.data %>%
 
 ## let's join the results and make one figure.
 april.14.15.results <- rbind(april.14.results,april.15.results)
-april.14.15.results2 <- rbind(april.14.results2,april.15.results2)
 
+## Using Yi's calibration produces a more sensible result.
 april.14.15.fig <- ggplot(april.14.15.results,
                        aes(x = Day,
                            y = transposons.per.chromosome,
@@ -131,32 +82,13 @@ april.14.15.fig <- ggplot(april.14.15.results,
     geom_line() +
     theme_classic() +
     theme(legend.position = "bottom") +
+    scale_x_continuous(breaks=c(0,1,2)) + ## set scale for Days.
     scale_shape_discrete(name = "tetracycline concentration\n(ug/mL)") +
     guides(color=FALSE) +
     ##geom_hline(yintercept = 1, color = "red", linetype = "dashed") +
     ylab("Transposons per chromosome") +
     ggtitle("Selection for tetracycline resistance causes transposition-mediated duplications")
-ggsave("../results/DH5a-qPCR-2022-4-14-and-15.pdf", april.14.15.fig, width=7, height=3)
 
-## Using Yi's calibration produces a more sensible result.
-april.14.15.fig2 <- ggplot(april.14.15.results2,
-                       aes(x = Day,
-                           y = transposons.per.chromosome,
-                           color = Replicate,
-                           shape = TetConc)) +
-    facet_wrap(.~Plasmid, scales="free") +
-    geom_point() +
-    geom_line() +
-    theme_classic() +
-    theme(legend.position = "bottom") +
-    scale_shape_discrete(name = "tetracycline concentration\n(ug/mL)") +
-    guides(color=FALSE) +
-    ##geom_hline(yintercept = 1, color = "red", linetype = "dashed") +
-    ylab("Transposons per chromosome") +
-    ggtitle("Selection for tetracycline resistance causes transposition-mediated duplications")
-ggsave("../results/DH5a-qPCR-2022-4-14-and-15-Yi-calib.pdf", april.14.15.fig2, width=7, height=3)
+ggsave("../results/DH5a-B30-qPCR-2022-4-14-and-15.pdf", april.14.15.fig, width=7, height=3)
 
-
-
-## let's repeat this analysis, but using Yi's calibration.
 
