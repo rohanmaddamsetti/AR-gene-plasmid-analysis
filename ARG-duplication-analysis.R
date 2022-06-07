@@ -884,7 +884,7 @@ Fig3A <- ggplot(Fig3A.data, aes(x = Count, y = Annotation, fill = Category)) +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
 Fig3legend <- get_legend(Fig3A)
-Fig3A <- Fig3A + guides(fill = FALSE)
+Fig3A <- Fig3A + guides(fill = "none")
 
 Fig3B <- ggplot(Fig3B.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
@@ -892,7 +892,7 @@ Fig3B <- ggplot(Fig3B.data, aes(x = Count, y = Annotation, fill = Category)) +
     theme_classic() +
     ggtitle("Distribution of single-copy genes") +
     xlab("Proportion of genes") +
-    guides(fill = FALSE) +
+    guides(fill = "none") +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
 stackedbar.Fig3A <- ggplot(Fig3A.data, aes(x = Count, y = Annotation, fill = Category)) +
@@ -908,7 +908,7 @@ stackedbar.Fig3B <- ggplot(Fig3B.data, aes(x = Count, y = Annotation, fill = Cat
     facet_wrap(.~Episome, scales = "free") +
     theme_classic() +
     ggtitle("Distribution of single-copy genes") +
-    guides(fill = FALSE) +
+    guides(fill = "none") +
     scale_x_continuous(labels=fancy_scientific) +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
@@ -983,7 +983,7 @@ S5FigA <- ggplot(both.chr.and.plasmid.summary,
     ylab("")
 
 S5Fig.legend <- get_legend(S5FigA)
-S5FigA <- S5FigA + guides(fill = FALSE)
+S5FigA <- S5FigA + guides(fill = "none")
 
 S5FigB <- ggplot(just.chromosome.summary,
                   aes(x = Count,
@@ -991,7 +991,7 @@ S5FigB <- ggplot(just.chromosome.summary,
     geom_bar(stat="identity", position = "fill", width = 0.95) +
     theme_classic() +
     ggtitle("chromosome only") +
-    guides(fill = FALSE) +
+    guides(fill = "none") +
     ylab("")
 
 S5FigC <- ggplot(just.plasmid.summary,
@@ -1000,7 +1000,7 @@ S5FigC <- ggplot(just.plasmid.summary,
     geom_bar(stat="identity", position = "fill", width = 0.95) +
     theme_classic() +
     ggtitle("plasmid only") +
-    guides(fill = FALSE) +
+    guides(fill = "none") +
     ylab("")
 
 S5Fig <- plot_grid(NULL, S5FigA, S5FigB, S5FigC, S5Fig.legend, ncol = 1,
@@ -2441,14 +2441,14 @@ Fig8A1 <- ggplot(Fig8A.data, aes(x = Count, y = Annotation_Accession, fill = Cat
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
 Fig8legend <- get_legend(Fig8A1)
-Fig8A1 <- Fig8A1 + guides(fill = FALSE)
+Fig8A1 <- Fig8A1 + guides(fill = "none")
 
 Fig8A2 <- ggplot(Fig8A.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
     geom_bar(stat="identity", position = "fill") +
     theme_classic() +
     ## remove genome name labels.
     theme(axis.text.y=element_blank()) +
-    guides(fill = FALSE) +
+    guides(fill = "none") +
     xlab("Frequency") +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
@@ -2463,7 +2463,7 @@ Fig8A <- plot_grid(Fig8A.title,
 Fig8B1 <- ggplot(Fig8B.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
     geom_bar(stat="identity") +
     theme_classic() +
-    guides(fill = FALSE) +
+    guides(fill = "none") +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
 Fig8B2 <- ggplot(Fig8B.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
@@ -2471,7 +2471,7 @@ Fig8B2 <- ggplot(Fig8B.data, aes(x = Count, y = Annotation_Accession, fill = Cat
     theme_classic() +
     ## remove genome name labels.
     theme(axis.text.y=element_blank()) +
-    guides(fill = FALSE) +
+    guides(fill = "none") +
     xlab("Frequency") +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
@@ -2510,7 +2510,7 @@ make.ARG.MGE.region.contingency.table <- function(joined.duplications,
 
     MGE.joined.duplications <- joined.duplications %>%
         filter(str_detect(.$product, IS.keywords))
-    
+        
     ## get the regions-- drop the sequence information.
     ## There are 756,165 regions in total.
     joined.regions <- joined.duplications %>%
@@ -2559,6 +2559,19 @@ make.ARG.MGE.region.contingency.table <- function(joined.duplications,
 
 joined.regions.contingency.table <- make.ARG.MGE.region.contingency.table(joined.duplications, antibiotic.keywords, IS.keywords)
 fisher.test(joined.regions.contingency.table)
+
+
+############################################################
+## WORKING HERE: I found how often ARGs are associated with MGEs.
+## how often are non-MGE genes associated with MGEs?
+
+other.functions.joined.duplications <- joined.duplications %>%
+    filter(!str_detect(.$product, IS.keywords)) %>%
+    filter(!str_detect(.$product,antibiotic.keywords))
+
+
+
+############################################################
 
 ## the anti-correlation between duplicated MGEs and duplicated ARGs is stronger
 ## when just examining isolates from humans and livestock.
