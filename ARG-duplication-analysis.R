@@ -1474,7 +1474,7 @@ Fig3 <- plot_grid(Fig3AB, Fig3C, labels = c('','C'), nrow = 2, rel_heights=c(0.7
 ggsave("../results/Fig3.pdf", Fig3, width=10, height=7)
 
 ################################################################################
-## Figure 6. A deterministic ODE model demonstrates that selection can
+## Figure 4A. A deterministic ODE model demonstrates that selection can
 ## drive the evolution of duplicated ARGs on plasmids.
 
 ## The panels of this figure are generated in my Pluto notebook:
