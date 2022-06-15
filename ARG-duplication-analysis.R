@@ -8,7 +8,6 @@ library(tidyverse)
 library(cowplot)
 library(ggrepel)
 library(data.table)
-library(tidytext) ## for text mining with R.
 library(forcats)
 
 
@@ -145,18 +144,6 @@ singleton.proteins <- all.proteins %>%
 duplicate.proteins <- read.csv("../results/duplicate-proteins.csv") %>%
     ## now merge with gbk annotation.
     inner_join(gbk.annotation)
-
-## For Teng (and myself), let's make a table of uncategorized duplicate proteins.
-unmatched.duplicate.proteins <- duplicate.proteins %>%
-    filter(!str_detect(.$product,IS.keywords)) %>%
-    filter(!str_detect(.$product,unknown.protein.keywords)) %>%
-    filter(!str_detect(.$product,EFTu.keywords)) %>%
-    filter(!str_detect(.$product,antibiotic.keywords)) %>%
-    as_tibble()
-write.csv(unmatched.duplicate.proteins,
-          file= "../results/non-MGE-non-ARG-duplicate-proteins.csv",
-          row.names=FALSE)
-unmatched.duplicate.protein.product.annotations <- unique(unmatched.duplicate.proteins$product)
 
 ## free up memory by deallocating all.proteins,
 rm(all.proteins)
@@ -1739,7 +1726,7 @@ single.organism.heme.table <- make.IsolateEnrichmentTable(
     "heme")
 
 #######################################################################################
-## Figure 8.
+## Supplementary Figure S4.
 ## Let's analyze duplicated genes in the 12 GN0XXXX genomes that were sequenced with
 ## long-read technology (PacBio) by Vance Fowler's lab.
 ## Jon Bethke characterized the resistances of these strains, and additionally
