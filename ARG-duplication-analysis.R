@@ -405,7 +405,7 @@ Fig2ABC.with.title <- plot_grid(Fig2ABC.title, Fig2ABC, ncol = 1, rel_heights = 
 ## See below.
 
 ######################################################################
-## Control for Taxonomy (simpler control than for phylogeny)
+## Supplementary Figure S2: Control for Taxonomy (simpler control than for phylogeny)
 
 ## let's look at the taxonomic distribution of strains with duplicated ARGs.
 duplicated.ARG.seq.genera.summary <- duplicate.proteins %>%
@@ -459,7 +459,7 @@ genera.isolate.comparison.df <- full_join(
 
 ## Hmmm... sampling biases could be problematic,
 ## since antibiotic-resistant bacteria are more likely to be sequenced.
-S1FigA <- genera.isolate.comparison.df %>%
+S2FigA <- genera.isolate.comparison.df %>%
     ggplot(aes(x=sqrt(genome.count),
                y = sqrt(duplicated.ARG.genome.count),
                label = Genus,
@@ -482,7 +482,7 @@ filtered.duplicate.proteins <- duplicate.proteins %>%
     filter(!(Genus %in% top.ARG.genera))
 
 filtered.TableS1 <- make.TableS1(filtered.gbk.annotation, filtered.duplicate.proteins)
-S1FigB <- make.confint.figure.panel(filtered.TableS1, order.by.total.isolates, "Duplicated ARGs after filtering top genera")
+S2FigB <- make.confint.figure.panel(filtered.TableS1, order.by.total.isolates, "Duplicated ARGs after filtering top genera")
 
 ## Let's try an alternative strategy: downsample the data such that only one
 ## sample for each organism is allowed.
@@ -500,96 +500,18 @@ single.organism.singleton.proteins <- singleton.proteins %>%
 
 single.organism.TableS1 <- make.TableS1(
     single.organism.gbk.annotation, single.organism.duplicate.proteins)
-S1FigC <- make.confint.figure.panel(
+S2FigC <- make.confint.figure.panel(
     single.organism.TableS1, order.by.total.isolates, "Duplicated ARGs after downsampling species")
 
-S1Fig <- plot_grid(S1FigA, S1FigB, S1FigC, labels = c("A", "B", "C"), nrow = 3, rel_heights = c(2,1,1))
-ggsave("../results/S1Fig.pdf", S1Fig, height=10)
-
-###########################################################################
-## Figure S2: Distribution of proportions of duplicated ARGs per genome:
-## For each Annotation category:
-## panel A: the % of genes in each genome that are duplicated ARGs.
-## panel B: the % of genes in each genome that are duplicated MGEs.
-## panel C: the % of genes in each genome that are duplicated.
-
-## calculate the number of duplicate genes in each genome.
-duplicated.genes.per.genome <- duplicate.proteins %>%
-    group_by(Annotation_Accession) %>%
-    summarize(gene.duplicates.per.genome = sum(count))
-    
-duplicated.MGEs.per.genome <- duplicate.proteins %>%
-    filter(str_detect(.$product, IS.keywords)) %>%
-    group_by(Annotation_Accession) %>%
-    summarize(MGE.duplicates.per.genome = sum(count))
-
-duplicated.ARGs.per.genome <- duplicate.proteins %>%
-    filter(str_detect(.$product,antibiotic.keywords)) %>%
-    group_by(Annotation_Accession) %>%
-    summarize(ARG.duplicates.per.genome = sum(count))
-    
-boxplot.df <- protein.db.metadata %>%
-    ## sum the CDS in all chromosomes and plasmids per genome.
-    group_by(Annotation_Accession, Annotation) %>%
-    summarize(total_genes = sum(CDS_count)) %>%
-    ## calculate percentage for all duplicated.genes.
-    left_join(duplicated.genes.per.genome) %>%
-    mutate(gene.duplicates.per.genome =
-               replace_na(gene.duplicates.per.genome, 0)) %>%
-    mutate(proportion.of.duplicated.genes = gene.duplicates.per.genome/total_genes) %>%
-    ## calculate percentage for duplicated MGE-associated genes.
-    left_join(duplicated.MGEs.per.genome) %>%
-    mutate(MGE.duplicates.per.genome =
-               replace_na(MGE.duplicates.per.genome, 0)) %>%
-    mutate(proportion.of.duplicated.MGEs = MGE.duplicates.per.genome/total_genes) %>%
-    ## calculate percentage for duplicated ARGs.
-    left_join(duplicated.ARGs.per.genome) %>%
-    mutate(ARG.duplicates.per.genome =
-               replace_na(ARG.duplicates.per.genome, 0)) %>%
-    mutate(proportion.of.duplicated.ARGs = ARG.duplicates.per.genome/total_genes)
-   
-S2FigA <- boxplot.df %>%
-    mutate(Annotation = factor(
-               Annotation,
-               levels = rev(order.by.total.isolates))) %>%
-    ggplot(aes(y = Annotation, x = proportion.of.duplicated.ARGs)) +
-    geom_jitter(size=0.2) +
-    ylab("") +
-    xlab("Proportion of duplicated ARGs per genome") +
-    theme_classic() +
-    ggtitle("Duplicated ARGs")
-
-S2FigB <- boxplot.df %>%
-    mutate(Annotation = factor(
-               Annotation,
-               levels = rev(order.by.total.isolates))) %>%
-    ggplot(aes(y = Annotation, x = proportion.of.duplicated.MGEs)) +
-    geom_jitter(size=0.2) +
-    ylab("") +
-    xlab("Proportion of duplicated MGE genes per genome") +
-    theme_classic() +
-    ggtitle("Duplicated MGE genes")
-
-S2FigC <- boxplot.df %>%
-    mutate(Annotation = factor(
-               Annotation,
-               levels = rev(order.by.total.isolates))) %>%
-    ggplot(aes(y = Annotation, x = proportion.of.duplicated.genes)) +
-    geom_jitter(size=0.2) +
-    ylab("") +
-    xlab("Proportion of duplicated genes per genome") +
-    theme_classic() +
-    ggtitle("Duplicated genes")
-
-S2Fig <- plot_grid(S2FigA, S2FigB, S2FigC, labels = c('A','B','C'), nrow = 3)
-ggsave("../results/S2Fig.pdf", S2Fig)
+S2Fig <- plot_grid(S2FigA, S2FigB, S2FigC, labels = c("A", "B", "C"), nrow = 3, rel_heights = c(2,1,1))
+ggsave("../results/S2Fig.pdf", S2Fig, height=10)
 
 ################################################################################
-## Figures S3 and S4. Proportion of isolates with duplicated or single-copy ARGs
+## Figures S1 and S3. Proportion of isolates with duplicated or single-copy ARGs
 ## for 12 different antibiotic classes.
 
 ########################################
-## Figure S3: Duplicated ARGs.
+## Figure S1: Duplicated ARGs.
 
 
 chloramphenicol.table <- make.IsolateEnrichmentTable(
@@ -653,57 +575,57 @@ macrolide.table <- make.IsolateEnrichmentTable(
     macrolide.keywords)
 
 
-S3FigA <- make.confint.figure.panel(chloramphenicol.table,
+S1FigA <- make.confint.figure.panel(chloramphenicol.table,
                                     order.by.total.isolates,
                                     "chloramphenicol resistance")
-S3FigB <- make.confint.figure.panel(tetracycline.table,
+S1FigB <- make.confint.figure.panel(tetracycline.table,
                                     order.by.total.isolates,
                                     "tetracycline resistance",
                                     no.category.label = TRUE)
-S3FigC <- make.confint.figure.panel(MLS.table,
+S1FigC <- make.confint.figure.panel(MLS.table,
                                     order.by.total.isolates,
                                     "MLS resistance",
                                     no.category.label = TRUE)
-S3FigD <- make.confint.figure.panel(multidrug.table,
+S1FigD <- make.confint.figure.panel(multidrug.table,
                                     order.by.total.isolates,
                                     "multidrug resistance")
-S3FigE <- make.confint.figure.panel(beta.lactam.table,
+S1FigE <- make.confint.figure.panel(beta.lactam.table,
                                     order.by.total.isolates,
                                     "beta-lactam resistance",
                                     no.category.label = TRUE)
-S3FigF <- make.confint.figure.panel(glycopeptide.table,
+S1FigF <- make.confint.figure.panel(glycopeptide.table,
                                     order.by.total.isolates,
                                     "glycopeptide resistance",
                                     no.category.label = TRUE)
-S3FigG <- make.confint.figure.panel(polypeptide.table,
+S1FigG <- make.confint.figure.panel(polypeptide.table,
                                     order.by.total.isolates,
                                     "polypeptide resistance")
-S3FigH <- make.confint.figure.panel(diaminopyrimidine.table,
+S1FigH <- make.confint.figure.panel(diaminopyrimidine.table,
                                     order.by.total.isolates,
                                     "diaminopyrimidine resistance",
                                     no.category.label = TRUE)
-S3FigI <- make.confint.figure.panel(sulfonamide.table,
+S1FigI <- make.confint.figure.panel(sulfonamide.table,
                                     order.by.total.isolates,
                                     "sulfonamide resistance",
                                     no.category.label = TRUE)
-S3FigJ <- make.confint.figure.panel(quinolone.table,
+S1FigJ <- make.confint.figure.panel(quinolone.table,
                                     order.by.total.isolates,
                                     "quinolone resistance")
-S3FigK <- make.confint.figure.panel(aminoglycoside.table,
+S1FigK <- make.confint.figure.panel(aminoglycoside.table,
                                     order.by.total.isolates,
                                     "aminoglycoside resistance",
                                     no.category.label = TRUE)
-S3FigL <- make.confint.figure.panel(macrolide.table,
+S1FigL <- make.confint.figure.panel(macrolide.table,
                                     order.by.total.isolates,
                                     "macrolide resistance",
                                     no.category.label = TRUE)
 
-S3Fig <- plot_grid(NULL, ## The nesting is to add a title.
+S1Fig <- plot_grid(NULL, ## The nesting is to add a title.
                    plot_grid(
-                       S3FigA, S3FigB, S3FigC,
-                       S3FigD, S3FigE, S3FigF,
-                       S3FigG, S3FigH, S3FigI,
-                       S3FigJ, S3FigK, S3FigL,
+                       S1FigA, S1FigB, S1FigC,
+                       S1FigD, S1FigE, S1FigF,
+                       S1FigG, S1FigH, S1FigI,
+                       S1FigJ, S1FigK, S1FigL,
                    rel_widths = c(1.5, 1, 1,
                                   1.5, 1, 1,
                                   1.5, 1, 1),
@@ -711,9 +633,9 @@ S3Fig <- plot_grid(NULL, ## The nesting is to add a title.
                    labels = c("Duplicated ARGs", ""),
                    ncol = 1,
                    rel_heights = c(0.05, 1))
-ggsave("../results/S3Fig.pdf", S3Fig, height = 9.75, width=9.75)
+ggsave("../results/S1Fig.pdf", S3Fig, height = 9.75, width=9.75)
 ########################################
-## Figure S4: Single-copy ARGs.
+## Figure S3: Single-copy ARGs.
 
 chloramphenicol.control.table <- make.IsolateEnrichmentControlTable(
     gbk.annotation,
@@ -776,57 +698,57 @@ macrolide.control.table <- make.IsolateEnrichmentControlTable(
     macrolide.keywords)
 
 
-S4FigA <- make.confint.figure.panel(chloramphenicol.control.table,
+S3FigA <- make.confint.figure.panel(chloramphenicol.control.table,
                                       order.by.total.isolates,
                                       "chloramphenicol resistance")
-S4FigB <- make.confint.figure.panel(tetracycline.control.table,
+S3FigB <- make.confint.figure.panel(tetracycline.control.table,
                                       order.by.total.isolates,
                                       "tetracycline resistance",
                                       no.category.label = TRUE)
-S4FigC <- make.confint.figure.panel(MLS.control.table,
+S3FigC <- make.confint.figure.panel(MLS.control.table,
                                       order.by.total.isolates,
                                       "MLS resistance",
                                       no.category.label = TRUE)
-S4FigD <- make.confint.figure.panel(multidrug.control.table,
+S3FigD <- make.confint.figure.panel(multidrug.control.table,
                                       order.by.total.isolates,
                                       "multidrug resistance")
-S4FigE <- make.confint.figure.panel(beta.lactam.control.table,
+S3FigE <- make.confint.figure.panel(beta.lactam.control.table,
                                       order.by.total.isolates,
                                       "beta-lactam resistance",
                                       no.category.label = TRUE)
-S4FigF <- make.confint.figure.panel(glycopeptide.control.table,
+S3FigF <- make.confint.figure.panel(glycopeptide.control.table,
                                       order.by.total.isolates,
                                       "glycopeptide resistance",
                                       no.category.label = TRUE)
-S4FigG <- make.confint.figure.panel(polypeptide.control.table,
+S3FigG <- make.confint.figure.panel(polypeptide.control.table,
                                       order.by.total.isolates,
                                       "polypeptide resistance")
-S4FigH <- make.confint.figure.panel(diaminopyrimidine.control.table,
+S3FigH <- make.confint.figure.panel(diaminopyrimidine.control.table,
                                       order.by.total.isolates,
                                       "diaminopyrimidine resistance",
                                       no.category.label = TRUE)
-S4FigI <- make.confint.figure.panel(sulfonamide.control.table,
+S3FigI <- make.confint.figure.panel(sulfonamide.control.table,
                                       order.by.total.isolates,
                                       "sulfonamide resistance",
                                       no.category.label = TRUE)
-S4FigJ <- make.confint.figure.panel(quinolone.control.table,
+S3FigJ <- make.confint.figure.panel(quinolone.control.table,
                                     order.by.total.isolates,
                                     "quinolone resistance")
-S4FigK <- make.confint.figure.panel(aminoglycoside.control.table,
+S3FigK <- make.confint.figure.panel(aminoglycoside.control.table,
                                       order.by.total.isolates,
                                       "aminoglycoside resistance",
                                       no.category.label = TRUE)
-S4FigL <- make.confint.figure.panel(macrolide.control.table,
+S3FigL <- make.confint.figure.panel(macrolide.control.table,
                                       order.by.total.isolates,
                                       "macrolide resistance",
                                       no.category.label = TRUE)
 
-S4Fig <- plot_grid(NULL, ## The nesting is to add a title.
+S3Fig <- plot_grid(NULL, ## The nesting is to add a title.
                    plot_grid(
-                       S4FigA, S4FigB, S4FigC,
-                       S4FigD, S4FigE, S4FigF,
-                       S4FigG, S4FigH, S4FigI,
-                       S4FigJ, S4FigK, S4FigL,
+                       S3FigA, S3FigB, S3FigC,
+                       S3FigD, S3FigE, S3FigF,
+                       S3FigG, S3FigH, S3FigI,
+                       S3FigJ, S3FigK, S3FigL,
                    rel_widths = c(1.5, 1, 1,
                                   1.5, 1, 1,
                                   1.5, 1, 1),
@@ -834,7 +756,7 @@ S4Fig <- plot_grid(NULL, ## The nesting is to add a title.
                    labels = c("Single-copy ARGs", ""),
                    ncol = 1,
                    rel_heights = c(0.05, 1))
-ggsave("../results/S4Fig.pdf", S4Fig, height = 9.75, width = 9.75)
+ggsave("../results/S3Fig.pdf", S3Fig, height = 9.75, width = 9.75)
 
 
 ##########################################################################
@@ -1816,324 +1738,6 @@ single.organism.heme.table <- make.IsolateEnrichmentTable(
     single.organism.duplicate.proteins,
     "heme")
 
-##########################################################################
-## Calculate TF-IDF (Term Frequency times Inverse Document Frequency)
-## for each ecological category, using protein sequences.
-## see "Mining of Massive Datasets"
-## and https://en.wikipedia.org/wiki/Tf%E2%80%93idf.
-
-## References for R package tidytext:
-## https://www.tidytextmining.com/
-## https://www.tidytextmining.com/tfidf.html
-
-## TF-IDF is good at finding proteins/terms that are
-## specific to particular ecological annotations.
-
-## let's look at the annotations and sequences of high frequency duplicated
-## proteins in each environment, after removing MGEs, EF-Tu, and unknown,
-## hypothetical, or uncharacterized proteins (since many different protein families
-## can be described this way).
-
-## This stuff probably won't go into the paper, but nice to have on hand.
-
-## this function filters proteins by manual annotation category,
-## supplied as an argument, and summarizes by count of product annotation strings.
-.make.annotation.freq.table <- function(data.df, manual.annot.string, remove.MGEs = TRUE) {
-
-    df <- data.df %>%
-        filter(Annotation == manual.annot.string) %>%
-        filter(!str_detect(.$product, unknown.protein.keywords)) %>%
-        filter(!str_detect(.$product, EFTu.keywords))
-
-    if (remove.MGEs)
-        df <- df %>% filter(!str_detect(.$product,IS.keywords))
-    
-    df %>% group_by(Annotation, product) %>%
-        summarize(annotation.count = n()) %>%
-        arrange(desc(annotation.count)) %>%
-        ungroup() %>%
-        mutate(total.duplicate.proteins = sum(annotation.count))
-}
-
-## IMPORTANT: These are the functions that are actually used.
-make.dup.annotation.freq.table <- partial(.f = .make.annotation.freq.table, duplicate.proteins)
-make.sing.annotation.freq.table <- partial(.f = .make.annotation.freq.table, singleton.proteins)
-## function for doing TF-IDF for duplicate proteins on plasmids.
-plasmid.duplicate.proteins <- duplicate.proteins %>% filter(plasmid_count >= 1)
-make.plas.dup.annotation.freq.table <- partial(.f = .make.annotation.freq.table, duplicate.proteins)
-
-
-## let's make a big table of product annotations per annotation category,
-## for TF-IDF analysis.
-
-## The analysis here closely follows the text mining example here:
-## https://www.tidytextmining.com/tfidf.html
-
-## run for duplicate proteins on plasmids.
-big.plas.dup.prot.annotation.freq.table <- map_dfr(unique(plasmid.duplicate.proteins$Annotation),
-                                              .f = make.plas.dup.annotation.freq.table) %>%
-    ungroup() %>% ## have to ungroup before summing up all annotations in the table.
-    mutate(total.annotation.count = sum(annotation.count))
-
-plas.dup.prot.annotation.tf_idf <- big.plas.dup.prot.annotation.freq.table %>%
-  bind_tf_idf(product, Annotation, annotation.count) %>%
-  arrange(desc(tf_idf))
-
-plas.top.dup.prot.annotation.tf_idf <- plas.dup.prot.annotation.tf_idf %>%
-    group_by(Annotation) %>%
-    slice_max(tf_idf, n = 5) %>%
-    ungroup()
-
-plas.dup.prot.annotation.tf_idf.plot <- plas.top.dup.prot.annotation.tf_idf %>%
-    ggplot(aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
-  geom_col(show.legend = TRUE) +
-  facet_wrap(~Annotation, ncol = 2, scales = "free") +
-  labs(x = "tf-idf", y = NULL)
-
-ggsave("../results/plasmid-duplicate-protein-annotation-TF-IDF.pdf",
-       plas.dup.prot.annotation.tf_idf.plot,
-       height=21,width=21)
-
-
-## run for all duplicate proteins.
-big.dup.prot.annotation.freq.table <- map_dfr(
-    unique(duplicate.proteins$Annotation),
-    .f = make.dup.annotation.freq.table) %>%
-    ## have to ungroup before summing up all annotations in the table.
-    ungroup() %>% 
-    mutate(total.annotation.count = sum(annotation.count))
-
-dup.prot.annotation.tf_idf <- big.dup.prot.annotation.freq.table %>%
-  bind_tf_idf(product, Annotation, annotation.count) %>%
-  arrange(desc(tf_idf))
-
-top.dup.prot.annotation.tf_idf <- dup.prot.annotation.tf_idf %>%
-    group_by(Annotation) %>%
-    slice_max(tf_idf, n = 5) %>%
-    ungroup()
-
-dup.prot.annotation.tf_idf.plot <- top.dup.prot.annotation.tf_idf %>%
-    ggplot(aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
-  geom_col(show.legend = TRUE) +
-  facet_wrap(~Annotation, ncol = 2, scales = "free") +
-  labs(x = "tf-idf", y = NULL)
-
-ggsave("../results/duplicate-protein-annotation-TF-IDF.pdf",
-       dup.prot.annotation.tf_idf.plot,
-       height=21,width=21)
-
-#### Now repeat this analysis, but with singleton proteins.
-#### This is a really valuable comparison.
-#### Do annotations of duplicate proteins carry more ecological information
-#### than the annotations of singleton proteins?
-
-big.sing.prot.annotation.freq.table <- map_dfr(
-    unique(singleton.proteins$Annotation),
-    .f = make.sing.annotation.freq.table) %>%
-    ## have to ungroup before summing up all annotations in the table.
-    ungroup() %>% 
-    mutate(total.annotation.count = sum(annotation.count))
-
-sing.prot.annotation.tf_idf <- big.sing.prot.annotation.freq.table %>%
-  bind_tf_idf(product, Annotation, annotation.count) %>%
-  arrange(desc(tf_idf))
-
-top.sing.prot.annotation.tf_idf <- sing.prot.annotation.tf_idf %>%
-    group_by(Annotation) %>%
-    slice_max(tf_idf, n = 100) %>%
-    ungroup()
-
-sing.prot.annotation.tf_idf.plot <- top.sing.prot.annotation.tf_idf %>%
-    ggplot(aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
-  geom_col(show.legend = TRUE) +
-  facet_wrap(~Annotation, ncol = 2, scales = "free") +
-  labs(x = "tf-idf", y = NULL)
-
-ggsave("../results/singleton-protein-annotation-TF-IDF.pdf",
-       sing.prot.annotation.tf_idf.plot,
-       height=21,width=21)
-
-#################
-
-ranked.dup.prot.annotation.tf_idf <- dup.prot.annotation.tf_idf %>%
-    group_by(Annotation) %>%
-    mutate(Rank = rank(desc(tf_idf))) %>%
-    ungroup()
-
-ranked.sing.prot.annotation.tf_idf <- sing.prot.annotation.tf_idf %>%
-    group_by(Annotation) %>%
-    mutate(Rank = rank(desc(tf_idf))) %>%
-    ungroup()
-
-## let's plot the tf_idf distributions per Annotation.
-dup.prot.annotation.tf_idf.dist.plot <- ranked.dup.prot.annotation.tf_idf %>%
-    ggplot(aes(x=Rank, y = tf_idf)) +
-    geom_line() +
-    facet_wrap(.~Annotation)
-
-sing.prot.annotation.tf_idf.dist.plot <- ranked.sing.prot.annotation.tf_idf %>%
-    ggplot(aes(x=Rank, y = tf_idf)) +
-    geom_line() +
-    facet_wrap(.~Annotation)
-
-## now make eCDF plots.
-dup.prot.annotation.tf_idf.cdf.plot <- ranked.dup.prot.annotation.tf_idf %>%
-    ggplot(aes(x = tf_idf)) +
-    stat_ecdf(geom = "step") +
-    facet_wrap(.~Annotation)
-
-sing.prot.annotation.tf_idf.cdf.plot <- ranked.sing.prot.annotation.tf_idf %>%
-    ggplot(aes(x = tf_idf)) +
-    stat_ecdf(geom = "step") +
-    facet_wrap(.~Annotation)
-
-
-
-retrieve.genomes.by.term <- function(tf_idf.df, annotated.proteins) {
-    ## map each query term to genome accessions and annotations.
-    retrieved.genomes <- tf_idf.df$product %>%
-        map_dfr(.f = ~filter(annotated.proteins, product == .x)) %>%
-        select(Annotation_Accession, host, isolation_source,
-               Annotation, Organism, Strain) %>%
-                distinct()
-}
-
-
-calc.precision <- function(retrieved.genomes, true.Annotation) {
-    ## precision := (# of relevant & retrieved genomes)/(# of retrieved genomes).
-    relevant.retrieved.genomes <- retrieved.genomes %>%
-        filter(Annotation == true.Annotation)
-    precision <- nrow(relevant.retrieved.genomes)/nrow(retrieved.genomes)
-    return(precision)
-}
-
-
-calc.recall <- function(gbk.annotation, retrieved.genomes, true.Annotation) {
-    ## recall := (# of retrieved & relevant genomes)/(# of relevant genomes).
-    retrieved.relevant.genomes <- retrieved.genomes %>%
-        filter(Annotation == true.Annotation)
-    relevant.genomes <- filter(gbk.annotation, Annotation == true.Annotation)
-    recall <- nrow(retrieved.relevant.genomes)/nrow(relevant.genomes)
-    return(recall)
-}
-
-
-make.precision.recall.df <- function(gbk.annotation, annotated.proteins, tf_idf.df) {
-    ## for each Annotation category, get the terms of interest,
-    ## calculate precision for the category,
-    ## calculate recall for the category,
-    ## and return a dataframe of the results.
-   
-    precision.recall.helper.func <- function(true.Annotation) {
-        queries <- filter(tf_idf.df, Annotation == true.Annotation)
-        retrieved.genomes <- retrieve.genomes.by.term(queries, annotated.proteins)
-        
-        precision <- calc.precision(retrieved.genomes, true.Annotation)
-        recall <- calc.recall(gbk.annotation, retrieved.genomes, true.Annotation)
-        ret.df <- data.frame(Annotation = true.Annotation,
-                             Precision = precision,
-                             Recall = recall)
-        return(ret.df)
-    }
-
-
-    all.annotations.vec <- unique(tf_idf.df$Annotation)
-
-    precision.recall.df <- map_dfr(
-        .x = all.annotations.vec,
-        .f = precision.recall.helper.func)
-
-    return(precision.recall.df)
-}
-
-dup.tf_idf_precision.recall.df <- make.precision.recall.df(
-    gbk.annotation,
-    duplicate.proteins,
-    top.dup.prot.annotation.tf_idf) %>%
-    mutate(class = "Multicopy")
-
-sing.tf_idf_precision.recall.df <- make.precision.recall.df(
-    gbk.annotation,
-    singleton.proteins,
-    top.sing.prot.annotation.tf_idf) %>%
-    mutate(class = "Single-copy")
-
-combined.tf_idf_precision.recall.df <- rbind(
-    dup.tf_idf_precision.recall.df,
-    sing.tf_idf_precision.recall.df) %>%
-    mutate(F1_score = 2*(Precision*Recall)/(Precision+Recall))
-
-precision.plot <- combined.tf_idf_precision.recall.df %>%
-    ggplot(aes(x=Annotation, y = Precision, color = class)) +
-    geom_point() +
-    theme_classic() + ggtitle("Precision")
-
-recall.plot <- combined.tf_idf_precision.recall.df %>%
-    ggplot(aes(x=Annotation, y = Recall, color = class)) +
-    geom_point() +
-    theme_classic() + ggtitle("Recall")
-
-F1_score.plot <- combined.tf_idf_precision.recall.df %>%
-    ggplot(aes(x=Annotation, y = F1_score, color = class)) +
-    geom_point() +
-    theme_classic() + ggtitle("F1 score")
-
-#########
-## this function filters duplicate proteins by annotation category,
-## supplied as an argument, and summarizes by count of product annotation strings.
-make.seq.freq.table <- function(annot.string) {
-    duplicate.proteins %>%
-        filter(Annotation == annot.string) %>%
-        filter(!str_detect(.$product,IS.keywords)) %>%
-        filter(!str_detect(.$product, EFTu.keywords)) %>%
-        group_by(Annotation, sequence) %>%
-        summarize(seq.count = n()) %>%
-        arrange(desc(seq.count)) %>%
-        ungroup() %>%
-        mutate(total.annotation.duplicate.seqs = sum(seq.count))
-}
-
-## let's make a big table of product annotations per annotation category,
-## for TF-IDF analysis.
-
-## The analysis here closely follows the text mining example here:
-## https://www.tidytextmining.com/tfidf.html
-
-big.dup.prot.seq.freq.table <- map_dfr(unique(duplicate.proteins$Annotation),
-                                              .f = make.seq.freq.table) %>%
-    ungroup() %>% ## have to ungroup before summing up all seqs in the table.
-    mutate(total.seqs = sum(seq.count))
-
-## let's make canonical protein annotations (allow only one annotation per sequence).
-canonical.dup.prot.seq.annotations <- duplicate.proteins %>%
-    select(sequence, product) %>%
-    group_by(sequence) %>%
-    ## take the first product annotation as the canonical annotation.
-    filter(row_number() == 1) %>%
-    ungroup()
-
-dup.prot.seq.tf_idf <- big.dup.prot.seq.freq.table %>%
-  bind_tf_idf(sequence, Annotation, seq.count) %>%
-    arrange(desc(tf_idf)) %>%
-    ## now merge the canonical sequence annotations
-    left_join(canonical.dup.prot.seq.annotations)
-
-top.dup.prot.seq.tf_idf <- dup.prot.seq.tf_idf %>%
-    group_by(Annotation) %>%
-    slice_max(tf_idf, n = 10) %>%
-    ungroup()
-
-dup.prot.seq.tf_idf.plot <- top.dup.prot.seq.tf_idf %>%
-    ggplot(aes(tf_idf, fct_reorder(product, tf_idf), fill = Annotation)) +
-    geom_col(show.legend = TRUE) +
-    facet_wrap(~Annotation, ncol = 2, scales = "free") +
-    labs(x = "tf-idf", y = NULL)
-
-ggsave("../results/duplicate-protein-seq-TF-IDF.pdf",
-       dup.prot.seq.tf_idf.plot,
-       height=21,width=21)
-
-
 #######################################################################################
 ## Figure 8.
 ## Let's analyze duplicated genes in the 12 GN0XXXX genomes that were sequenced with
@@ -2207,28 +1811,28 @@ Duke.ESBL.remaining.singleton.proteins <- Duke.ESBL.singleton.proteins %>%
     filter(!str_detect(.$product,unknown.protein.keywords))
 
 #####################################
-## Now make Figure 8.
+## Now make Supplementary Figure S4.
 
-Fig8A.data <- Duke.ESBL.duplicate.proteins %>%
+S4FigA.data <- Duke.ESBL.duplicate.proteins %>%
     mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
     group_by(Annotation_Accession, Category) %>%
     summarize(Count = sum(count))
 
-Fig8B.data <- Duke.ESBL.singleton.proteins %>%
+S4FigB.data <- Duke.ESBL.singleton.proteins %>%
     mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
     group_by(Annotation_Accession, Category) %>%
     summarize(Count = sum(count))
 
-Fig8A1 <- ggplot(Fig8A.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+S4FigA1 <- ggplot(S4FigA.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
     geom_bar(stat="identity") +
     theme_classic() +
     theme(legend.position="bottom") +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
-Fig8legend <- get_legend(Fig8A1)
-Fig8A1 <- Fig8A1 + guides(fill = "none")
+S4Figlegend <- get_legend(S4FigA1)
+S4FigA1 <- S4FigA1 + guides(fill = "none")
 
-Fig8A2 <- ggplot(Fig8A.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+S4FigA2 <- ggplot(S4FigA.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
     geom_bar(stat="identity", position = "fill") +
     theme_classic() +
     ## remove genome name labels.
@@ -2237,21 +1841,21 @@ Fig8A2 <- ggplot(Fig8A.data, aes(x = Count, y = Annotation_Accession, fill = Cat
     xlab("Frequency") +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
-Fig8A.title <- ggdraw() + draw_label("Distribution of duplicated genes in 12 ESBL-resistant isolates", fontface='bold')
+S4FigA.title <- ggdraw() + draw_label("Distribution of duplicated genes in 12 ESBL-resistant isolates", fontface='bold')
 
-Fig8A <- plot_grid(Fig8A.title,
-                   plot_grid(Fig8A1, Fig8A2, labels = c("A",""),
+S4FigA <- plot_grid(S4FigA.title,
+                   plot_grid(S4FigA1, S4FigA2, labels = c("A",""),
                              nrow=1, rel_widths=c(2,1)),
                    nrow=2, rel_heights=c(0.2,2))
 
 
-Fig8B1 <- ggplot(Fig8B.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+S4FigB1 <- ggplot(S4FigB.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
     geom_bar(stat="identity") +
     theme_classic() +
     guides(fill = "none") +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
-Fig8B2 <- ggplot(Fig8B.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+S4FigB2 <- ggplot(FigS4B.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
     geom_bar(stat="identity", position = "fill") +
     theme_classic() +
     ## remove genome name labels.
@@ -2261,16 +1865,16 @@ Fig8B2 <- ggplot(Fig8B.data, aes(x = Count, y = Annotation_Accession, fill = Cat
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
 
-Fig8B.title <- ggdraw() + draw_label("Distribution of single-copy genes in 12 ESBL-resistant isolates", fontface='bold')
+S4FigB.title <- ggdraw() + draw_label("Distribution of single-copy genes in 12 ESBL-resistant isolates", fontface='bold')
 
-Fig8B <- plot_grid(Fig8B.title,
-                   plot_grid(Fig8B1, Fig8B2, labels = c("B",""),
+S4FigB <- plot_grid(S4FigB.title,
+                   plot_grid(S4FigB1, S4FigB2, labels = c("B",""),
                              nrow=1, rel_widths=c(2,1)),
                    nrow=2, rel_heights=c(0.2,2))
 
-## now make the full Figure 8.
-Fig8 <- plot_grid(Fig8A, Fig8B, Fig8legend, ncol = 1, rel_heights = c(2,2,0.25))
-ggsave("../results/Fig8.pdf", Fig8, height = 7, width = 10)
+## now make the full Supplementary Figure S4.
+S4Fig <- plot_grid(S4FigA, S4FigB, S4Figlegend, ncol = 1, rel_heights = c(2,2,0.25))
+ggsave("../results/S4Fig.pdf", S4Fig, height = 7, width = 10)
 
 
 ################################################################################
@@ -2343,85 +1947,4 @@ make.ARG.MGE.region.contingency.table <- function(joined.duplications,
 }
 
 joined.regions.contingency.table <- make.ARG.MGE.region.contingency.table(joined.duplications, antibiotic.keywords, IS.keywords)
-fisher.test(joined.regions.contingency.table)
 
-
-############################################################
-## WORKING HERE: I found how often ARGs are associated with MGEs.
-## how often are non-MGE genes associated with MGEs?
-
-other.functions.joined.duplications <- joined.duplications %>%
-    filter(!str_detect(.$product, IS.keywords)) %>%
-    filter(!str_detect(.$product,antibiotic.keywords))
-
-
-
-############################################################
-
-## the anti-correlation between duplicated MGEs and duplicated ARGs is stronger
-## when just examining isolates from humans and livestock.
-
-human.isolates <- gbk.annotation %>%
-    filter(Annotation == "Human-host")
-
-livestock.isolates <- gbk.annotation %>%
-    filter(Annotation == "Livestock")
-
-human.joined.duplications <- joined.duplications %>%
-    filter(Annotation_Accession %in% human.isolates$Annotation_Accession)
-
-livestock.joined.duplications <- joined.duplications %>%
-    filter(Annotation_Accession %in% livestock.isolates$Annotation_Accession)
-
-human.joined.regions.table <- make.ARG.MGE.region.contingency.table(human.joined.duplications, antibiotic.keywords, IS.keywords)
-
-livestock.joined.regions.table <- make.ARG.MGE.region.contingency.table(livestock.joined.duplications, antibiotic.keywords, IS.keywords)
-
-
-## Control analysis:
-## Let's repeat this analysis, removing all duplicated regions that only contain MGE
-## or unknown genes,
-## to control for the possibility that this result is driven by the transposition of MGEs
-## that don't have any passenger genes.
-## This actually seems like the case.
-## My feeling now is that it is probably better just to report the numbers for
-## associations between ARGs and MGEs in the text, rather than making a figure
-## about this point.
-
-only.MGE.or.unknown.joined.regions <- joined.duplications %>%
-    filter(str_detect(.$product, MGE.or.unknown.protein.keywords)) %>%
-    group_by(Annotation_Accession, Replicon_Accession, Replicon_type, region_index) %>%
-    mutate(num.MGE.genes = n()) %>%
-    ## get the regions-- drop the sequence information.
-    select(Annotation_Accession, Replicon_Accession, Replicon_type,
-           region_index, num_proteins_in_region, num.MGE.genes) %>%
-    distinct() %>%
-    filter(num.MGE.genes == num_proteins_in_region) %>%
-    mutate(MGE.region.filter.key = paste0(Annotation_Accession,Replicon_Accession,region_index))
-
-
-not.just.MGE.joined.duplications <- joined.duplications %>%
-    mutate(MGE.region.filter.key = paste0(Annotation_Accession,Replicon_Accession,region_index)) %>%
-    filter(!(MGE.region.filter.key %in% only.MGE.or.unknown.joined.regions$MGE.region.filter.key))
-write.csv("../results/no-only-MGE-or-unknown-joined-duplications.csv",
-          x=not.just.MGE.joined.duplications)
-
-not.just.MGE.joined.regions.contingency.table <- make.ARG.MGE.region.contingency.table(
-    not.just.MGE.joined.duplications, antibiotic.keywords, IS.keywords)
-fisher.test(not.just.MGE.joined.regions.contingency.table)
-
-
-human.not.just.MGE.joined.duplications <- not.just.MGE.joined.duplications %>%
-    filter(Annotation_Accession %in% human.isolates$Annotation_Accession)
-
-livestock.not.just.MGE.joined.duplications <- not.just.MGE.joined.duplications %>%
-    filter(Annotation_Accession %in% livestock.isolates$Annotation_Accession)
-
-human.not.just.MGE.joined.regions.table <- make.ARG.MGE.region.contingency.table(
-    human.not.just.MGE.joined.duplications, antibiotic.keywords, IS.keywords)
-
-livestock.not.just.MGE.joined.regions.table <- make.ARG.MGE.region.contingency.table(
-    livestock.not.just.MGE.joined.duplications, antibiotic.keywords, IS.keywords)
-
-
-## let's make a figure in terms of percentages to make a simpler visualization of this pattern.
