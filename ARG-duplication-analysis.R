@@ -133,11 +133,6 @@ order.by.total.isolates <- make.isolate.totals.col(gbk.annotation)$Annotation
 episome.database <- episome.database %>%
     filter(Annotation_Accession %in% gbk.annotation$Annotation_Accession)
 
-## now get the singleton protein by filtering.
-singleton.proteins <- all.proteins %>%
-    filter(count == 1) %>%
-    inner_join(gbk.annotation)
-
 ## read in duplicate proteins with sequences, using a separate file.
 ## I want the sequence column for the duplicate genes,
 ## but not for the singletons, to save memory.
@@ -145,6 +140,34 @@ duplicate.proteins <- read.csv("../results/duplicate-proteins.csv") %>%
     ## now merge with gbk annotation.
     inner_join(gbk.annotation)
 
+
+######## Lingchong asked for this control analysis.
+## by default, don't count plasmid proteins as duplicates.
+COUNT.PLASMID.PROTEINS.AS.DUPLICATES <- TRUE ##FALSE
+
+if (COUNT.PLASMID.PROTEINS.AS.DUPLICATES) {
+
+    ## CRITICAL STEP: get plasmid proteins to count as duplicates.
+    plasmid.proteins <- all.proteins %>%
+        filter(plasmid_count >= 1) %>%
+        inner_join(gbk.annotation)
+    
+    ## CRITICAL STEP: join plasmid proteins as duplicates.
+    duplicate.proteins <- duplicate.proteins %>%
+        left_join(plasmid.proteins)
+
+       ## now get the singleton protein by filtering.
+    singleton.proteins <- all.proteins %>%
+        filter(count == 1) %>%
+        ## proteins on plasmids do not count as singletons in this analysis.
+        filter(plasmid_count == 0) %>%
+        inner_join(gbk.annotation)
+
+    } else { ## just get the singleton protein by filtering.
+        singleton.proteins <- all.proteins %>%
+            filter(count == 1) %>%
+            inner_join(gbk.annotation)     
+}
 ## free up memory by deallocating all.proteins,
 rm(all.proteins)
 ## and running garbage collection.
@@ -453,7 +476,7 @@ S2FigA <- genera.isolate.comparison.df %>%
                color = in.top.ARG.genera)) +
     theme_classic() + geom_jitter() + geom_text_repel(fontface = "italic") +
     scale_color_manual(values=c("black", "red")) +
-    guides(color=FALSE) +
+    guides(color="none") +
     xlab("sqrt(Number of isolates)") +
     ylab("sqrt(Number of isolates with duplicated ARGs)")
 
@@ -620,7 +643,7 @@ S1Fig <- plot_grid(NULL, ## The nesting is to add a title.
                    labels = c("Duplicated ARGs", ""),
                    ncol = 1,
                    rel_heights = c(0.05, 1))
-ggsave("../results/S1Fig.pdf", S3Fig, height = 9.75, width=9.75)
+ggsave("../results/S1Fig.pdf", S1Fig, height = 9.75, width=9.75)
 ########################################
 ## Figure S3: Single-copy ARGs.
 
