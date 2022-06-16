@@ -142,7 +142,8 @@ duplicate.proteins <- read.csv("../results/duplicate-proteins.csv") %>%
 
 ######## Lingchong asked for this control analysis.
 ## by default, don't count plasmid proteins as duplicates.
-COUNT.PLASMID.PROTEINS.AS.DUPLICATES <- TRUE ##FALSE
+## The results are robust to this assumption; nothing changes.
+COUNT.PLASMID.PROTEINS.AS.DUPLICATES <- FALSE
 
 if (COUNT.PLASMID.PROTEINS.AS.DUPLICATES) {
 
