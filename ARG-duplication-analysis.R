@@ -2,13 +2,12 @@
 ## analyse the distribution of antibiotic resistance genes (ARGs)
 ## on chromosomes versus plasmids in  fully-sequenced genomes and plasmids
 ## in the NCBI Nucleotide database.
-## This is a rewrite of Aim1-analysis.R, using a different statistical framework.
 
 library(tidyverse)
 library(cowplot)
 library(ggrepel)
 library(data.table)
-library(forcats)
+##library(forcats)
 
 
 fancy_scientific <- function(x) {
@@ -155,7 +154,8 @@ if (COUNT.PLASMID.PROTEINS.AS.DUPLICATES) {
     ## CRITICAL STEP: join plasmid proteins as duplicates.
     duplicate.proteins <- duplicate.proteins %>%
         left_join(plasmid.proteins)
-
+    ## remove plasmid.proteins from memory once we are done with it.
+    rm(plasmid.proteins)
        ## now get the singleton protein by filtering.
     singleton.proteins <- all.proteins %>%
         filter(count == 1) %>%
@@ -515,6 +515,10 @@ S2FigC <- make.confint.figure.panel(
 
 S2Fig <- plot_grid(S2FigA, S2FigB, S2FigC, labels = c("A", "B", "C"), nrow = 3, rel_heights = c(2,1,1))
 ggsave("../results/S2Fig.pdf", S2Fig, height=10)
+
+rm(single.organism.duplicate.proteins)
+rm(single.organism.singleton.proteins)
+gc()
 
 ################################################################################
 ## Figures S1 and S3. Proportion of isolates with duplicated or single-copy ARGs
