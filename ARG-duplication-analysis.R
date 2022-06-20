@@ -26,7 +26,6 @@ unknown.protein.keywords <- "unknown|Unknown|hypothetical|Hypothetical|Uncharact
 ## NOTE: some hypothetical proteins are "ISXX family insertion sequence hypothetical protein"
 ## so filter out those cases, when counting unknown proteins.
 
-
 ## match MGE genes using the following keywords in the "product" annotation
 IS.keywords <- "IS|transposon|Transposase|transposase|Transposable|transposable|virus|Phage|phage|integrase|Integrase|baseplate|tail|intron|Mobile|mobile|antitoxin|toxin|capsid|plasmid|Plasmid|conjug|Tra"
 
@@ -495,6 +494,16 @@ filtered.duplicate.proteins <- duplicate.proteins %>%
 filtered.TableS1 <- make.TableS1(filtered.gbk.annotation, filtered.duplicate.proteins)
 S2FigB <- make.confint.figure.panel(filtered.TableS1, order.by.total.isolates, "Duplicated ARGs after filtering top genera")
 
+## let's check the results, just for the top ARG genera.
+top.ARG.genera.duplicate.proteins <- duplicate.proteins %>%
+    filter(Genus %in% top.ARG.genera)
+
+top.ARG.genera.TableS1 <- make.TableS1(top.ARG.genera.isolates,
+                                       top.ARG.genera.duplicate.proteins)
+
+S2FigC <- make.confint.figure.panel(
+    top.ARG.genera.TableS1, order.by.total.isolates, "Duplicated ARGs in top genera only")
+
 ## Let's try an alternative strategy: downsample the data such that only one
 ## sample for each organism is allowed.
 
@@ -511,10 +520,10 @@ single.organism.singleton.proteins <- singleton.proteins %>%
 
 single.organism.TableS1 <- make.TableS1(
     single.organism.gbk.annotation, single.organism.duplicate.proteins)
-S2FigC <- make.confint.figure.panel(
+S2FigD <- make.confint.figure.panel(
     single.organism.TableS1, order.by.total.isolates, "Duplicated ARGs after downsampling species")
 
-S2Fig <- plot_grid(S2FigA, S2FigB, S2FigC, labels = c("A", "B", "C"), nrow = 3, rel_heights = c(2,1,1))
+S2Fig <- plot_grid(S2FigA, S2FigB, S2FigC, S2FigD, labels = c("A", "B", "C", "D"), nrow = 4, rel_heights = c(2,1,1,1))
 ggsave("../results/S2Fig.pdf", S2Fig, height=10)
 
 rm(single.organism.duplicate.proteins)
