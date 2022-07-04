@@ -1041,9 +1041,9 @@ with open("../results/gbk-annotation-table.csv", "r") as annotation_fh:
 
         ## Plant-host
         elif host in plant_hosts:
-            annotation = "Plant-host"
+            annotation = "Plants"
         elif isolation_source in plant_isolation_sources:
-            annotation = "Plant-host"
+            annotation = "Plants"
 
             
         ## Marine
@@ -1130,11 +1130,11 @@ with open("../results/gbk-annotation-table.csv", "r") as annotation_fh:
             
         ## Animal-host
         elif host in animal_hosts:
-            annotation = "Animal-host"
+            annotation = "Animals"
         elif isolation_source in animal_isolation_sources:
-            annotation = "Animal-host"
+            annotation = "Animals"
         elif "bemisia" in host: ## as in bemisia tabaci.
-            annotation = "Animal-host"
+            annotation = "Animals"
 
 
         ## Anthropogenic-environment
@@ -1223,37 +1223,37 @@ with open("../results/gbk-annotation-table.csv", "r") as annotation_fh:
 
         ## Human-host
         elif "sapiens" in host:
-            annotation = "Human-host"
+            annotation = "Humans"
         elif host != "na" and host not in livestock_hosts and host not in animal_hosts and "homo" in host:
-            annotation = "Human-host"
+            annotation = "Humans"
         elif host != "na" and host not in livestock_hosts and host not in animal_hosts and "human" in host:
-            annotation = "Human-host"
+            annotation = "Humans"
         elif host != "na" and host not in livestock_hosts and host not in animal_hosts and host == "human":
-            annotation = "Human-host"
+            annotation = "Humans"
         elif host not in livestock_hosts and host not in animal_hosts and isolation_source in human_isolation_sources:
-            annotation = "Human-host"
+            annotation = "Humans"
         elif host in human_hosts:
-            annotation = "Human-host"
+            annotation = "Humans"
         elif host == "na" and isolation_source == "feces":
-            annotation = "Human-host"
+            annotation = "Humans"
         elif host == "na" and "blood" in isolation_source:
-            annotation = "Human-host"
+            annotation = "Humans"
         elif host == "na" and "lymph" in isolation_source:
-            annotation = "Human-host"
+            annotation = "Humans"
         elif host == "na" and "abscess" in isolation_source:
-            annotation = "Human-host"
+            annotation = "Humans"
         elif host == "na" and "patient" in isolation_source:
-            annotation = "Human-host"
+            annotation = "Humans"
         elif host == "na" and "infant" in isolation_source:
-            annotation = "Human-host"
+            annotation = "Humans"
         elif host == "na" and "human" in isolation_source:
-            annotation = "Human-host"
+            annotation = "Humans"
         elif host == "na" and "stool" in isolation_source:
-            annotation = "Human-host"
+            annotation = "Humans"
         elif host == "na" and "clinical" in isolation_source:
-            annotation = "Human-host"
+            annotation = "Humans"
         elif host == "na" and isolation_source == "lung":
-            annotation = "Human-host"
+            annotation = "Humans"
 
             
         print(','.join([annotation_accession, original_host, original_isolation_source, annotation]))
