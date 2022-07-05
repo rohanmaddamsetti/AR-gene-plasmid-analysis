@@ -5,6 +5,7 @@
 
 library(tidyverse)
 library(cowplot)
+library(forcats)
 
 
 calc.all.probe.fold.differences <- function(well.df) {
@@ -66,6 +67,7 @@ calc.only.Tet.Cm.probe.fold.differences <- function(well.df) {
 }
 
 ######################################################################
+## Figure 4D of the paper.
 
 ## Day 1 of experiment, using DH5a-B30 as strain.
 april.14.data <- read.csv("../data/qPCR/2022-04-14_DH5a-B30_Tet5-day1-culture_qPCR.csv")
@@ -91,25 +93,31 @@ april.15.results <- april.15.data %>%
 
 
 ## let's join the results and make one figure.
-april.14.15.results <- rbind(april.14.results,april.15.results)
+april.14.15.results <- rbind(april.14.results,april.15.results) %>%
+    ## update the names of the Plasmid factor for a prettier plot.
+    mutate(Plasmid = fct_recode(as.factor(Plasmid),
+                      `No plasmid` = "no_plasmid",
+                      p15A = "p15A_plasmid",
+                      pUC = "pUC_plasmid"))
 
 ## Using Yi's calibration produces a more sensible result.
-april.14.15.fig <- ggplot(april.14.15.results,
+Fig4D <- ggplot(april.14.15.results,
                        aes(x = Day,
                            y = transposons.per.chromosome,
                            color = Replicate,
                            shape = TetConc)) +
     facet_wrap(.~Plasmid, scales="free") +
-    geom_point() +
-    geom_line() +
+    geom_point(size=3) +
+    geom_line(size=0.5) +
     theme_classic() +
     theme(legend.position = "bottom") +
     scale_x_continuous(breaks=c(0,1,2)) + ## set scale for Days.
-    scale_shape_discrete(name = "tetracycline concentration\n(ug/mL)") +
-    guides(color=FALSE) +
-    ##geom_hline(yintercept = 1, color = "red", linetype = "dashed") +
-    ylab("Transposons per chromosome") +
-    ggtitle("Selection for tetracycline resistance causes transposition-mediated duplications")
+    scale_shape_discrete(name = "Tetracycline concentration\n(ug/mL)") +
+    guides(color = "none") +
+    theme(strip.background = element_blank()) +
+    ylab("Transposons per chromosome")
+
+ggsave("../results/Fig4D.pdf", Fig4D, width=7, height=3)
 
 ######################################################################
 
