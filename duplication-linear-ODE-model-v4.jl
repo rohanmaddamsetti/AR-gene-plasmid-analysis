@@ -121,7 +121,9 @@ Duplication Cost = 0.1
 
 Transfer Rate = 0.0002  
 
-Dilution Rate = 0.1.  
+Dilution Rate = 0.1.
+
+Plasmid copy number = 4.
 """
 
 # ╔═╡ 629c7707-18b9-48ab-84c0-a88d41dd5686
@@ -160,7 +162,7 @@ begin
 	x1, x2, x3 = 0.1, 0.1, 0.1
 	u₀ = [x1, x2, x3]
 	## time interval
-	tspan = (0.0,10000.0)
+	tspan = (0.0,200.0)
 end
 
 # ╔═╡ b979eee9-f1e0-4ef3-8c03-859482a3157d
@@ -257,18 +259,20 @@ antibiotic_prob = ODEProblem(dynamics!, u₀, tspan, antibiotic_treatment);
 antibiotic_sol = solve(antibiotic_prob);
 
 # ╔═╡ 79f731a1-1d47-41aa-935d-7d9307b4b6e5
-plot(antibiotic_sol,linewidth=2,xaxis="t")
+plot(antibiotic_sol,linewidth=2,xaxis="Time", size=(3.5*72,3*72),
+					legend = false, fontfamily = "Helvetica", grid = false,
+					yaxis = "Biomass")
 
 # ╔═╡ b67afe32-e740-4767-bd86-9bf6df37b587
 antibiotic_sol_array = transpose(hcat(antibiotic_sol.u...))
 
 # ╔═╡ d81e5ab5-0221-439a-b6e7-6d7c6e6e9ac0
 let
-S4FigB = groupedbar(antibiotic_sol_array, bar_position = :stack,
-					bar_width = 0.7, legend = :bottom, fontfamily = "Helvetica",
+S4FigB = groupedbar(antibiotic_sol_array, bar_position = :stack, size=(3.5*72,3*72),
+					bar_width = 1, legend = false, fontfamily = "Helvetica", lw = 0,
+					grid = false,
 					ylabel = "Total biomass",
-					xlabel = "Time",
-					label = ["Type 1" "Type 2" "Type 3"])
+					xlabel = "Time")
 savefig(S4FigB, "../results/linear-ODE-model-figures/Fig4B-pop-dynamics.pdf")
 S4FigB
 end
@@ -320,15 +324,15 @@ end
 let
 	fixed_parameters = [η, D, y]
 	
-	p = plot()
-	for cost in 0.05:0.05:0.3
-		antibiotic_concs = [x for x in 0:0.02:4]
+	p = plot(size=(3.5*72,3*72))
+	for cost in 0.05:0.05:0.25
+		antibiotic_concs = [x for x in 0.25:0.001:1]
 		dup_indices = [ConcAndCostToDuplicationIndex(x, cost, fixed_parameters) for x in antibiotic_concs]
 		my_label = "cost = $cost"
 		plot!(antibiotic_concs, dup_indices, label=my_label,
 			legend = false,
 			ylabel="Duplication Index",
-			palette = :YlGnBu_9,
+			palette = :Hokusai3,
 			xlabel="Antibiotic Concentration",
 			fontfamily="Helvetica",
 			grid = false)
@@ -337,6 +341,9 @@ let
 	savefig(p, "../results/linear-ODE-model-figures/Fig4C-DI-versus-selection.pdf")
 	p
 end
+
+# ╔═╡ 4ebc8fd9-4b5e-46e8-89f5-5f33b038ad11
+findcolorscheme("cvd")
 
 # ╔═╡ 168db078-f02b-4fae-a53d-aab122fa98c8
 md""" **Acknowledgements**
@@ -370,7 +377,7 @@ StatsPlots = "~0.14.33"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.2"
+julia_version = "1.7.3"
 manifest_format = "2.0"
 
 [[deps.AbstractFFTs]]
@@ -722,7 +729,7 @@ uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 version = "0.8.6"
 
 [[deps.Downloads]]
-deps = ["ArgTools", "LibCURL", "NetworkOptions"]
+deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
 [[deps.DualNumbers]]
@@ -795,6 +802,9 @@ deps = ["Pkg", "Requires", "UUIDs"]
 git-tree-sha1 = "9267e5f50b0e12fdfd5a2455534345c4cf2c7f7a"
 uuid = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
 version = "1.14.0"
+
+[[deps.FileWatching]]
+uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[deps.FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
@@ -2356,13 +2366,13 @@ version = "0.9.1+5"
 
 # ╔═╡ Cell order:
 # ╠═f68c9a74-b452-11ec-1ea4-476924c26b22
-# ╠═39a00ba5-abbe-424a-a260-be87a51bf50a
+# ╟─39a00ba5-abbe-424a-a260-be87a51bf50a
 # ╠═7ec09a6e-eadd-49a3-aeb3-2fd94a7b5f8e
-# ╠═5a11508d-1bd1-494a-a370-6e9b77050551
+# ╟─5a11508d-1bd1-494a-a370-6e9b77050551
 # ╠═5f3e692c-3d96-4ca3-a843-ae2e9b5e6b10
 # ╟─7d7e8322-9f1e-46f8-8586-27515ea24441
 # ╠═2edcc207-0c4b-4717-a9ca-df23b6354acc
-# ╠═12bfa0be-8c2b-465c-874a-7e41f47c4337
+# ╟─12bfa0be-8c2b-465c-874a-7e41f47c4337
 # ╟─629c7707-18b9-48ab-84c0-a88d41dd5686
 # ╟─abe253e9-93b3-4c73-a2a9-843b9e332981
 # ╟─bfe80764-5b9b-41d8-94b7-d6a1ec833207
@@ -2375,7 +2385,7 @@ version = "0.9.1+5"
 # ╠═3b1db27f-0f5d-41eb-90d5-65bc69400d5d
 # ╠═6d8a3135-35c4-4763-b330-d5ee98821354
 # ╠═b979eee9-f1e0-4ef3-8c03-859482a3157d
-# ╠═b7340adf-428d-4aaa-84f2-5f6545bda9d6
+# ╟─b7340adf-428d-4aaa-84f2-5f6545bda9d6
 # ╠═ecc7bfec-76c1-4e85-af7f-4ae583812167
 # ╠═16840e91-c0c8-48a8-bebd-fbace7b995e5
 # ╠═8219b8c7-4692-44d2-9c2d-c3d51012362f
@@ -2392,6 +2402,7 @@ version = "0.9.1+5"
 # ╠═29574837-97a9-4059-8f37-1751a791d338
 # ╠═f41ca80d-fd80-4063-b475-eaf5b7ca2b36
 # ╠═c9834d62-49aa-40eb-ae02-050330b95e61
+# ╠═4ebc8fd9-4b5e-46e8-89f5-5f33b038ad11
 # ╟─168db078-f02b-4fae-a53d-aab122fa98c8
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
