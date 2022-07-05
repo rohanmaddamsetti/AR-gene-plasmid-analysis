@@ -1139,65 +1139,65 @@ with open("../results/gbk-annotation-table.csv", "r") as annotation_fh:
 
         ## Anthropogenic-environment
         elif host in anthropogenic_hosts:
-            annotation = "Anthropogenic-environment" 
+            annotation = "Human-impacted" 
         elif host == "na" and isolation_source in anthropogenic_isolation_sources:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "environment" and isolation_source in anthropogenic_isolation_sources:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "environmental" and isolation_source in anthropogenic_isolation_sources:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "sediment" and isolation_source in anthropogenic_isolation_sources:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "na" and "aquaculture" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "na" and "waste" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "na" and "sewage" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "na" and "sludge" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "na" and "bakery environment" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "na" and "modified" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "na" and "contamina" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "na" and "digester" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif "oil" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif "cell line" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "na" and "industr" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "na" and "construct" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "na" and "artificial" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "na" and "facility" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "na" and "engineer" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "na" and "culture" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "na" and "agar" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "na" and "reactor" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "na" and "laboratory" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "na" and "experiment" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "na" and "biopesticide" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif "polluted soil" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host == "gram-positive bacteria" or host == "bacteria" or host == "sludge":
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif "probiotic" in isolation_source:
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
         elif host ==  "sofa":
-            annotation = "Anthropogenic-environment"
+            annotation = "Human-impacted"
 
             
         ## Sediment
