@@ -195,7 +195,7 @@ plasmid.annotation <- protein.db.metadata %>%
 ##########################################################################
 ## Figure 1 is a schematic of the analysis pipeline.
 ##########################################################################
-## Analysis for Figure 2ABC.
+## Code and data structures for Figure 2ABC.
 
 ## See Wikipedia reference:
 ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
@@ -313,15 +313,12 @@ make.confint.figure.panel <- function(Table, order.by.total.isolates, title,
     return(Fig.panel)
 }
 
-
-## Figure 2A: normal-approximation confidence intervals for the percentage
+## Data structure for Figure 2A:
+## normal-approximation confidence intervals for the percentage
 ## of isolates with duplicated ARGs.
 TableS1 <- make.TableS1(gbk.annotation, duplicate.proteins)
 ## write Supplementary Table S1 to file.
 write.csv(x=TableS1, file="../results/TableS1.csv")
-
-Fig2A <- make.confint.figure.panel(TableS1, order.by.total.isolates, "D-ARGs") +
-        scale_x_continuous(breaks = c(0, 0.15))
 
 ######################
 ## Table S2. Control: does the distribution of ARG singletons
@@ -361,9 +358,6 @@ TableS2 <- make.TableS2(gbk.annotation, singleton.proteins)
 ## write TableS2 to file.
 write.csv(x=TableS2, file="../results/TableS2.csv")
 
-Fig2B <- make.confint.figure.panel(TableS2, order.by.total.isolates,
-                                   "S-ARGs", no.category.label=TRUE) +
-    scale_x_continuous(breaks = c(0.85, 1.0))
 gc() ## free memory after dealing with singleton data.
 
 #########################################################################
@@ -396,25 +390,10 @@ make.TableS3 <- function(gbk.annotation, duplicate.proteins) {
     return(TableS3)
 }
 
-
+## Data structure for Figure 2C.
 TableS3 <- make.TableS3(gbk.annotation, duplicate.proteins)
 ## write TableS3 to file.
 write.csv(x=TableS3, file="../results/TableS3.csv")
-
-Fig2C <- make.confint.figure.panel(TableS3, order.by.total.isolates,
-                                   "All D-genes", no.category.label=TRUE) +
-    scale_x_continuous(breaks = c(0.75, 0.95))
-
-Fig2ABC.title <- title_theme <- ggdraw() +
-    draw_label("Isolate-level analysis",fontface="bold")
-
-Fig2ABC <- plot_grid(Fig2A, Fig2B, Fig2C, labels=c('A','B','C'),
-                     rel_widths = c(1.5,1,1), nrow=1)
-
-Fig2ABC.with.title <- plot_grid(Fig2ABC.title, Fig2ABC, ncol = 1, rel_heights = c(0.1, 1))
-
-## the rest of Figure 2 -- Fig2DEFGHI -- requires Tables S4 and S5.
-## See below.
 
 ######################################################################
 ## Supplementary Figure S2: Control for Taxonomy (simpler control than for phylogeny)
@@ -537,7 +516,6 @@ S2FigBCD <- plot_grid(S2FigB, S2FigC, S2FigD, labels = c("B","C",'D'), nrow = 1,
 S2Fig <- plot_grid(S2FigA, S2FigBCD, labels = c("A", ""), nrow = 2, rel_heights = c(1.3,1))
 
 ggsave("../results/S2Fig.pdf", S2Fig, width=7.5)
-
 
 rm(single.organism.duplicate.proteins)
 rm(single.organism.singleton.proteins)
@@ -794,84 +772,6 @@ S3Fig <- plot_grid(NULL, ## The nesting is to add a title.
                    rel_heights = c(0.025, 1))
 ggsave("../results/S3Fig.pdf", S3Fig, height = 10.5, width = 8)
 
-
-##########################################################################
-## Figure 3AB: Visualization of ARGs on plasmids and chromosomes.
-
-categorize.as.MGE.ARG.or.other <- function(product) {
-    if (is.na(product))
-        return("Other function")
-    else if (str_detect(product, antibiotic.keywords))
-        return("ARG")
-    else if (str_detect(product, IS.keywords))
-        return("MGE")
-    else
-        return("Other function")
-}
-
-
-## Make zeros print as "0".
-## See: https://dannagifford.com/2020/04/14/r-and-ggplot2-make-zero-print-as-0/
-prettyZero <- function(l){
-    max.decimals = max(nchar(str_extract(l, "\\.[0-9]+")), na.rm = T)-1
-    lnew = formatC(l, replace.zero = T, zero.print = "0",
-        digits = max.decimals, format = "f", preserve.width=T)
-    return(lnew)
-}
-
-Fig3A.data <- duplicate.proteins %>%
-    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
-    group_by(Annotation, Category) %>%
-    summarize(Plasmid = sum(plasmid_count), Chromosome = sum(chromosome_count)) %>%
-    pivot_longer(cols = c("Plasmid", "Chromosome"),
-                 names_to = "Episome",
-                 values_to = "Count") %>%
-    mutate(Annotation = factor(
-               Annotation,
-               levels = rev(order.by.total.isolates)))
-
-Fig3B.data <- singleton.proteins %>%
-    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
-    group_by(Annotation, Category) %>%
-    summarize(Plasmid = sum(plasmid_count), Chromosome = sum(chromosome_count)) %>%
-    pivot_longer(cols = c("Plasmid", "Chromosome"),
-                 names_to = "Episome",
-                 values_to = "Count") %>%
-    mutate(Annotation = factor(
-               Annotation,
-               levels = rev(order.by.total.isolates)))
-
-Fig3A <- ggplot(Fig3A.data, aes(x = Count, y = Annotation, fill = Category)) +
-    geom_bar(stat="identity", position = "fill", width = 0.95) +
-    facet_wrap(.~Episome) +
-    theme_classic() +
-    xlab("% of D-genes") +
-    scale_x_continuous(breaks = c(0,1)) +
-    theme(legend.position="bottom") +
-    theme(strip.background = element_blank()) +
-    ylab("") ## remove the redundant "Annotation" label on the y-axis.
-
-Fig3legend <- get_legend(Fig3A)
-Fig3A <- Fig3A + guides(fill = "none")
-
-Fig3B <- ggplot(Fig3B.data, aes(x = Count, y = Annotation, fill = Category)) +
-    geom_bar(stat="identity", position = "fill", width = 0.95) +
-    facet_wrap(.~Episome) +
-    theme_classic() +
-    xlab("% of S-genes") +
-    scale_x_continuous(breaks = c(0,1)) +
-    guides(fill = "none") +
-    theme(strip.background = element_blank()) +
-    theme(axis.text.y=element_blank()) +
-    ylab("") ## remove the redundant "Annotation" label on the y-axis.
-
-## Panel 3C and the Fig3legend will be added later. Needed for the full figure.
-
-## remove the dataframes to save memory.
-##rm(Fig3A.data)
-##rm(Fig3B.data)
-gc()
-
 #########################
 ## S5 Figure.
 ## Analysis of duplicate pairs found just on chromosome, just on plasmid, or
@@ -1115,7 +1015,7 @@ plasmid.chromosome.singleton.ARG.contingency.test <- function(TableS5) {
 
 plasmid.chromosome.singleton.ARG.contingency.test(TableS5)
 ################################################################################
-## Use the data in Tables S4 and S5 to make Figure 2DEFGHI.
+## Use the data in Tables S4 and S5 to make the data structures for Figure 2DEFGHI.
 ## The point of this figure is to show that the distribution of
 ## duplicated ARGs is not predicted by the distribution of single-copy ARGs
 ## in the ecological categories.
@@ -1265,6 +1165,27 @@ make.Fig2DEFGHI.panel <- function(Table, order.by.total.isolates, title,
     return(panel)
 }
 
+## Finally -- make Figure 2ABC.
+Fig2A <- make.confint.figure.panel(TableS1, order.by.total.isolates, "D-ARGs") +
+        scale_x_continuous(breaks = c(0, 0.15))
+
+Fig2B <- make.confint.figure.panel(TableS2, order.by.total.isolates,
+                                   "S-ARGs", no.category.label=TRUE) +
+    scale_x_continuous(breaks = c(0.85, 1.0))
+
+Fig2C <- make.confint.figure.panel(TableS3, order.by.total.isolates,
+                                   "All D-genes", no.category.label=TRUE) +
+    scale_x_continuous(breaks = c(0.75, 0.95))
+
+Fig2ABC.title <- title_theme <- ggdraw() +
+    draw_label("Isolate-level analysis",fontface="bold")
+
+Fig2ABC <- plot_grid(Fig2A, Fig2B, Fig2C, labels=c('A','B','C'),
+                     rel_widths = c(1.5,1,1), nrow=1)
+
+Fig2ABC.with.title <- plot_grid(Fig2ABC.title, Fig2ABC, ncol = 1, rel_heights = c(0.1, 1))
+
+## the rest of Figure 2 -- Fig2DEFGHI -- requires Tables S4 and S5.
 ## I manually set axis labels so that they don't run into each other.
 Fig2D <- make.Fig2DEFGHI.panel(Fig2D.df, order.by.total.isolates,
                          "\nD-ARGs",
@@ -1305,14 +1226,78 @@ Fig2DEFGHI <- plot_grid(Fig2D, Fig2E, Fig2F, Fig2G, Fig2H, Fig2I,
 Fig2DEFGHI.with.title <- plot_grid(Fig2DEFGHI.title, Fig2DEFGHI,
                                    ncol = 1, rel_heights = c(0.06, 1))
 
-
 ## Now, make the complete Figure 2!
 Fig2 <- plot_grid(Fig2ABC.with.title, Fig2DEFGHI.with.title,
                   ncol = 1, rel_heights = c(0.3,0.7))
 
 ggsave("../results/Fig2.pdf", Fig2, height=8, width=5.6)
 
-################################################################################
+##########################################################################
+## Figure 3: Visualization of ARGs on plasmids and chromosomes, and evidence for selection.
+
+## set up data structures for Figure 3AB.
+categorize.as.MGE.ARG.or.other <- function(product) {
+    if (is.na(product))
+        return("Other function")
+    else if (str_detect(product, antibiotic.keywords))
+        return("ARG")
+    else if (str_detect(product, IS.keywords))
+        return("MGE")
+    else
+        return("Other function")
+}
+
+Fig3A.data <- duplicate.proteins %>%
+    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
+    group_by(Annotation, Category) %>%
+    summarize(Plasmid = sum(plasmid_count), Chromosome = sum(chromosome_count)) %>%
+    pivot_longer(cols = c("Plasmid", "Chromosome"),
+                 names_to = "Episome",
+                 values_to = "Count") %>%
+    mutate(Annotation = factor(
+               Annotation,
+               levels = rev(order.by.total.isolates)))
+
+Fig3B.data <- singleton.proteins %>%
+    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
+    group_by(Annotation, Category) %>%
+    summarize(Plasmid = sum(plasmid_count), Chromosome = sum(chromosome_count)) %>%
+    pivot_longer(cols = c("Plasmid", "Chromosome"),
+                 names_to = "Episome",
+                 values_to = "Count") %>%
+    mutate(Annotation = factor(
+               Annotation,
+               levels = rev(order.by.total.isolates)))
+
+Fig3A <- ggplot(Fig3A.data, aes(x = Count, y = Annotation, fill = Category)) +
+    geom_bar(stat="identity", position = "fill", width = 0.95) +
+    facet_wrap(.~Episome) +
+    theme_classic() +
+    xlab("% of D-genes") +
+    scale_x_continuous(breaks = c(0,1)) +
+    theme(legend.position="bottom") +
+    theme(strip.background = element_blank()) +
+    ylab("") ## remove the redundant "Annotation" label on the y-axis.
+
+Fig3legend <- get_legend(Fig3A)
+Fig3A <- Fig3A + guides(fill = "none")
+
+Fig3B <- ggplot(Fig3B.data, aes(x = Count, y = Annotation, fill = Category)) +
+    geom_bar(stat="identity", position = "fill", width = 0.95) +
+    facet_wrap(.~Episome) +
+    theme_classic() +
+    xlab("% of S-genes") +
+    scale_x_continuous(breaks = c(0,1)) +
+    guides(fill = "none") +
+    theme(strip.background = element_blank()) +
+    theme(axis.text.y=element_blank()) +
+    ylab("") ## remove the redundant "Annotation" label on the y-axis.
+
+## remove the dataframes to save memory.
+rm(Fig3A.data)
+rm(Fig3B.data)
+gc()
+
 ## Figure 3C: 
 ## The observed ecological distribution of duplicate genes is driven by either
 ## selection, HGT, or associations with MGEs.
