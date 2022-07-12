@@ -138,7 +138,6 @@ duplicate.proteins <- read.csv("../results/duplicate-proteins.csv") %>%
     ## now merge with gbk annotation.
     inner_join(gbk.annotation)
 
-
 ######## Lingchong asked for this control analysis.
 ## by default, don't count plasmid proteins as duplicates.
 ## The results are robust to this assumption; nothing changes.
@@ -301,7 +300,7 @@ make.confint.figure.panel <- function(Table, order.by.total.isolates, title,
         ggplot(aes(y = Annotation, x = p)) +
         geom_point(size=1) +
         ylab("") +
-        xlab("Proportion of Isolates") +
+        xlab("% of Isolates") +
         theme_classic() +
         ggtitle(title) +
         ## plot CIs.
@@ -321,7 +320,8 @@ TableS1 <- make.TableS1(gbk.annotation, duplicate.proteins)
 ## write Supplementary Table S1 to file.
 write.csv(x=TableS1, file="../results/TableS1.csv")
 
-Fig2A <- make.confint.figure.panel(TableS1, order.by.total.isolates, "Duplicated ARGs")
+Fig2A <- make.confint.figure.panel(TableS1, order.by.total.isolates, "D-ARGs") +
+        scale_x_continuous(breaks = c(0, 0.15))
 
 ######################
 ## Table S2. Control: does the distribution of ARG singletons
@@ -362,7 +362,8 @@ TableS2 <- make.TableS2(gbk.annotation, singleton.proteins)
 write.csv(x=TableS2, file="../results/TableS2.csv")
 
 Fig2B <- make.confint.figure.panel(TableS2, order.by.total.isolates,
-                                   "Single-copy ARGs", no.category.label=TRUE)
+                                   "S-ARGs", no.category.label=TRUE) +
+    scale_x_continuous(breaks = c(0.85, 1.0))
 gc() ## free memory after dealing with singleton data.
 
 #########################################################################
@@ -401,7 +402,8 @@ TableS3 <- make.TableS3(gbk.annotation, duplicate.proteins)
 write.csv(x=TableS3, file="../results/TableS3.csv")
 
 Fig2C <- make.confint.figure.panel(TableS3, order.by.total.isolates,
-                                   "All Duplicated Genes", no.category.label=TRUE)
+                                   "All D-genes", no.category.label=TRUE) +
+    scale_x_continuous(breaks = c(0.75, 0.95))
 
 Fig2ABC.title <- title_theme <- ggdraw() +
     draw_label("Isolate-level analysis",fontface="bold")
@@ -478,7 +480,7 @@ S2FigA <- genera.isolate.comparison.df %>%
     scale_color_manual(values=c("black", "red")) +
     guides(color="none") +
     xlab("sqrt(Number of isolates)") +
-    ylab("sqrt(Number of isolates with duplicated ARGs)")
+    ylab("sqrt(Number of isolates with D-ARGs)")
 
 ## 7,195 isolates are in the top ARG genera.
 top.ARG.genera.isolates <- gbk.annotation %>%
@@ -493,7 +495,7 @@ filtered.duplicate.proteins <- duplicate.proteins %>%
 
 filtered.TableS1 <- make.TableS1(filtered.gbk.annotation, filtered.duplicate.proteins)
 
-S2FigB <- make.confint.figure.panel(filtered.TableS1, order.by.total.isolates, "Duplicated ARGs after\nfiltering top genera")
+S2FigB <- make.confint.figure.panel(filtered.TableS1, order.by.total.isolates, "D-ARGs after\nfiltering top genera")
 
 ## let's check the results, just for the top ARG genera.
 top.ARG.genera.duplicate.proteins <- duplicate.proteins %>%
@@ -504,7 +506,7 @@ top.ARG.genera.TableS1 <- make.TableS1(top.ARG.genera.isolates,
 
 S2FigC <- make.confint.figure.panel(
     top.ARG.genera.TableS1, order.by.total.isolates,
-    "Duplicated ARGs in\ntop genera only",
+    "D-ARGs in\ntop genera only",
     no.category.label = TRUE)
 
 ## Let's try an alternative strategy: downsample the data such that only one
@@ -526,7 +528,7 @@ single.organism.TableS1 <- make.TableS1(
 
 S2FigD <- make.confint.figure.panel(
     single.organism.TableS1, order.by.total.isolates,
-    "Duplicated ARGs after\ndownsampling species",
+    "D-ARGs after\ndownsampling species",
         no.category.label = TRUE)
 
 S2FigBCD <- plot_grid(S2FigB, S2FigC, S2FigD, labels = c("B","C",'D'), nrow = 1, rel_widths = c(1.5, 1, 1, 1))
@@ -663,7 +665,7 @@ S1Fig <- plot_grid(NULL, ## The nesting is to add a title.
                                   1.5, 1, 1,
                                   1.5, 1, 1),
                    nrow = 4),
-                   labels = c("Duplicated ARGs", ""),
+                   labels = c("D-ARGs", ""),
                    ncol = 1,
                    rel_heights = c(0.025, 1))
 
@@ -787,7 +789,7 @@ S3Fig <- plot_grid(NULL, ## The nesting is to add a title.
                                   1.5, 1, 1,
                                   1.5, 1, 1),
                    nrow = 4),
-                   labels = c("Single-copy ARGs", ""),
+                   labels = c("S-ARGs", ""),
                    ncol = 1,
                    rel_heights = c(0.025, 1))
 ggsave("../results/S3Fig.pdf", S3Fig, height = 10.5, width = 8)
@@ -843,9 +845,8 @@ Fig3A <- ggplot(Fig3A.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
     facet_wrap(.~Episome) +
     theme_classic() +
-    ggtitle("Distribution of duplicated genes") +
-    xlab("Proportion of genes") +
-    scale_x_continuous(labels = prettyZero) +
+    xlab("% of D-genes") +
+    scale_x_continuous(breaks = c(0,1)) +
     theme(legend.position="bottom") +
     theme(strip.background = element_blank()) +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
@@ -857,21 +858,18 @@ Fig3B <- ggplot(Fig3B.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
     facet_wrap(.~Episome) +
     theme_classic() +
-    ggtitle("Distribution of single-copy genes") +
-    xlab("Proportion of genes") +
-    scale_x_continuous(labels = prettyZero) +
+    xlab("% of S-genes") +
+    scale_x_continuous(breaks = c(0,1)) +
     guides(fill = "none") +
     theme(strip.background = element_blank()) +
+    theme(axis.text.y=element_blank()) +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
-
-Fig3AB <- plot_grid(Fig3A, Fig3B, Fig3legend, labels = c("A", "B"),
-                  ncol = 1, rel_heights = c(1,1,0.25))
-## Panel 3C will be added later. Needed for the full figure.
+## Panel 3C and the Fig3legend will be added later. Needed for the full figure.
 
 ## remove the dataframes to save memory.
-rm(Fig3A.data)
-rm(Fig3B.data)
+##rm(Fig3A.data)
+##rm(Fig3B.data)
 gc()
 
 #########################
@@ -951,7 +949,7 @@ S5FigC <- ggplot(just.plasmid.summary,
     ylab("")
 
 S5Fig <- plot_grid(NULL, S5FigA, S5FigB, S5FigC, S5Fig.legend, ncol = 1,
-                   labels = c("Genomic distribution\n of duplicated genes", "A","B","C"),
+                   labels = c("Genomic distribution\n of D-genes", "A","B","C"),
                    rel_heights=c(0.35,1,1,1,0.25))
 ggsave("../results/S5Fig.pdf", S5Fig, width=4, height=8)
 
@@ -1269,32 +1267,33 @@ make.Fig2DEFGHI.panel <- function(Table, order.by.total.isolates, title,
 
 ## I manually set axis labels so that they don't run into each other.
 Fig2D <- make.Fig2DEFGHI.panel(Fig2D.df, order.by.total.isolates,
-                         "\nDuplicated ARGs",
-                         "Proportion of\nall genes") +
-    scale_x_continuous(label=fancy_scientific, breaks = c(0, 1e-4, 2e-4))
+                         "\nD-ARGs",
+                         "% of\nall genes") +
+    scale_x_continuous(label=fancy_scientific, breaks = c(0, 2e-4), limits = c(0,2.2e-4))
 Fig2E <- make.Fig2DEFGHI.panel(Fig2E.df, order.by.total.isolates,
-                         "Chromosome:\nDuplicated ARGs",
-                         "Proportion of\nchromosomal genes",
+                         "Chromosome:\nD-ARGs",
+                         "% of\nchromosomal genes",
                          no.category.label = TRUE) +
-    scale_x_continuous(label=fancy_scientific, breaks = c(0, 4e-5, 8e-5))
+    scale_x_continuous(label=fancy_scientific, breaks = c(0, 8e-5), limits = c(0,9e-5))
 Fig2F <- make.Fig2DEFGHI.panel(Fig2F.df, order.by.total.isolates,
-                         "Plasmids:\nDuplicated ARGs",
-                         "Proportion of\nplasmid genes",
+                         "Plasmids:\nD-ARGs",
+                         "% of\nplasmid genes",
                          no.category.label = TRUE) +
-    scale_x_continuous(label=fancy_scientific, breaks = c(0, 2.5e-3, 5e-3), limits = c(0,5.2e-3))
+    scale_x_continuous(label=fancy_scientific, breaks = c(0, 5e-3), limits = c(0,5.4e-3))
 Fig2G <- make.Fig2DEFGHI.panel(Fig2G.df, order.by.total.isolates,
-                         "\nSingle-copy ARGs",
-                         "Proportion of\nall genes") +
-    scale_x_continuous(label=fancy_scientific, breaks = c(3.5e-3, 5.25e-3, 7e-3), limits = c(3.5e-3,7.2e-3))
+                         "\nS-ARGs",
+                         "% of\nall genes") +
+    scale_x_continuous(label=fancy_scientific, breaks = c(3.5e-3, 7e-3), limits = c(3.5e-3,7.4e-3))
 Fig2H <- make.Fig2DEFGHI.panel(Fig2H.df, order.by.total.isolates,
-                         "Chromosome:\nSingle-copy ARGs",
-                         "Proportion of\nchromosomal genes",
-                         no.category.label = TRUE)
-Fig2I <- make.Fig2DEFGHI.panel(Fig2I.df, order.by.total.isolates,
-                         "Plasmids:\nSingle-copy ARGs",
-                         "Proportion of\nplasmid genes",
+                         "Chromosome:\nS-ARGs",
+                         "% of\nchromosomal genes",
                          no.category.label = TRUE) +
-    scale_x_continuous(label=fancy_scientific, breaks = c(3e-3, 1.1e-2, 2e-2))
+    scale_x_continuous(label=fancy_scientific, breaks = c(4e-3, 6e-3))
+Fig2I <- make.Fig2DEFGHI.panel(Fig2I.df, order.by.total.isolates,
+                         "Plasmids:\nS-ARGs",
+                         "% of\nplasmid genes",
+                         no.category.label = TRUE) +
+    scale_x_continuous(label=fancy_scientific, breaks = c(3e-3, 2e-2))
 
 Fig2DEFGHI.title <- title_theme <- ggdraw() +
     draw_label("Gene-level analysis",fontface="bold")
@@ -1311,7 +1310,7 @@ Fig2DEFGHI.with.title <- plot_grid(Fig2DEFGHI.title, Fig2DEFGHI,
 Fig2 <- plot_grid(Fig2ABC.with.title, Fig2DEFGHI.with.title,
                   ncol = 1, rel_heights = c(0.3,0.7))
 
-ggsave("../results/Fig2.pdf", Fig2, height=8.5, width=7)
+ggsave("../results/Fig2.pdf", Fig2, height=8, width=5.6)
 
 ################################################################################
 ## Figure 3C: 
@@ -1416,12 +1415,18 @@ Fig3C <- big.selection.test.df %>%
     geom_point() + theme_classic() +
     geom_vline(xintercept = 1, color = "red", linetype = "dashed") +
     xlim(0,33) +
-    xlab(TeX("\\frac{proportion of duplicate genes}{proportion of single-copy genes}")) +
+    xlab("(% of D-genes) / (% of S-genes)") +
+    ##xlab(TeX("\\frac{% of D-genes}{% of S-genes}")) +
     guides(color = "none") +
+    theme(axis.text.y=element_blank()) +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
-Fig3 <- plot_grid(Fig3AB, Fig3C, labels = c('','C'), nrow = 2, rel_heights=c(0.7,0.3))
-ggsave("../results/Fig3.pdf", Fig3, width=5.25, height=8)
+mainFig3 <- plot_grid(Fig3A, Fig3B, Fig3C, labels = c('A','B','C'), nrow = 1, rel_widths=c(1.4,1,1),
+                  align = 'h', axis = 'tb')
+
+Fig3 <- plot_grid(mainFig3, Fig3legend, ncol = 1, rel_heights = c(1,0.2))
+
+ggsave("../results/Fig3.pdf", Fig3, width=8.5, height=3.5)
 
 ################################################################################
 ## Figure 4A. A deterministic ODE model demonstrates that selection can
