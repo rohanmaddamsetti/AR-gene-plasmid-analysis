@@ -7,7 +7,6 @@ library(tidyverse)
 library(cowplot)
 library(ggrepel)
 library(data.table)
-library(latex2exp)
 
 
 fancy_scientific <- function(x) {
