@@ -776,8 +776,18 @@ ggsave("../results/S3Fig.pdf", S3Fig, height = 10.5, width = 8)
 ## Analysis of duplicate pairs found just on chromosome, just on plasmid, or
 ## on both chromosomes and plasmids.
 
-## let's look at cases of identical sequences on chromosomes and plasmids.
+categorize.as.MGE.ARG.or.other <- function(product) {
+    if (is.na(product))
+        return("Other function")
+    else if (str_detect(product, antibiotic.keywords))
+        return("ARG")
+    else if (str_detect(product, IS.keywords))
+        return("MGE")
+    else
+        return("Other function")
+}
 
+## let's look at cases of identical sequences on chromosomes and plasmids.
 both.chr.and.plasmid.cases <- duplicate.proteins %>%
     filter(chromosome_count >= 1 & plasmid_count >= 1) %>%
     mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
@@ -1235,17 +1245,6 @@ ggsave("../results/Fig2.pdf", Fig2, height=8, width=5.6)
 ## Figure 3: Visualization of ARGs on plasmids and chromosomes, and evidence for selection.
 
 ## set up data structures for Figure 3AB.
-categorize.as.MGE.ARG.or.other <- function(product) {
-    if (is.na(product))
-        return("Other function")
-    else if (str_detect(product, antibiotic.keywords))
-        return("ARG")
-    else if (str_detect(product, IS.keywords))
-        return("MGE")
-    else
-        return("Other function")
-}
-
 Fig3A.data <- duplicate.proteins %>%
     mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
     group_by(Annotation, Category) %>%
