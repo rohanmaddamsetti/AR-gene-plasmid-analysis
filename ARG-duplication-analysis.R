@@ -1534,7 +1534,7 @@ S4FigB1 <- ggplot(S4FigB.data, aes(x = Count, y = Annotation_Accession, fill = C
     guides(fill = "none") +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
-S4FigB2 <- ggplot(FigS4B.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+S4FigB2 <- ggplot(S4FigB.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
     geom_bar(stat="identity", position = "fill") +
     theme_classic() +
     ## remove genome name labels.
