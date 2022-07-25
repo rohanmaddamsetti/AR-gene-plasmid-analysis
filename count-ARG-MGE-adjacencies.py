@@ -49,6 +49,25 @@ def window(seq, n=3):
         result = result[1:] + (elem,)
         yield result
 
+        
+def make_replicon_type_lookup_tbl(infile="../results/chromosome-plasmid-table.csv")
+## use the data in chromosome-plasmid-table.csv to look up replicon type,
+## based on Annotation_Accession and then NCBI Nucleotide ID.
+replicon_type_lookup_table = {}
+with open(infile, 'r') as chromosome_plasmid_fh:
+    for i, line in enumerate(chromosome_plasmid_fh):
+        if i == 0: continue ## skip the header
+        line = line.strip()
+        fields = line.split(',')
+        my_annot_accession = fields[-1]
+        rep_type = fields[-2]
+        rep_id = fields[-3]
+        if my_annot_accession in replicon_type_lookup_table:
+            replicon_type_lookup_table[my_annot_accession][rep_id] = rep_type
+        else:
+            replicon_type_lookup_table[my_annot_accession] = {rep_id : rep_type}
+    return replicon_type_lookup_table
+
 
 def make_duplicated_proteins_lookup_tbl(infile="../results/duplicate-proteins.csv"):
     duplicated_proteins_lookup_table = {}
@@ -64,7 +83,7 @@ def make_duplicated_proteins_lookup_tbl(infile="../results/duplicate-proteins.cs
                 duplicated_proteins_lookup_table[my_annot_accession][my_sequence] = my_product_annot
             else:
                 duplicated_proteins_lookup_table[my_annot_accession] = {my_sequence : my_product_annot}
-        return duplicated_proteins_lookup_table
+    return duplicated_proteins_lookup_table
 
 
 def get_prot_data(feature):
@@ -79,10 +98,8 @@ def get_prot_data(feature):
         prot_product = "NA"
         
     prot_location = str(feature.location)
-    prot_id = feature.qualifiers['protein_id'][0]
                         
     cur_prot = { "seq" : prot_seq,
-                 "id" : prot_id,
                  "product" : prot_product,
                  "location" : prot_location }
     return cur_prot
@@ -151,12 +168,16 @@ def count_ARG_MGE_adjacencies(gbk_annotation_dir, duplicated_proteins_lookup_tab
     for gbk_gz in tqdm(gbk_gz_files):        
         infile = gbk_annotation_dir + gbk_gz
         annotation_accession = basename(infile).split("_genomic.gbff.gz")[0]
+        ## skip if there are no duplications in this genome.
+        if annotation_accession not in duplicated_proteins_lookup_table:
+            break
+        ## only examine genomes listed in chromosome-plasmid-table.csv
+        ## for consistency in the data analysis.
+        if annotation_accession not in replicon_type_lookup_table:
+            continue
         
         with gzip.open(infile,'rt') as genome_fh:
             for replicon in SeqIO.parse(genome_fh, "gb"):
-                ## skip if there are no duplications in this genome.
-                if annotation_accession not in duplicated_proteins_lookup_table:
-                    break
                 
                 observed_locations = set() ## check for artifactual duplication due to duplicated annotation.
                 dup_dict = duplicated_proteins_lookup_table[annotation_accession]

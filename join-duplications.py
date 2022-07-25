@@ -89,10 +89,10 @@ with open(outf, "w") as out_fh:
     for gbk_gz in tqdm(gbk_gz_files):        
         infile = gbk_annotation_dir + gbk_gz
         annotation_accession = basename(infile).split("_genomic.gbff.gz")[0]
-        ## IMPORTANT TODO: make sure chromosome-plasmid-table.csv
-        ## and the data in ../results/gbk-annotation are consistent.
-        ## The next line is a temporary consistency check.
-        if annotation_accession not in replicon_type_lookup_table: continue
+        ## only examine genomes listed in chromosome-plasmid-table.csv
+        ## for consistency in the data analysis.
+        if annotation_accession not in replicon_type_lookup_table:
+            continue
         
         with gzip.open(infile,'rt') as genome_fh:
             for replicon in SeqIO.parse(genome_fh, "gb"):
