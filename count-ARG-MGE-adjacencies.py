@@ -50,22 +50,22 @@ def window(seq, n=3):
         yield result
 
         
-def make_replicon_type_lookup_tbl(infile="../results/chromosome-plasmid-table.csv")
-## use the data in chromosome-plasmid-table.csv to look up replicon type,
-## based on Annotation_Accession and then NCBI Nucleotide ID.
-replicon_type_lookup_table = {}
-with open(infile, 'r') as chromosome_plasmid_fh:
-    for i, line in enumerate(chromosome_plasmid_fh):
-        if i == 0: continue ## skip the header
-        line = line.strip()
-        fields = line.split(',')
-        my_annot_accession = fields[-1]
-        rep_type = fields[-2]
-        rep_id = fields[-3]
-        if my_annot_accession in replicon_type_lookup_table:
-            replicon_type_lookup_table[my_annot_accession][rep_id] = rep_type
-        else:
-            replicon_type_lookup_table[my_annot_accession] = {rep_id : rep_type}
+def make_replicon_type_lookup_tbl(infile="../results/chromosome-plasmid-table.csv"):
+    ## use the data in chromosome-plasmid-table.csv to look up replicon type,
+    ## based on Annotation_Accession and then NCBI Nucleotide ID.
+    replicon_type_lookup_table = {}
+    with open(infile, 'r') as chromosome_plasmid_fh:
+        for i, line in enumerate(chromosome_plasmid_fh):
+            if i == 0: continue ## skip the header
+            line = line.strip()
+            fields = line.split(',')
+            my_annot_accession = fields[-1]
+            rep_type = fields[-2]
+            rep_id = fields[-3]
+            if my_annot_accession in replicon_type_lookup_table:
+                replicon_type_lookup_table[my_annot_accession][rep_id] = rep_type
+            else:
+                replicon_type_lookup_table[my_annot_accession] = {rep_id : rep_type}
     return replicon_type_lookup_table
 
 
@@ -155,14 +155,13 @@ def get_ARG_adjacency_type(left_prot, cur_prot, right_prot, dup_dict):
     return adj_type
 
     
-def count_ARG_MGE_adjacencies(gbk_annotation_dir, duplicated_proteins_lookup_table):
+def count_ARG_MGE_adjacencies(gbk_annotation_dir, duplicated_proteins_lookup_table, replicon_type_lookup_table):
 
     ## the data we care about.
     dARGs_next_to_MGEs = 0
     dARGs_not_next_to_MGEs = 0
     sARGs_next_to_MGEs = 0
     sARGs_not_next_to_MGEs = 0
-
     
     gbk_gz_files = [x for x in os.listdir(gbk_annotation_dir) if x.endswith("_genomic.gbff.gz")]
     for gbk_gz in tqdm(gbk_gz_files):        
@@ -262,7 +261,8 @@ def main():
     ## populate a dictionary of {Annotation_Accession : {dup_sequence : dup_annotation}},
     ## from reading in duplicate-proteins.csv.
     duplicated_proteins_lookup_table = make_duplicated_proteins_lookup_tbl()
-
+    replicon_type_lookup_table = make_replicon_type_lookup_tbl()
+    
     gbk_annotation_dir = "../results/gbk-annotation/"
     outf = "../results/ARG-MGE-adjacency-counts.csv"
 
@@ -270,7 +270,7 @@ def main():
         header = "dARGs_next_to_MGEs,dARGs_not_next_to_MGEs,sARGs_next_to_MGEs,sARGs_not_next_to_MGEs\n"
         out_fh.write(header)
         ## write out the final counts to file.
-        final_data = count_ARG_MGE_adjacencies(gbk_annotation_dir, duplicated_proteins_lookup_table)
+        final_data = count_ARG_MGE_adjacencies(gbk_annotation_dir, duplicated_proteins_lookup_table, replicon_type_lookup_table)
         row = ','.join([str(x) for x in final_data]) + '\n'
         out_fh.write(row)
 
