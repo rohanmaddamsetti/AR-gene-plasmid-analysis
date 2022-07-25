@@ -1562,11 +1562,14 @@ ggsave("../results/S4Fig.pdf", S4Fig, height = 7, width = 10)
 ## and re-calculate statistics for duplicated ARGs associated with MGEs,
 ## and duplicated ARGs that are not associated with MGEs.
 
-joined.duplications <- read.csv("../results/joined-duplicate-proteins.csv") %>%
+all.joined.duplications <- read.csv("../results/joined-duplicate-proteins.csv") %>%
     tibble() %>%
     ## for numeric consistency, remove all duplications with NA product annotations.
     filter(!is.na(product))
 
+joined.duplications <- all.joined.duplications %>%
+    ## let's also remove all regions that only contain a single gene.
+    filter(num_proteins_in_region > 1)
 
 make.ARG.MGE.region.contingency.table <- function(joined.duplications,
                                                   antibiotic.keywords,
@@ -1626,3 +1629,4 @@ make.ARG.MGE.region.contingency.table <- function(joined.duplications,
 
 joined.regions.contingency.table <- make.ARG.MGE.region.contingency.table(joined.duplications, antibiotic.keywords, IS.keywords)
 
+fisher.test(joined.regions.contingency.table)
