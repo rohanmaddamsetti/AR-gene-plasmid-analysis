@@ -15,8 +15,10 @@ The basic idea is to iterate over each gene in each genome, and keep track of it
 check its neighbors to see whether either one is an MGE-associated gene, and then
 update the relevant count.
 
-We need to have special cases to examine the left and right neighbors of the very first
+There are two special cases to examine the left and right neighbors of the very first
 and the very last gene in each replicon.
+
+Usage on DCC: sbatch -p scavenger -t 24:00:00 --mem=4G -c 8 --wrap="python count-ARG-MGE-adjacencies.py"
 '''
 
 import os
