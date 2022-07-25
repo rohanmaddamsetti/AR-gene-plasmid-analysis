@@ -2,13 +2,6 @@
 
 ''' count-ARG-MGE-adjacencies.py by Rohan Maddamsetti
 
-IMPORTANT NOTE: This script runs on ALL downloaded genomes, and not just those
-which are annotated in a particular category. I should figure out whether this is what we
-want, or whether I could restrict to the annotated genomes for consistency with the rest
-of the data analysis.
-
-TODO: adjust this behavior, so that only annotated genomes are counted.
-
 This script counts the number of duplicated ARGs adjacent to MGE-associated genes,
 the number of duplicated ARGs not adjacent to MGE-associated genes,
 the number of singleton ARGs adjacent to MGE-associated genes,
@@ -169,7 +162,7 @@ def count_ARG_MGE_adjacencies(gbk_annotation_dir, duplicated_proteins_lookup_tab
         annotation_accession = basename(infile).split("_genomic.gbff.gz")[0]
         ## skip if there are no duplications in this genome.
         if annotation_accession not in duplicated_proteins_lookup_table:
-            break
+            continue
         ## only examine genomes listed in chromosome-plasmid-table.csv
         ## for consistency in the data analysis.
         if annotation_accession not in replicon_type_lookup_table:
@@ -194,7 +187,7 @@ def count_ARG_MGE_adjacencies(gbk_annotation_dir, duplicated_proteins_lookup_tab
                     right_prot = get_prot_data(right_neighbor)
 
                     ## initialize the first_prot data. we will handle this after the loop.
-                    if first_prot == "":
+                    if not first_prot: ## the dictionary is empty.
                         first_prot = left_prot
                         first_prot_right_neighbor = cur_prot
                         
@@ -205,9 +198,7 @@ def count_ARG_MGE_adjacencies(gbk_annotation_dir, duplicated_proteins_lookup_tab
 
                     ## figure out what counter to update.
                     adj_type = get_ARG_adjacency_type(left_prot, cur_prot, right_prot, dup_dict)
-                    if adj_type == 0:
-                        continue
-                    elif adj_type == 1:
+                    if adj_type == 1:
                         dARGs_next_to_MGEs += 1
                     elif adj_type == 2:
                         dARGs_not_next_to_MGEs += 1
@@ -215,8 +206,6 @@ def count_ARG_MGE_adjacencies(gbk_annotation_dir, duplicated_proteins_lookup_tab
                         sARGs_next_to_MGEs += 1
                     elif adj_type == 4:
                         sARGs_not_next_to_MGEs += 1
-                    else:
-                        raise AssertionError("this line shouldn't run too.")       
                 ## now we have finished iterating through the replicon,
                 ## handle the first and last protein cases.
                 last_prot_left_neighbor = cur_prot
@@ -224,9 +213,7 @@ def count_ARG_MGE_adjacencies(gbk_annotation_dir, duplicated_proteins_lookup_tab
                 last_prot_right_neighbor = first_prot
 
                 last_adj_type = get_ARG_adjacency_type(last_prot_left_neighbor, last_prot, last_prot_right_neighbor, dup_dict)
-                if last_adj_type == 0:
-                    break
-                elif last_adj_type == 1:
+                if last_adj_type == 1:
                     dARGs_next_to_MGEs += 1
                 elif last_adj_type == 2:
                     dARGs_not_next_to_MGEs += 1
@@ -234,15 +221,11 @@ def count_ARG_MGE_adjacencies(gbk_annotation_dir, duplicated_proteins_lookup_tab
                     sARGs_next_to_MGEs += 1
                 elif last_adj_type == 4:
                     sARGs_not_next_to_MGEs += 1
-                else:
-                    raise AssertionError("this line shouldn't run too.")
     
                 first_prot_left_neighbor = last_prot
                 
                 first_adj_type = get_ARG_adjacency_type(first_prot_left_neighbor, first_prot, first_prot_right_neighbor, dup_dict)
-                if first_adj_type == 0:
-                    break
-                elif first_adj_type == 1:
+                if first_adj_type == 1:
                     dARGs_next_to_MGEs += 1
                 elif first_adj_type == 2:
                     dARGs_not_next_to_MGEs += 1
@@ -250,8 +233,6 @@ def count_ARG_MGE_adjacencies(gbk_annotation_dir, duplicated_proteins_lookup_tab
                     sARGs_next_to_MGEs += 1
                 elif first_adj_type == 4:
                     sARGs_not_next_to_MGEs += 1
-                else:
-                    raise AssertionError("this line shouldn't run three")
                 
     return (dARGs_next_to_MGEs, dARGs_not_next_to_MGEs,
             sARGs_next_to_MGEs, sARGs_not_next_to_MGEs)
