@@ -180,10 +180,12 @@ def count_ARG_MGE_adjacencies(gbk_annotation_dir, duplicated_proteins_lookup_tab
                 first_prot_right_neighbor = dict()
                 ## filter the features for proteins.
                 replicon_proteins = (feature for feature in replicon.features if feature.type == "CDS")
-                
+
+                loop_ran = False
                 ## iterate over windows of 3 proteins.
                 for (left_neighbor, feat, right_neighbor) in window(replicon_proteins, n=3):
-
+                    loop_ran = True
+                    
                     left_prot = get_prot_data(left_neighbor)
                     cur_prot = get_prot_data(feat)
                     right_prot = get_prot_data(right_neighbor)
@@ -208,34 +210,36 @@ def count_ARG_MGE_adjacencies(gbk_annotation_dir, duplicated_proteins_lookup_tab
                         sARGs_next_to_MGEs += 1
                     elif adj_type == 4:
                         sARGs_not_next_to_MGEs += 1
+                        
+                if (loop_ran):
                 ## now we have finished iterating through the replicon,
-                ## handle the first and last protein cases.
-                last_prot_left_neighbor = cur_prot
-                last_prot = right_prot
-                last_prot_right_neighbor = first_prot
+                    ## handle the first and last protein cases.
+                    last_prot_left_neighbor = cur_prot
+                    last_prot = right_prot
+                    last_prot_right_neighbor = first_prot
 
-                last_adj_type = get_ARG_adjacency_type(last_prot_left_neighbor, last_prot, last_prot_right_neighbor, dup_dict)
-                if last_adj_type == 1:
-                    dARGs_next_to_MGEs += 1
-                elif last_adj_type == 2:
-                    dARGs_not_next_to_MGEs += 1
-                elif last_adj_type == 3:
-                    sARGs_next_to_MGEs += 1
-                elif last_adj_type == 4:
-                    sARGs_not_next_to_MGEs += 1
-    
-                first_prot_left_neighbor = last_prot
-                
-                first_adj_type = get_ARG_adjacency_type(first_prot_left_neighbor, first_prot, first_prot_right_neighbor, dup_dict)
-                if first_adj_type == 1:
-                    dARGs_next_to_MGEs += 1
-                elif first_adj_type == 2:
-                    dARGs_not_next_to_MGEs += 1
-                elif first_adj_type == 3:
-                    sARGs_next_to_MGEs += 1
-                elif first_adj_type == 4:
-                    sARGs_not_next_to_MGEs += 1
-                
+                    last_adj_type = get_ARG_adjacency_type(last_prot_left_neighbor, last_prot, last_prot_right_neighbor, dup_dict)
+                    if last_adj_type == 1:
+                        dARGs_next_to_MGEs += 1
+                    elif last_adj_type == 2:
+                        dARGs_not_next_to_MGEs += 1
+                    elif last_adj_type == 3:
+                        sARGs_next_to_MGEs += 1
+                    elif last_adj_type == 4:
+                        sARGs_not_next_to_MGEs += 1
+
+                    first_prot_left_neighbor = last_prot
+
+                    first_adj_type = get_ARG_adjacency_type(first_prot_left_neighbor, first_prot, first_prot_right_neighbor, dup_dict)
+                    if first_adj_type == 1:
+                        dARGs_next_to_MGEs += 1
+                    elif first_adj_type == 2:
+                        dARGs_not_next_to_MGEs += 1
+                    elif first_adj_type == 3:
+                        sARGs_next_to_MGEs += 1
+                    elif first_adj_type == 4:
+                        sARGs_not_next_to_MGEs += 1
+
     return (dARGs_next_to_MGEs, dARGs_not_next_to_MGEs,
             sARGs_next_to_MGEs, sARGs_not_next_to_MGEs)
 
