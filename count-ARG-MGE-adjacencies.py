@@ -18,7 +18,7 @@ update the relevant count.
 There are two special cases to examine the left and right neighbors of the very first
 and the very last gene in each replicon.
 
-Usage on DCC: sbatch -p scavenger -t 24:00:00 --mem=4G -c 8 --wrap="python count-ARG-MGE-adjacencies.py"
+Usage on DCC: sbatch -p scavenger -t 24:00:00 --mem=4G --wrap="python count-ARG-MGE-adjacencies.py"
 '''
 
 import os
