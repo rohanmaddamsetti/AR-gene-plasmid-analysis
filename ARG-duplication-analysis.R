@@ -8,7 +8,6 @@ library(cowplot)
 library(ggrepel)
 library(data.table)
 
-
 fancy_scientific <- function(x) {
     ## function for plotting better axis labels.
     ## see solution here for nice scientific notation on axes.
@@ -1388,7 +1387,6 @@ other.selection.test.df <- make.selection.test.df(
     select(Annotation, dup.singleton.ratio) %>%
     mutate(Category = "Other function")
 
-
 big.selection.test.df <- ARG.selection.test.df %>%
     full_join(MGE.selection.test.df) %>%
     full_join(other.selection.test.df)
@@ -1404,12 +1402,47 @@ Fig3C <- big.selection.test.df %>%
     theme(axis.text.y=element_blank()) +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
+################################################################################
+## Figure 3D: compare linkage between D-ARGs and MGE-genes and S-ARGs and MGE-genes.
+
+ARG.MGE.adjacency.data <- read.csv("../results/ARG-MGE-adjacency-counts.csv") %>%
+    pivot_longer(cols=everything(), names_to="original_column", values_to = "Count") %>%
+    mutate(ARG.class = ifelse(str_detect(original_column,"dARG"),"D-ARGs","S-ARGs")) %>%
+    mutate(next.to.MGE = ifelse(str_detect(original_column,"not"),FALSE,TRUE))
+
+Fig3D.total <- ARG.MGE.adjacency.data %>% group_by(ARG.class) %>%
+    summarize(ARG.total=sum(Count))
+
+Fig3D.next.to.MGEs <- filter(ARG.MGE.adjacency.data,
+                             next.to.MGE==TRUE) %>%
+    rename(next.to.MGE.count=Count) %>%
+    select(ARG.class, next.to.MGE.count)
+
+Fig3D.df <- full_join(Fig3D.total, Fig3D.next.to.MGEs) %>%
+    mutate(percent.next.to.MGE = next.to.MGE.count/ARG.total)
+
+Fig3D <- Fig3D.df %>%
+    ggplot(aes(x=percent.next.to.MGE, y=ARG.class)) +
+    geom_bar(stat="identity") +
+    theme_classic() + ylab("") +
+    xlab("% of ARGs adjacent to an MGE-associated gene")
+
+## formally calculate statistical significance with a binomial test.
+Fig3D.statistic <- binom.test(
+    x=filter(Fig3D.df,ARG.class=="D-ARGs")$next.to.MGE.count, ## x = 3769
+    n=filter(Fig3D.df,ARG.class=="D-ARGs")$ARG.total, ## n = 8168
+    p = filter(Fig3D.df,ARG.class=="S-ARGs")$percent.next.to.MGE)
+
+
+################################################################################
+## Make full Fig 3 here.
+
 mainFig3 <- plot_grid(Fig3A, Fig3B, Fig3C, labels = c('A','B','C'), nrow = 1, rel_widths=c(1.4,1,1),
-                  align = 'h', axis = 'tb')
+              align = 'h', axis = 'tb')
+Fig3ABC <- plot_grid(mainFig3, Fig3legend, ncol = 1, rel_heights = c(1,0.2))
 
-Fig3 <- plot_grid(mainFig3, Fig3legend, ncol = 1, rel_heights = c(1,0.2))
-
-ggsave("../results/Fig3.pdf", Fig3, width=8.5, height=3.5)
+Fig3 <- plot_grid(Fig3ABC, Fig3D, labels=c("","D"), nrow = 2, rel_heights = c(1, 0.3))
+ggsave("../results/Fig3.pdf", Fig3, width=8.5, height=4)
 
 ################################################################################
 ## Figure 4A. A deterministic ODE model demonstrates that selection can
@@ -1555,7 +1588,7 @@ S4FigB <- plot_grid(S4FigB.title,
 S4Fig <- plot_grid(S4FigA, S4FigB, S4Figlegend, ncol = 1, rel_heights = c(2,2,0.25))
 ggsave("../results/S4Fig.pdf", S4Fig, height = 7, width = 10)
 
-################################################################################
+#######################################################
 ## Analysis of chains of duplications, produced by join-duplications.py.
 ## Look at basic statistics
 ## for duplicated ARGs and associations with MGE genes,
@@ -1567,9 +1600,9 @@ all.joined.duplications <- read.csv("../results/joined-duplicate-proteins.csv") 
     ## for numeric consistency, remove all duplications with NA product annotations.
     filter(!is.na(product))
 
-joined.duplications <- all.joined.duplications %>%
+joined.duplications <- all.joined.duplications ##%>%
     ## let's also remove all regions that only contain a single gene.
-    filter(num_proteins_in_region > 1)
+    ##filter(num_proteins_in_region > 1)
 
 make.ARG.MGE.region.contingency.table <- function(joined.duplications,
                                                   antibiotic.keywords,
