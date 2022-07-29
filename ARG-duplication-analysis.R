@@ -1392,11 +1392,10 @@ big.selection.test.df <- ARG.selection.test.df %>%
     full_join(other.selection.test.df)
 
 Fig3C <- big.selection.test.df %>%
-    ggplot(aes(y = Annotation, x = dup.singleton.ratio, color = Category)) +
+    ggplot(aes(y = Annotation, x = log(dup.singleton.ratio), color = Category)) +
     geom_point() + theme_classic() +
-    geom_vline(xintercept = 1, color = "red", linetype = "dashed") +
-    xlim(0,33) +
-    xlab("(% of D-genes) / (% of S-genes)") +
+    geom_vline(xintercept = 0, color = "red", linetype = "dashed") +
+    xlab("log(% of D-genes / % of S-genes)") +
     ##xlab(TeX("\\frac{% of D-genes}{% of S-genes}")) +
     guides(color = "none") +
     theme(axis.text.y=element_blank()) +
@@ -1442,7 +1441,7 @@ mainFig3 <- plot_grid(Fig3A, Fig3B, Fig3C, labels = c('A','B','C'), nrow = 1, re
 Fig3ABC <- plot_grid(mainFig3, Fig3legend, ncol = 1, rel_heights = c(1,0.2))
 
 Fig3 <- plot_grid(Fig3ABC, Fig3D, labels=c("","D"), nrow = 2, rel_heights = c(1, 0.3))
-ggsave("../results/Fig3.pdf", Fig3, width=8.5, height=4)
+ggsave("../results/Fig3.pdf", Fig3, width=8.75, height=4)
 
 ################################################################################
 ## Figure 4A. A deterministic ODE model demonstrates that selection can
