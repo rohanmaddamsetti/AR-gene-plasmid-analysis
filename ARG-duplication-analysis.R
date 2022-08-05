@@ -52,6 +52,19 @@ antibiotic.keywords <- "chloramphenicol|Chloramphenicol|tetracycline|Tetracyclin
 
 antibiotic.or.IS.keywords <- paste(IS.keywords,antibiotic.keywords,sep="|")
 
+
+categorize.as.MGE.ARG.or.other <- function(product) {
+    if (is.na(product))
+        return("Other function")
+    else if (str_detect(product, antibiotic.keywords))
+        return("ARG")
+    else if (str_detect(product, IS.keywords))
+        return("MGE")
+    else
+        return("Other function")
+}
+
+
 ## The regular expressions used by Zeevi et al. (2019).
 ## These are not used in this analysis, but nice to have on hand.
 ## Transposon: ‘transpos\S*|insertion|Tra[A-Z]|Tra[0-9]|IS[0-9]|conjugate transposon’
@@ -774,17 +787,6 @@ ggsave("../results/S3Fig.pdf", S3Fig, height = 10.5, width = 8)
 ## S5 Figure.
 ## Analysis of duplicate pairs found just on chromosome, just on plasmid, or
 ## on both chromosomes and plasmids.
-
-categorize.as.MGE.ARG.or.other <- function(product) {
-    if (is.na(product))
-        return("Other function")
-    else if (str_detect(product, antibiotic.keywords))
-        return("ARG")
-    else if (str_detect(product, IS.keywords))
-        return("MGE")
-    else
-        return("Other function")
-}
 
 ## let's look at cases of identical sequences on chromosomes and plasmids.
 both.chr.and.plasmid.cases <- duplicate.proteins %>%
@@ -1586,6 +1588,143 @@ S4FigB <- plot_grid(S4FigB.title,
 ## now make the full Supplementary Figure S4.
 S4Fig <- plot_grid(S4FigA, S4FigB, S4Figlegend, ncol = 1, rel_heights = c(2,2,0.25))
 ggsave("../results/S4Fig.pdf", S4Fig, height = 7, width = 10)
+
+################################################################################
+## Supplementary Figure S6 (MAYBE CHANGE THE NUMBERING LATER)
+## Let's analyze duplicated genes in 9 genomes that were sequenced directly from
+## healthy human gut microbiome (stool samples) using Nanopore
+## long-read technology (PacBio) by Ami Bhatt's lab.
+
+## 23,238 types of protein sequences in these genomes.
+Bhatt.all.proteins <- data.table::fread("../results/Bhatt-all-proteins.csv",
+                                  drop="sequence")
+
+## 23,009 single-copy protein sequences.
+Bhatt.singleton.proteins <- Bhatt.all.proteins %>%
+    filter(count == 1)
+
+## 229 protein sequences have duplicates in these genomes (not counting the duplicates)
+Bhatt.duplicate.proteins <- read.csv(
+    "../results/Bhatt-duplicate-proteins.csv") %>%
+    select(-sequence)
+
+## 1 of the 9 strains has duplicated ARGs.
+## 1 ARG sequence has duplicates.
+Bhatt.duplicate.ARGs <- Bhatt.duplicate.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords))
+sum(Bhatt.duplicate.ARGs$count) ## 2 duplicated ARGs in total.
+
+## 28 MGE protein sequences are duplicated.
+Bhatt.duplicate.MGE.proteins <- Bhatt.duplicate.proteins %>%
+    filter(str_detect(.$product,IS.keywords))
+sum(Bhatt.duplicate.MGE.proteins$count) ## 75 duplicated MGE proteins in total.
+
+## 81 unknown protein sequences are duplicated.
+Bhatt.duplicate.unknown.proteins <- Bhatt.duplicate.proteins %>%
+    ## some hypothetical proteins are "ISXX family insertion sequence hypothetical protein"
+    ## so filter out those cases.
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(str_detect(.$product,unknown.protein.keywords))
+sum(Bhatt.duplicate.unknown.proteins$count) ## 167 duplicated unknown proteins in total.
+
+## 119 remaining cases of duplicated proteins.
+Bhatt.remaining.duplicate.proteins <- Bhatt.duplicate.proteins %>%
+    filter(!str_detect(.$product,antibiotic.keywords)) %>%
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,unknown.protein.keywords))
+sum(Bhatt.remaining.duplicate.proteins$count) ## 241 other duplicate proteins in total.
+
+################################################
+###### Now, let's look at the singleton proteins.
+
+## 49 singleton ARGs in the genomes.
+Bhatt.singleton.ARGs <- Bhatt.singleton.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords))
+
+
+## 462 singleton MGE protein sequences in the genomes.
+Bhatt.singleton.MGE.proteins <- Bhatt.singleton.proteins %>%
+    filter(str_detect(.$product,IS.keywords))
+
+
+## 6817 unknown singleton protein sequences in the genomes.
+Bhatt.singleton.unknown.proteins <- Bhatt.singleton.proteins %>%
+    ## some hypothetical proteins are "ISXX family insertion sequence hypothetical protein"
+    ## so filter out those cases.
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(str_detect(.$product,unknown.protein.keywords))
+
+## 15681 remaining cases of singleton proteins in the genomes.
+Bhatt.remaining.singleton.proteins <- Bhatt.singleton.proteins %>%
+    filter(!str_detect(.$product,antibiotic.keywords)) %>%
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,unknown.protein.keywords))
+
+#####################################
+## Now make Supplementary Figure S6.
+
+S6FigA.data <- Bhatt.duplicate.proteins %>%
+    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
+    group_by(Annotation_Accession, Category) %>%
+    summarize(Count = sum(count))
+
+S6FigB.data <- Bhatt.singleton.proteins %>%
+    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
+    group_by(Annotation_Accession, Category) %>%
+    summarize(Count = sum(count))
+
+S6FigA1 <- ggplot(S6FigA.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+    geom_bar(stat="identity") +
+    theme_classic() +
+    theme(legend.position="bottom") +
+    ylab("") ## remove the redundant "Annotation" label on the y-axis.
+
+S6Figlegend <- get_legend(S6FigA1)
+S6FigA1 <- S6FigA1 + guides(fill = "none")
+
+S6FigA2 <- ggplot(S6FigA.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+    geom_bar(stat="identity", position = "fill") +
+    theme_classic() +
+    ## remove genome name labels.
+    theme(axis.text.y=element_blank()) +
+    guides(fill = "none") +
+    xlab("Frequency") +
+    ylab("") ## remove the redundant "Annotation" label on the y-axis.
+
+S6FigA.title <- ggdraw() + draw_label("Distribution of duplicated genes in 9 genomes from healthy human gut", fontface='bold')
+
+S6FigA <- plot_grid(S6FigA.title,
+                   plot_grid(S6FigA1, S6FigA2, labels = c("A",""),
+                             nrow=1, rel_widths=c(2,1)),
+                   nrow=2, rel_heights=c(0.2,2))
+
+
+S6FigB1 <- ggplot(S6FigB.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+    geom_bar(stat="identity") +
+    theme_classic() +
+    guides(fill = "none") +
+    ylab("") ## remove the redundant "Annotation" label on the y-axis.
+
+S6FigB2 <- ggplot(S6FigB.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+    geom_bar(stat="identity", position = "fill") +
+    theme_classic() +
+    ## remove genome name labels.
+    theme(axis.text.y=element_blank()) +
+    guides(fill = "none") +
+    xlab("Frequency") +
+    ylab("") ## remove the redundant "Annotation" label on the y-axis.
+
+
+S6FigB.title <- ggdraw() + draw_label("Distribution of single-copy genes in 9 genomes from healthy human gut", fontface='bold')
+
+S6FigB <- plot_grid(S6FigB.title,
+                   plot_grid(S6FigB1, S6FigB2, labels = c("B",""),
+                             nrow=1, rel_widths=c(2,1)),
+                   nrow=2, rel_heights=c(0.2,2))
+
+## now make the full Supplementary Figure S6.
+S6Fig <- plot_grid(S6FigA, S6FigB, S6Figlegend, ncol = 1, rel_heights = c(2,2,0.25))
+ggsave("../results/S6Fig.pdf", S6Fig, height = 7, width = 10)
 
 #######################################################
 ## Analysis of chains of duplications, produced by join-duplications.py.
