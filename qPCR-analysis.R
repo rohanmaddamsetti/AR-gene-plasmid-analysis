@@ -7,7 +7,6 @@ library(tidyverse)
 library(cowplot)
 library(forcats)
 
-
 calc.all.probe.fold.differences <- function(well.df) {
     ## this is a helper function for calculating probe fold differences
     ## per well.
@@ -142,7 +141,6 @@ DH5a.B59.day2.results <- DH5a.B59.day2.data %>%
     mutate(Replicate = as.factor(Replicate)) %>%
     mutate(TetConc = as.factor(TetConc))
 
-
 ## let's join the results and make one figure.
 DH5a.B59.results <- rbind(DH5a.B59.day1.results, DH5a.B59.day2.results)
 
@@ -166,8 +164,6 @@ DH5a.B59.fig <- ggplot(DH5a.B59.results,
 
 ggsave("../results/DH5a-B59-qPCR-2022-5-22-fig1.pdf", DH5a.B59.fig, width=7, height=3)
 
-
-
 ## plot transposons per plasmids
 DH5a.B59.fig2 <- ggplot(DH5a.B59.results,
                        aes(x = Day,
@@ -187,8 +183,6 @@ DH5a.B59.fig2 <- ggplot(DH5a.B59.results,
     ggtitle("Transposons per plasmid DH5a+B59")
 
 ggsave("../results/DH5a-B59-qPCR-2022-5-22-fig2.pdf", DH5a.B59.fig2, width=7, height=3)
-
-
 
 DH5a.B59.fig3 <- ggplot(DH5a.B59.results,
                        aes(x = Day,
