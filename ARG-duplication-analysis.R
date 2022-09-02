@@ -1740,6 +1740,137 @@ ggsave("../results/S5Fig.pdf", S5Fig, height = 14, width = 8)
 ## the null comes from Table S1 row for humans.
 binom.test(x=28,n=58,p=0.1407)
 
+################################################################################
+## Supplementary Figure S6.
+## Let's analyze duplicated genes in 149 genomes that were sequenced with
+## long-read technology by  Dantas group in mSystems (2022).
+
+Dantas.all.proteins <- data.table::fread("../results/Mahmud2022-all-proteins.csv",
+                                  drop="sequence")
+
+## assert that this is an independent dataset.
+stopifnot(nrow(filter(Dantas.all.proteins, Annotation_Accession %in% gbk.annotation$Annotation_Accession)) == 0)
+
+
+Dantas.singleton.proteins <- Dantas.all.proteins %>%
+    filter(count == 1)
+
+Dantas.duplicate.proteins <- read.csv(
+    "../results/Mahmud2022-duplicate-proteins.csv") %>%
+    select(-sequence)
+
+## 60 cases of duplicate ARGs.
+Dantas.duplicate.ARGs <- Dantas.duplicate.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords))
+sum(Dantas.duplicate.ARGs$count) ## 128 duplicated ARGs in total.
+
+Dantas.duplicate.MGE.proteins <- Dantas.duplicate.proteins %>%
+    filter(str_detect(.$product,IS.keywords))
+sum(Dantas.duplicate.MGE.proteins$count) ## 6290 duplicated MGE proteins in total.
+
+Dantas.duplicate.unknown.proteins <- Dantas.duplicate.proteins %>%
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(str_detect(.$product,unknown.protein.keywords))
+sum(Dantas.duplicate.unknown.proteins$count) ## 1318 duplicated unknown proteins in total.
+
+Dantas.remaining.duplicate.proteins <- Dantas.duplicate.proteins %>%
+    filter(!str_detect(.$product,antibiotic.keywords)) %>%
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,unknown.protein.keywords))
+sum(Dantas.remaining.duplicate.proteins$count) ## 1585 other duplicate proteins in total.
+
+################################################
+###### Now, let's look at the singleton proteins.
+
+## 7449 singleton ARGs in the genomes.
+Dantas.singleton.ARGs <- Dantas.singleton.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords))
+
+## 40361 singleton MGE protein sequences in the genomes.
+Dantas.singleton.MGE.proteins <- Dantas.singleton.proteins %>%
+    filter(str_detect(.$product,IS.keywords))
+
+Dantas.singleton.unknown.proteins <- Dantas.singleton.proteins %>%
+    ## some hypothetical proteins are "ISXX family insertion sequence hypothetical protein"
+    ## so filter out those cases.
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(str_detect(.$product,unknown.protein.keywords))
+
+Dantas.remaining.singleton.proteins <- Dantas.singleton.proteins %>%
+    filter(!str_detect(.$product,antibiotic.keywords)) %>%
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,unknown.protein.keywords))
+
+#####################################
+## Now make Supplementary Figure S6.
+
+S6FigA.data <- Dantas.duplicate.proteins %>%
+    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
+    group_by(Annotation_Accession, Category) %>%
+    summarize(Count = sum(count))
+
+S6FigB.data <- Dantas.singleton.proteins %>%
+    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
+    group_by(Annotation_Accession, Category) %>%
+    summarize(Count = sum(count))
+
+S6FigA1 <- ggplot(S6FigA.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+    geom_bar(stat="identity") +
+    theme_classic() +
+    theme(legend.position="bottom") +
+    ylab("") ## remove the redundant "Annotation" label on the y-axis.
+
+S6Figlegend <- get_legend(S6FigA1)
+S6FigA1 <- S6FigA1 + guides(fill = "none")
+
+S6FigA2 <- ggplot(S6FigA.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+    geom_bar(stat="identity", position = "fill") +
+    theme_classic() +
+    ## remove genome name labels.
+    theme(axis.text.y=element_blank()) +
+    guides(fill = "none") +
+    xlab("Frequency") +
+    ylab("") ## remove the redundant "Annotation" label on the y-axis.
+
+S6FigA.title <- ggdraw() + draw_label("Distribution of duplicated genes in 149 genomes from Mahmud et al. (2022)", fontface='bold')
+
+S6FigA <- plot_grid(S6FigA.title,
+                   plot_grid(S6FigA1, S6FigA2, labels = c("A",""),
+                             nrow=1, rel_widths=c(2,1)),
+                   nrow=2, rel_heights=c(0.2,2))
+
+S6FigB1 <- ggplot(S6FigB.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+    geom_bar(stat="identity") +
+    theme_classic() +
+    guides(fill = "none") +
+    ylab("") ## remove the redundant "Annotation" label on the y-axis.
+
+S6FigB2 <- ggplot(S6FigB.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+    geom_bar(stat="identity", position = "fill") +
+    theme_classic() +
+    ## remove genome name labels.
+    theme(axis.text.y=element_blank()) +
+    guides(fill = "none") +
+    xlab("Frequency") +
+    ylab("") ## remove the redundant "Annotation" label on the y-axis.
+
+
+S6FigB.title <- ggdraw() + draw_label("Distribution of single-copy genes in 149 genomes from Mahmud et al. (2022)", fontface='bold')
+
+S6FigB <- plot_grid(S6FigB.title,
+                   plot_grid(S6FigB1, S6FigB2, labels = c("B",""),
+                             nrow=1, rel_widths=c(2,1)),
+                   nrow=2, rel_heights=c(0.2,2))
+
+## now make the full Supplementary Figure S6.
+S6Fig <- plot_grid(S6FigA, S6FigB, S6Figlegend, ncol = 1, rel_heights = c(2,2,0.25))
+ggsave("../results/S6Fig.pdf", S6Fig, height = 40, width = 8)
+
+## clinical resistance genomes are even more enriched with ARGs than the baseline dataset.
+## the null comes from Table S1 row for humans.
+binom.test(x=(6+22+35),n=(12+46+149),p=0.1407)
+
+#######################################################
 #######################################################
 ## Analysis of chains of duplications, produced by join-duplications.py.
 ## Look at basic statistics
