@@ -796,7 +796,7 @@ S3Fig <- plot_grid(NULL, ## The nesting is to add a title.
 ggsave("../results/S3Fig.pdf", S3Fig, height = 9, width = 8)
 
 #########################
-## S6 Figure.
+## S7 Figure.
 ## Analysis of duplicate pairs found just on chromosome, just on plasmid, or
 ## on both chromosomes and plasmids.
 
@@ -840,7 +840,7 @@ just.plasmid.summary <- just.plasmid.cases %>%
                Annotation,
                levels = rev(order.by.total.isolates)))
 
-S6FigA <- ggplot(both.chr.and.plasmid.summary,
+S7FigA <- ggplot(both.chr.and.plasmid.summary,
                   aes(x = Count,
                       y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
@@ -850,10 +850,10 @@ S6FigA <- ggplot(both.chr.and.plasmid.summary,
     xlab("Frequency") +
     ylab("")
 
-S6Fig.legend <- get_legend(S6FigA)
-S6FigA <- S6FigA + guides(fill = "none")
+S7Fig.legend <- get_legend(S7FigA)
+S7FigA <- S7FigA + guides(fill = "none")
 
-S6FigB <- ggplot(just.chromosome.summary,
+S7FigB <- ggplot(just.chromosome.summary,
                   aes(x = Count,
                       y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
@@ -863,7 +863,7 @@ S6FigB <- ggplot(just.chromosome.summary,
     xlab("Frequency") +
     ylab("")
 
-S6FigC <- ggplot(just.plasmid.summary,
+S7FigC <- ggplot(just.plasmid.summary,
                   aes(x = Count,
                       y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
@@ -873,10 +873,10 @@ S6FigC <- ggplot(just.plasmid.summary,
     xlab("Frequency") +
     ylab("")
 
-S6Fig <- plot_grid(NULL, S6FigA, S6FigB, S6FigC, S6Fig.legend, ncol = 1,
+S7Fig <- plot_grid(NULL, S7FigA, S7FigB, S7FigC, S7Fig.legend, ncol = 1,
                    labels = c("Genomic distribution of D-genes", "A","B","C"),
                    rel_heights=c(0.35,1,1,1,0.25))
-ggsave("../results/S6Fig.pdf", S6Fig, width=5, height=8)
+ggsave("../results/S7Fig.pdf", S7Fig, width=5, height=8)
 
 ######################################################################
 ## Table S4. Show number of duplicated genes on chromosomes, and number of
@@ -1862,9 +1862,15 @@ S6FigB <- plot_grid(S6FigB.title,
                              nrow=1, rel_widths=c(2,1)),
                    nrow=2, rel_heights=c(0.2,2))
 
-## now make the full Supplementary Figure S6.
+## now make the full Supplementary Figure S6. This is too big in dimensions... save
+## panels A and B separately as well.
+ggsave("../results/S6FigA.pdf", S6FigA, height = 18, width = 8)
+ggsave("../results/S6FigB.pdf", S6FigB, height = 18, width = 8)
+
 S6Fig <- plot_grid(S6FigA, S6FigB, S6Figlegend, ncol = 1, rel_heights = c(2,2,0.25))
 ggsave("../results/S6Fig.pdf", S6Fig, height = 40, width = 8)
+
+
 
 ## clinical resistance genomes are even more enriched with ARGs than the baseline dataset.
 ## the null comes from Table S1 row for humans.
