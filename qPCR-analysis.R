@@ -117,7 +117,7 @@ Fig4D <- ggplot(april.14.15.results,
     theme(strip.background = element_blank()) +
     ylab("Transposons per chromosome")
 
-ggsave("../results/Fig4D.pdf", Fig4D, width=7, height=3)
+ggsave("../results/old-Fig4D.pdf", Fig4D, width=7, height=3)
 
 ######################################################################
 

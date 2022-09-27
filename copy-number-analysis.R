@@ -37,7 +37,7 @@ library(rtracklayer)
 #' of the negative binomial fit to the read coverage distribution, returned as a
 #' data.frame with columns {mean, relative.variance}.
 #' NOTE: this code has only been tested on the summary file
-#' output by breseq 0.30.0. It might fail on earlier or later versions.
+#' output by breseq 0.35.0. It will fail on breseq 0.37 and later, which uses the term "relative variance".
 
 coverage.nbinom.from.html <- function(breseq.output.dir, sample.has.plasmid=TRUE) {
     summary.html.f <- file.path(breseq.output.dir, "output", "summary.html")
@@ -318,6 +318,9 @@ parallel.amplified.genes <- annotated.amps %>%
     arrange(desc(parallel.amplifications)) %>%
     filter(parallel.amplifications > 2)
 
+parallel.amplified.genes2 <- parallel.amplified.genes %>%
+    arrange(start)
+
 yaiT.amps <- annotated.amps %>%
     filter(gene == "yaiT")
 
@@ -325,7 +328,7 @@ acrABR.amps <- annotated.amps %>%
     filter(str_detect(gene, "acr"))
 
 test <- amps.with.ancestors %>%
-    arrange(left.boundary)
+    filter(len>6000)
 
 ######################################################################
 ## Plot the plasmid/chromosome and transposon/chromosome ratio in each sample.
