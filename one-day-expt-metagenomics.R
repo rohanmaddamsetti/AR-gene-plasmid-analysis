@@ -58,7 +58,20 @@ evolved.mutations <- read.csv(
     stringsAsFactors=FALSE) %>%
     mutate(Mbp.coordinate=Position/1000000) %>%
     ## remove the pUC samples from the analysis.
-    filter(Plasmid != "pUC")
+    filter(Plasmid != "pUC") %>%
+    ## update the names of the Transposon factor for a prettier plot.
+    mutate(Transposon_factor = fct_recode(as.factor(Transposon),
+                                   `Tn5+` = "B30",
+                                   `Tn5-` = "B59")) %>%
+    ## update the names of the Plasmid factor for a prettier plot.
+    mutate(Plasmid_factor = fct_recode(as.factor(Plasmid),
+                                `No plasmid` = "None",
+                                p15A = "p15A")) %>%
+    mutate(Tet_factor = fct_recode(as.factor(Tet),
+                                   `Tet 0` = "0",
+                                   `Tet 5` = "5"))
+
+
 
 evolved.MOB <- filter(evolved.mutations, Mutation=='MOB')
 
@@ -127,7 +140,7 @@ make.mutation.class.df <- function(evolved.mutations.df) {
                                pseudogene = "Pseudogene",
                                intergenic = "Intergenic",
                                )) %>%
-        group_by(Sample, Transposon, Plasmid, Tet, Population, Mutation) %>%
+        group_by(Sample, Transposon, Plasmid, Tet, Population, Mutation, Transposon_factor, Plasmid_factor, Tet_factor) %>%
         summarize(Count=n(),WeightedCount = sum(Frequency)) %>%
         ungroup() %>%
         data.frame() %>%
@@ -147,7 +160,7 @@ plot.mutation.summary.stackbar <- function(mutation.class.df, leg=FALSE, weight.
 
     fig <- fig +
         ## show both tetracycline concentrations.
-        facet_wrap(Transposon~Tet) +
+        facet_wrap(Transposon_factor~Tet_factor) +
         geom_bar(stat='identity') +
         scale_fill_brewer(palette = "RdYlBu", direction=-1,drop=FALSE) +        
         theme_classic(base_family='Helvetica') +
@@ -172,10 +185,7 @@ plot.mutation.summary.stackbar <- function(mutation.class.df, leg=FALSE, weight.
 }
 
 ## Now make Figure 4F.
-mutation.class.df <- make.mutation.class.df(evolved.mutations) %>%
-    mutate(Tet=recode(Tet,
-                      `0` = "Tet 0",
-                      `5` = "Tet 5"))
+mutation.class.df <- make.mutation.class.df(evolved.mutations)
 
 Fig4F <- plot.mutation.summary.stackbar(mutation.class.df, TRUE, FALSE)
 fig4F.output <- "../results/Fig4F.pdf"
@@ -222,8 +232,8 @@ MakeMutCountMatrixFigure <- function(evolved.muts, show.all=FALSE, use.treatment
 
     ## First, make a mutation matrix for plotting.
     matrix.data <- evolved.muts %>%
-        ## unite the Transposon, Plasmid, Tet columns together.
-        unite("Treatment", Transposon:Tet, sep="\n", remove = FALSE) %>%
+        ## unite the Transposon_factor, Plasmid_factor, Tet_factor columns together.
+        unite("Treatment", Transposon_factor:Tet_factor, sep="\n", remove = FALSE) %>%
         group_by(Gene, Sample, Transposon, Plasmid, Tet, Treatment) %>%
         summarize(mutation.count = n()) %>%
         ## This is for sorting mutations.
@@ -301,22 +311,22 @@ MakeMutCountMatrixFigure <- function(evolved.muts, show.all=FALSE, use.treatment
 
     
     ## make Tet5 panels.
-    B59.noPlasmid.Tet5.matrix.panel <- make.matrix.panel(matrix.data, "B59\nNone\n5")
+    Inactive.noPlasmid.Tet5.matrix.panel <- make.matrix.panel(matrix.data, "Tn5-\nNo plasmid\nTet 5")
     ## Remove the gene labels to save space.
-    B59.A31.Tet5.matrix.panel <- make.matrix.panel(matrix.data, "B59\np15A\n5") +
+    Inactive.A31.Tet5.matrix.panel <- make.matrix.panel(matrix.data, "Tn5-\np15A\nTet 5") +
         theme(axis.text.y=element_blank())
     
-    B30.noPlasmid.Tet5.matrix.panel <- make.matrix.panel(matrix.data,"B30\nNone\n5") +
+    Active.noPlasmid.Tet5.matrix.panel <- make.matrix.panel(matrix.data,"Tn5+\nNo plasmid\nTet 5") +
         theme(axis.text.y=element_blank())
-    B30.A31.Tet5.matrix.panel <- make.matrix.panel(matrix.data, "B30\np15A\n5") +
+    Active.A31.Tet5.matrix.panel <- make.matrix.panel(matrix.data, "Tn5+\np15A\nTet 5") +
         theme(axis.text.y=element_blank())
     
     ## Using the patchwork library for layout.
     matrix.figure <-
-        B59.noPlasmid.Tet5.matrix.panel +
-        B59.A31.Tet5.matrix.panel +
-        B30.noPlasmid.Tet5.matrix.panel +
-        B30.A31.Tet5.matrix.panel +
+        Inactive.noPlasmid.Tet5.matrix.panel +
+        Inactive.A31.Tet5.matrix.panel +
+        Active.noPlasmid.Tet5.matrix.panel +
+        Active.A31.Tet5.matrix.panel +
         plot_layout(nrow = 1)
     return(matrix.figure)
 }
@@ -332,7 +342,7 @@ MakeSummedAlleleFrequencyMatrixFigure <- function(evolved.muts,
     ## First, make a mutation matrix for plotting.
     matrix.data <- evolved.muts %>%
         ## unite the Transposon, Plasmid, Tet columns together.
-        unite("Treatment", Transposon:Tet, sep="\n", remove = FALSE) %>%
+        unite("Treatment", Transposon_factor:Tet_factor, sep="\n", remove = FALSE) %>%
         group_by(Gene, Sample, Transposon, Plasmid, Tet, Treatment) %>%
         summarize(summed.Allele.Frequency = sum(Frequency)) %>%
         ## This is for sorting mutations.
@@ -408,29 +418,29 @@ MakeSummedAlleleFrequencyMatrixFigure <- function(evolved.muts,
     }
     
 
-    B59.noPlasmid.Tet5.matrix.panel <- make.allele.freq.matrix.panel(matrix.data, "B59\nNone\n5", add.legend)
+    Inactive.noPlasmid.Tet5.matrix.panel <- make.allele.freq.matrix.panel(matrix.data, "Tn5-\nNo plasmid\nTet 5", add.legend)
     ## Remove the gene labels for the additional matrices to save space.
-    B59.A31.Tet5.matrix.panel <- make.allele.freq.matrix.panel(matrix.data, "B59\np15A\n5", add.legend)  +
+    Inactive.A31.Tet5.matrix.panel <- make.allele.freq.matrix.panel(matrix.data, "Tn5-\np15A\nTet 5", add.legend)  +
         theme(axis.text.y=element_blank())
     
-    B30.noPlasmid.Tet5.matrix.panel <- make.allele.freq.matrix.panel(matrix.data, "B30\nNone\n5", add.legend)  +
+    Active.noPlasmid.Tet5.matrix.panel <- make.allele.freq.matrix.panel(matrix.data, "Tn5+\nNo plasmid\nTet 5", add.legend)  +
         theme(axis.text.y=element_blank())
-    B30.A31.Tet5.matrix.panel <- make.allele.freq.matrix.panel(matrix.data, "B30\np15A\n5", add.legend) +
+    Active.A31.Tet5.matrix.panel <- make.allele.freq.matrix.panel(matrix.data, "Tn5+\np15A\nTet 5", add.legend) +
         theme(axis.text.y=element_blank())
 
     if (add.legend) {
         ## get the legend from the last panel.
-        my.legend <- get_legend(B30.A31.Tet5.matrix.panel)
+        my.legend <- get_legend(Active.A31.Tet5.matrix.panel)
         ## now remove the legend from the panel.
-        B30.A18.Tet5.matrix.panel <- B30.A31.Tet5.matrix.panel + guides(fill = "none")
+        Active.A18.Tet5.matrix.panel <- Active.A31.Tet5.matrix.panel + guides(fill = "none")
     }
     
     ## Using the patchwork library for layout.
     matrix.figure <-
-        B59.noPlasmid.Tet5.matrix.panel +
-        B59.A31.Tet5.matrix.panel +
-        B30.noPlasmid.Tet5.matrix.panel +
-        B30.A31.Tet5.matrix.panel +
+        Inactive.noPlasmid.Tet5.matrix.panel +
+        Inactive.A31.Tet5.matrix.panel +
+        Active.noPlasmid.Tet5.matrix.panel +
+        Active.A31.Tet5.matrix.panel +
         plot_layout(nrow = 1) +
         plot_layout(guides = "collect") & theme(legend.position = 'bottom')
 

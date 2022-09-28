@@ -101,7 +101,7 @@ april.14.15.results <- rbind(april.14.results,april.15.results) %>%
                       pUC = "pUC_plasmid"))
 
 ## Using Yi's calibration produces a more sensible result.
-Fig4D <- ggplot(april.14.15.results,
+oldFig4D <- ggplot(april.14.15.results,
                        aes(x = Day,
                            y = transposons.per.chromosome,
                            color = Replicate,
@@ -117,7 +117,7 @@ Fig4D <- ggplot(april.14.15.results,
     theme(strip.background = element_blank()) +
     ylab("Transposons per chromosome")
 
-ggsave("../results/old-Fig4D.pdf", Fig4D, width=7, height=3)
+ggsave("../results/old-Fig4D.pdf", oldFig4D, width=7, height=3)
 
 ######################################################################
 
