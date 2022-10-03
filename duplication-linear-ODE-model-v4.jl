@@ -113,9 +113,9 @@ end
 
 # ╔═╡ 12bfa0be-8c2b-465c-874a-7e41f47c4337
 md""" 
-For Figure 4, use the following parameter settings:  
+For Figure 4, I use the following parameter settings:  
 
-Antibiotic Concentration = 5.0
+Antibiotic Concentration = 2.0
 
 Duplication Cost = 0.1
 
@@ -123,7 +123,7 @@ Transfer Rate = 0.0002
 
 Dilution Rate = 0.1.
 
-Plasmid copy number = 4.
+Plasmid copy number = 2.
 """
 
 # ╔═╡ 629c7707-18b9-48ab-84c0-a88d41dd5686
@@ -159,7 +159,7 @@ md""" Plasmid copy number Slider"""
 # ╔═╡ 6d8a3135-35c4-4763-b330-d5ee98821354
 begin	
 	## initial conditions
-	x1, x2, x3 = 0.1, 0.1, 0.1
+	x1, x2, x3 = 1, 0, 0
 	u₀ = [x1, x2, x3]
 	## time interval
 	tspan = (0.0,200.0)
@@ -259,22 +259,29 @@ antibiotic_prob = ODEProblem(dynamics!, u₀, tspan, antibiotic_treatment);
 antibiotic_sol = solve(antibiotic_prob);
 
 # ╔═╡ 79f731a1-1d47-41aa-935d-7d9307b4b6e5
-plot(antibiotic_sol,linewidth=2,xaxis="Time", size=(3.5*72,3*72),
+let
+	Fig4B = plot(antibiotic_sol,linewidth=2,xaxis="Time", size=(3.5*72,3*72),
 					legend = false, fontfamily = "Helvetica", grid = false,
 					yaxis = "Biomass")
+	savefig(Fig4B, "../results/linear-ODE-model-figures/Fig4B-pop-dynamics.pdf")
+	Fig4B
+end
 
 # ╔═╡ b67afe32-e740-4767-bd86-9bf6df37b587
 antibiotic_sol_array = transpose(hcat(antibiotic_sol.u...))
 
 # ╔═╡ d81e5ab5-0221-439a-b6e7-6d7c6e6e9ac0
 let
-S4FigB = groupedbar(antibiotic_sol_array, bar_position = :stack, size=(3.5*72,3*72),
+	## IMPORTANT NOTE: THE TIME UNITS ARE MESSED UP! DON'T USE THIS FIGURE!
+	## This is *probably* because the timestep is not a fixed interval of time,
+	## but I haven't checked this to confirm.
+oldS4FigB = groupedbar(antibiotic_sol_array, bar_position = :stack, size=(3.5*72,3*72),
 					bar_width = 1, legend = false, fontfamily = "Helvetica", lw = 0,
 					grid = false,
 					ylabel = "Total biomass",
 					xlabel = "Time")
-savefig(S4FigB, "../results/linear-ODE-model-figures/Fig4B-pop-dynamics.pdf")
-S4FigB
+savefig(oldS4FigB, "../results/linear-ODE-model-figures/old-Fig4B-pop-dynamics.pdf")
+oldS4FigB
 end
 
 # ╔═╡ dce6ca2e-dbb0-4877-bfef-1ee5fbbc1c3c
@@ -302,13 +309,13 @@ DI  (duplication index) = $(x_2 + x_3)/ x_{total}$, that is, the fraction of the
 """
 
 # ╔═╡ 29574837-97a9-4059-8f37-1751a791d338
-function DuplicationIndex(sol)
+function FinalDuplicationIndex(sol)
 	## fraction of population containing duplicates
 	return (sol[end][2] + sol[end][3])/sum(sol[end])
 end
 
 # ╔═╡ f41ca80d-fd80-4063-b475-eaf5b7ca2b36
-function ConcAndCostToDuplicationIndex(antibiotic_conc::Float64, my_cost::Float64, fixed_parameters)
+function ConcAndCostToFinalDuplicationIndex(antibiotic_conc::Float64, my_cost::Float64, fixed_parameters)
 	
 	η, D, y = fixed_parameters
 	antibiotic_conc_func = t->antibiotic_conc
@@ -317,7 +324,7 @@ function ConcAndCostToDuplicationIndex(antibiotic_conc::Float64, my_cost::Float6
 	
 	my_prob = ODEProblem(dynamics!, u₀, tspan, my_parameters)
 	my_sol = solve(my_prob)
-	return DuplicationIndex(my_sol)
+	return FinalDuplicationIndex(my_sol)
 end
 
 # ╔═╡ c9834d62-49aa-40eb-ae02-050330b95e61
@@ -326,8 +333,8 @@ let
 	
 	p = plot(size=(3.5*72,3*72))
 	for cost in 0.05:0.05:0.25
-		antibiotic_concs = [x for x in 0.25:0.001:1]
-		dup_indices = [ConcAndCostToDuplicationIndex(x, cost, fixed_parameters) for x in antibiotic_concs]
+		antibiotic_concs = [x for x in 0.25:0.001:1.2]
+		dup_indices = [ConcAndCostToFinalDuplicationIndex(x, cost, fixed_parameters) for x in antibiotic_concs]
 		my_label = "cost = $cost"
 		plot!(antibiotic_concs, dup_indices, label=my_label,
 			legend = false,
@@ -340,6 +347,53 @@ let
 	
 	savefig(p, "../results/linear-ODE-model-figures/Fig4C-DI-versus-selection.pdf")
 	p
+end
+
+# ╔═╡ 8c24569d-210a-4d5f-872e-0dd4f3730d6e
+md"""Lingchong suggests including another panel (Fig. 4D): Keep fitness cost and [A] constant. Show the time trajectories of the Duplication index for different rates of duplication. The point of this analysis is to show the importance of a sufficiently fast duplication, which can be facilitated by being associated with MGEs. This provides a plausible interpretation of the frequent association with MGEs in the natural isolates, and a stronger justification for the use of transposons. """
+
+# ╔═╡ 8b20e195-608a-4e33-ab6f-ef1e940836de
+function DuplicationIndexOverTime(sol)
+	## fraction of population containing duplicates over time
+	duplication_index_vec = [(v[2] + v[3])/sum(v) for v in sol.u]
+	return duplication_index_vec
+end
+
+# ╔═╡ 22f8793e-1299-4519-8526-745ada7c6f95
+struct DuplicationIndexTimeSeries
+    t::Vector{Float64}
+    v::Vector{Float64}
+end
+
+# ╔═╡ 72620850-de0b-4199-8a9d-4340cce432a7
+function TimeSeriesDuplicationIndex(antibiotic_conc::Float64, my_cost::Float64, η, D, y)
+	antibiotic_conc_func = t->antibiotic_conc
+	my_parameters = [η, antibiotic_conc_func, my_cost, D, y]
+	my_prob = ODEProblem(dynamics!, u₀, tspan, my_parameters)
+	my_sol = solve(my_prob) 
+	DI_TimeSeries = DuplicationIndexTimeSeries(my_sol.t, DuplicationIndexOverTime(my_sol))
+	return DI_TimeSeries
+end
+
+# ╔═╡ 7386e490-ef6b-42ec-9445-5ccb006bb6ef
+let
+	cost = 0.1
+	antibiotic_conc = 2.0
+	fig4D = plot(size=(3.5*72,3*72))
+	for duplication_rate in [0, 2e-7, 2e-6, 2e-5, 2e-4]
+		DI_timeseries = TimeSeriesDuplicationIndex(antibiotic_conc, cost, duplication_rate, D, y)
+		my_label = "cost = $cost"
+		plot!(DI_timeseries.t, DI_timeseries.v, label=my_label,
+			legend = false,
+			ylabel="Duplication Index",
+			palette = :tol_bright,
+			xlabel="Time",
+			fontfamily="Helvetica",
+			grid = false)
+	end
+	
+	savefig(fig4D, "../results/linear-ODE-model-figures/Fig4D-DI-versus-TransferRate.pdf")
+	fig4D
 end
 
 # ╔═╡ 4ebc8fd9-4b5e-46e8-89f5-5f33b038ad11
@@ -2374,14 +2428,14 @@ version = "0.9.1+5"
 # ╠═2edcc207-0c4b-4717-a9ca-df23b6354acc
 # ╟─12bfa0be-8c2b-465c-874a-7e41f47c4337
 # ╟─629c7707-18b9-48ab-84c0-a88d41dd5686
-# ╟─abe253e9-93b3-4c73-a2a9-843b9e332981
+# ╠═abe253e9-93b3-4c73-a2a9-843b9e332981
 # ╟─bfe80764-5b9b-41d8-94b7-d6a1ec833207
 # ╠═b0bd8e9e-bbad-4c7b-a2d9-6a8504c574fc
 # ╟─c8bbb48b-936d-49c4-8103-3b55669e6785
-# ╟─088c465a-ca90-460f-88b3-8db002375473
-# ╠═405eb76d-bad8-4d53-9f20-fe503c404dbf
+# ╠═088c465a-ca90-460f-88b3-8db002375473
+# ╟─405eb76d-bad8-4d53-9f20-fe503c404dbf
 # ╠═32a2e8bd-c362-4d10-8753-16eff0dae431
-# ╠═de4ea38a-eb2a-4df9-ab7d-e3576538b3b3
+# ╟─de4ea38a-eb2a-4df9-ab7d-e3576538b3b3
 # ╠═3b1db27f-0f5d-41eb-90d5-65bc69400d5d
 # ╠═6d8a3135-35c4-4763-b330-d5ee98821354
 # ╠═b979eee9-f1e0-4ef3-8c03-859482a3157d
@@ -2402,6 +2456,11 @@ version = "0.9.1+5"
 # ╠═29574837-97a9-4059-8f37-1751a791d338
 # ╠═f41ca80d-fd80-4063-b475-eaf5b7ca2b36
 # ╠═c9834d62-49aa-40eb-ae02-050330b95e61
+# ╟─8c24569d-210a-4d5f-872e-0dd4f3730d6e
+# ╠═8b20e195-608a-4e33-ab6f-ef1e940836de
+# ╠═22f8793e-1299-4519-8526-745ada7c6f95
+# ╠═72620850-de0b-4199-8a9d-4340cce432a7
+# ╠═7386e490-ef6b-42ec-9445-5ccb006bb6ef
 # ╠═4ebc8fd9-4b5e-46e8-89f5-5f33b038ad11
 # ╟─168db078-f02b-4fae-a53d-aab122fa98c8
 # ╟─00000000-0000-0000-0000-000000000001

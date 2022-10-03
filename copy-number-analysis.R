@@ -82,6 +82,9 @@ max.readlen.from.html <- function(breseq.output.dir) {
     return(max.readlen)
 }
 
+
+
+
 #' Find intervals longer than max.read.len that reject H0 coverage in genome.
 #' at an uncorrected alpha = 0.05. This is to have generous predicted boundaries for amplifications.
 #' Then do a more rigorous test for each region. take positions in the region separated by more than max.read.len,
@@ -89,8 +92,9 @@ max.readlen.from.html <- function(breseq.output.dir) {
 #' a corrected bonferroni. max.read.len ensures positions cannot be spanned by a single Illumina read.
 #' Estimate copy number by dividing mean coverage in each region by the mean of the H0 1x coverage distribution.
 #' return mean copy number, and boundaries for each region that passes the amplification test.
-find.K12.chromosomal.amplifications <- function(breseq.output.dir, gnome) { #gnome is not a misspelling.
-    
+
+find.K12.candidate.amplifications <- function(breseq.output.dir, gnome) { #gnome is not a misspelling.
+
     gnome <- as.character(gnome)
     print(gnome)
     ## Use xml2 to get negative binomial fit and relative variance from
@@ -144,7 +148,8 @@ find.K12.chromosomal.amplifications <- function(breseq.output.dir, gnome) { #gno
     
     amplified.segments <- data.frame(left.boundary=left.boundaries$position,right.boundary=right.boundaries$position) %>%
         ## filter out intervals less than 2 * max.read.len.
-        mutate(len=right.boundary-left.boundary) %>% filter(len>(2*max.read.len)) %>% mutate(amplication.index=row_number())
+        mutate(len=right.boundary-left.boundary) %>%
+    filter(len>(2*max.read.len)) %>% mutate(amplication.index=row_number())
 
     ## return empty dataframe  if there are no significant amplified segments.
     if (nrow(amplified.segments) == 0) return(data.frame())
@@ -157,12 +162,19 @@ find.K12.chromosomal.amplifications <- function(breseq.output.dir, gnome) { #gno
                   coverage.mean=get.segment.coverage(left.boundary,right.boundary,candidate.amplifications,mean)) %>%
         mutate(len=right.boundary-left.boundary) %>%
         mutate(copy.number.min=coverage.min/nbinom.fit$mean,copy.number.max=coverage.max/nbinom.fit$mean,
-               copy.number.mean=coverage.mean/nbinom.fit$mean)
+               copy.number.mean=coverage.mean/nbinom.fit$mean) %>%
+        ## annotate with the sample name.
+        mutate(Sample=as.character(gnome))
+
+    return(amplified.segments)
+}
+
+
+find.K12.chromosomal.amplifications <- function(breseq.output.dir, gnome) { #gnome is not a misspelling.
     
-    ##print(data.frame(amplified.segments))
+    amplified.segments <- find.K12.candidate.amplifications(breseq.output.dir, gnome)
     ## divide alpha by the number of tests for the bonferroni correction.
     bonferroni.alpha <- alpha/(genome.length + sum(amplified.segments$len))
-    
     corrected.threshold <- qnbinom(p = bonferroni.alpha, mu = nbinom.fit$mean, size = my.size.parameter, lower.tail=FALSE)
     
     ## This is my test: take the probability of the minimum coverage under H0 to the power of the number of
@@ -175,14 +187,13 @@ find.K12.chromosomal.amplifications <- function(breseq.output.dir, gnome) { #gno
                              lower.tail=FALSE))^(len%/%max.read.len)) %>%
         mutate(is.significant=ifelse(pval < bonferroni.alpha,TRUE,FALSE)) %>%
         filter(is.significant==TRUE) %>%
-        mutate(Sample=as.character(gnome)) %>%
         mutate(bonferroni.corrected.pval=pval*alpha/bonferroni.alpha)
     
     return(significant.amplifications)
 }
 
 
-annotate.sample.amplifications <- function(sample.amplifications, ancestor.gff) {
+annotate.sample.amplifications <- function(sample.amplifications) {
 
     ancestor.gff <- unique(sample.amplifications$gff_path)
     
@@ -227,44 +238,59 @@ annotate.amplifications <- function(amps.with.ancestors) {
 }
 
 
-plot.amp.segments <- function(annotated.amps,clone.labels) {
+plot.amp.segments <- function(annotated.amps) {
     
-    ## for annotated.amps and clone.labels to play nicely with each other.
-    clone.labels$Name <- as.character(clone.labels$Name)
-    
-    labeled.annotated.amps <- left_join(annotated.amps,clone.labels,by=c("Genome" = 'Name')) %>%
-        select(-query.index,-subject.index,-is.significant,-SampleType, -Population) %>%
-        mutate(log.pval=log(bonferroni.corrected.pval)) %>%
+    labeled.annotated.amps <- annotated.amps %>%
         mutate(log2.copy.number.mean=log2(copy.number.mean)) %>%
         mutate(left.boundary.MB = left.boundary/1000000) %>%
-        mutate(right.boundary.MB = right.boundary/1000000) ##%>%
-##        mutate(Genome.Class=recode(Environment,
-##                                   DM0 = "DM0-evolved genomes",
-##                                   DM25 = "DM25-evolved genomes"))
+        mutate(right.boundary.MB = right.boundary/1000000)
     
     ## order the genes by start to get axes correct on heatmap.
     labeled.annotated.amps$gene <- with(labeled.annotated.amps, reorder(gene, start))
     ## reverse the order of genomes to make axes consistent with stacked barplot.
-    labeled.annotated.amps$Genome <- factor(labeled.annotated.amps$Genome)
-    labeled.annotated.amps$Genome <- factor(labeled.annotated.amps$Genome,
-                                            levels=rev(levels(labeled.annotated.amps$Genome)))
+    labeled.annotated.amps$Sample <- factor(labeled.annotated.amps$Sample)
+    labeled.annotated.amps$Sample <- factor(labeled.annotated.amps$Sample,
+                                            levels=rev(levels(labeled.annotated.amps$Sample)))
     
     segmentplot <- ggplot(
         labeled.annotated.amps,
         aes(x=left.boundary.MB,
             xend=right.boundary.MB,
-            y=Genome,
-            yend=Genome,
-            color=log2.copy.number.mean,
+            y=Sample,
+            yend=Sample,
+            color=copy.number.mean,
             size=20,
-            frame=Genome.Class)) +
+            frame=Plasmid)) +
         geom_segment() +
+        ## draw vertical lines at boundaries of MD1 and MD12 deletions
+        ## in Table 1 of the the paper "Engineering a Reduced Escherichia coli Genome"
+        geom_vline(size=0.2,
+                   color = 'green',
+                   linetype = 'dashed',
+                   ##  coordinates of MD1-right and MD12-left
+                   xintercept = c(324632/1000000, 564278/1000000)
+                   ) +
+        ## draw vertical lines at yaiT for data exploration.
+        geom_vline(size=0.2,
+                   color = 'red',
+                   linetype = 'dashed',
+                   ## yaiT amplification coordinates
+                   xintercept = c(392236/1000000, 393317/1000000)
+                   ## yaiT start and end coordinates (for both fragments)
+                   ##xintercept = c(389475/1000000, 393642/1000000)
+                   ) +
+        ## draw vertical lines at acrBAR starts.
+        geom_vline(size=0.2,
+                   color = 'red',
+                   linetype = 'dashed',
+                   xintercept = c(480478/1000000, 484843/1000000, 484985/1000000)
+                   ) +
         xlab("Genomic position (Mb)") +
         ylab("") +
-        scale_color_viridis(name=bquote(log[2]~"(copy number)"),option="plasma") +
-        facet_wrap(~Transposon,nrow=2, scales = "free_y") +
+        scale_color_viridis(name="copy number",option="plasma") +
+        facet_wrap(~Plasmid,nrow=2, scales = "free_y") +
         theme_classic(base_family='Helvetica') +
-        guides(size=FALSE) +
+        guides(size= "none") +
         theme(legend.position="bottom") +
         theme(axis.ticks=element_line(size=0.1))
     return(segmentplot)
@@ -286,10 +312,14 @@ all.mixedpops <- list.files(mixedpop.output.dir,pattern='^RM')
 all.mixedpop.paths <- sapply(all.mixedpops, function(x) file.path(mixedpop.output.dir,x))
 mixedpop.input.df <- data.frame(Sample=all.mixedpops, path=all.mixedpop.paths) %>%
     ## skip the two clone samples for now.
-    inner_join(metagenome.metadata)
+    inner_join(metagenome.metadata) %>%
+    ## skip the pUC samples.
+    filter(Plasmid != "pUC")
 
 ## get metadata for the ancestral clones
-ancestralclone.metadata <- read.csv("../data/one-day-expt-ancestral-sample-metadata.csv")
+ancestralclone.metadata <- read.csv("../data/one-day-expt-ancestral-sample-metadata.csv") %>%
+    ##skip the pUC samples.
+    filter(Plasmid != "pUC")
 
 ## get corresponding inputs for the ancestral clones.
 ancestralclone.output.dir <- file.path(projdir, "results", "one-day-expt-genome-analysis")
@@ -307,44 +337,10 @@ ancestralclone.input.df <- data.frame(
 
 ancestral.clones.df <- ancestralclone.metadata %>%
     ## these clones are the ancestors, so identical to sample ID.
-   dplyr::mutate(Ancestor = Sample) %>%
+   dplyr::rename(Ancestor = Sample) %>%
     select(-SampleType) %>%
     mutate(gff_name = paste0(Ancestor, ".gff3")) %>%
     mutate(gff_path = file.path(projdir, "results", "one-day-expt-genome-analysis", gff_name))
-
-########################################################
-
-## Find chromosomal amplifications in all samples, and annotate with their ancestor gff file.
-amps.with.ancestors <- map2_df(mixedpop.input.df$path,
-                mixedpop.input.df$Sample,
-                find.K12.chromosomal.amplifications) %>%
-    ungroup() %>%
-    left_join(metagenome.metadata) %>%
-    select(-SampleType) %>%
-    left_join(ancestral.clones.df)
-
-annotated.amps <- annotate.amplifications(amps.with.ancestors)
-
-## CRITICAL TODO:
-## make figures, and polish this analysis further.
-
-parallel.amplified.genes <- annotated.amps %>%
-    group_by(gene, locus_tag, start, end) %>%
-    summarize(parallel.amplifications = n()) %>%
-    arrange(desc(parallel.amplifications)) %>%
-    filter(parallel.amplifications > 2)
-
-parallel.amplified.genes2 <- parallel.amplified.genes %>%
-    arrange(start)
-
-yaiT.amps <- annotated.amps %>%
-    filter(gene == "yaiT")
-
-acrABR.amps <- annotated.amps %>%
-    filter(str_detect(gene, "acr"))
-
-test <- amps.with.ancestors %>%
-    filter(len>6000)
 
 ######################################################################
 ## Plot the plasmid/chromosome and transposon/chromosome ratio in each sample.
@@ -450,11 +446,11 @@ ratio.figure.Fig4 <- plot_grid(Tet5.ratio.plot, Tet0.ratio.plot, labels=c('A','B
 ggsave("../results/one-day-expt-coverage-ratios.pdf", ratio.figure.Fig4)
 
 ## let's write out the table too.
-write.csv(replicon.coverage.ratio.df, "../results/one-day-expt-plasmid-transposon-coverage-ratios.csv",
+write.csv(evolved.replicon.coverage.ratio.df, "../results/one-day-expt-plasmid-transposon-coverage-ratios.csv",
           quote=F, row.names=FALSE)
 
-
-## let's make a polished Figure 4E.
+################################################################################
+## Figure 4E.
 
 ## This is the big data frame for making Figure 4E.
 ancestral.and.evolved.replicon.coverage.ratio.df <- full_join(
@@ -492,4 +488,57 @@ Fig4E <- ggplot(Fig4E.df,
     ylab("tetA-transposons per chromosome")
 
 ggsave("../results/Fig4E.pdf", Fig4E, width=4.5, height=3.25)
+
+########################################################
+## Heatmap figure for examining amplifications.
+
+## Find chromosomal amplifications in B59 Tet 5 samples, and annotate with their ancestor gff file.
+B59.Tet5.mixedpops <- mixedpop.input.df %>%
+    filter(Transposon == "B59") %>%
+    filter(Tet == 5)
+
+amps.with.ancestors <- map2_df(B59.Tet5.mixedpops$path,
+                               B59.Tet5.mixedpops$Sample,                              
+                               find.K12.candidate.amplifications) %>% ## for uncorrected p-values
+               ## find.K12.chromosomal.amplifications) %>% ## for corrected p-values
+    ungroup() %>%
+    left_join(metagenome.metadata) %>%
+    select(-SampleType) %>%
+    left_join(ancestral.clones.df)
+
+annotated.amps <- annotate.amplifications(amps.with.ancestors)
+
+## make a figure of the significant amplifications found with the bonferroni method.
+amp.segment.plot <- plot.amp.segments(annotated.amps)
+## show the plot.
+amp.segment.plot
+
+parallel.amplified.genes <- annotated.amps %>%
+    group_by(gene, locus_tag, start, end) %>%
+    summarize(parallel.amplifications = n()) %>%
+    arrange(desc(parallel.amplifications)) %>%
+    filter(parallel.amplifications > 2)
+
+## yaiT is a pseudogene in K12 that is found in fragments.
+yaiT.amps <- annotated.amps %>%
+    filter(gene == "yaiT")
+
+acrABR.amps <- annotated.amps %>%
+    filter(str_detect(gene, "acr"))
+
+################################################################################
+## Figure 4F.
+## TODO: Make a figure of normalized coverage per gene in E. coli K12+B59 samples.
+##These samples do not have an active transposase, and there is evidence of
+##copy number variation in a very large region surround the native efflux pump operon
+##acrAB.
+
+##This plot will also help in identifying the boundaries of the amplification.
+
+
+## calculate mean coverage for every gene in K12.
+## IMPORTANT NOTE : Use the GFF annotation files to get gene coordinates, since
+## this is a bit different from the coordinates in the standard K12 MG1655 reference genome,
+## after using breseq to infer the ancestral genomes.
+
 
