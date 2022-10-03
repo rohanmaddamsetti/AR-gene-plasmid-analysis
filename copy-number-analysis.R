@@ -83,8 +83,6 @@ max.readlen.from.html <- function(breseq.output.dir) {
 }
 
 
-
-
 #' Find intervals longer than max.read.len that reject H0 coverage in genome.
 #' at an uncorrected alpha = 0.05. This is to have generous predicted boundaries for amplifications.
 #' Then do a more rigorous test for each region. take positions in the region separated by more than max.read.len,
@@ -200,7 +198,7 @@ annotate.sample.amplifications <- function(sample.amplifications) {
     ## create the IRanges object.
     amp.ranges <- IRanges(sample.amplifications$left.boundary,
                           sample.amplifications$right.boundary)
-    ## Turn into a GRanges object in order to find overlaps with NEB5-alpha genes.
+    ## Turn into a GRanges object in order to find overlaps with K12 genes.
     g.amp.ranges <- GRanges("NC_000913", ranges=amp.ranges)
     ## and add the data.frame of sample.amplifications as metadata.
     mcols(g.amp.ranges) <- sample.amplifications
@@ -533,12 +531,90 @@ acrABR.amps <- annotated.amps %>%
 ##copy number variation in a very large region surround the native efflux pump operon
 ##acrAB.
 
+## for each sample, calculate mean coverage per protein-coding gene.
+get.protein.coverage.per.sample <- function(row.df) { 
+
+    breseq.output.dir <- row.df$path
+    gnome <- row.df$Sample #gnome is not a misspelling.
+    
+    gnome <- as.character(gnome)
+    print(gnome)
+   
+    genome.coverage.file <- file.path(breseq.output.dir, "08_mutation_identification", "NC_000913.coverage.tab")
+    
+    ## use dtplyr for speed!
+    genome.coverage.dt <- lazy_dt(fread(genome.coverage.file)) %>%
+        select(position,unique_top_cov,unique_bot_cov) %>%
+        mutate(coverage=unique_top_cov+unique_bot_cov)
+
+    get.coverage.per.protein <- function(my.protein) {
+
+        relevant.coverage <- genome.coverage.dt %>%
+            dplyr::filter(position >= my.protein$start) %>%
+            dplyr::filter(position <= my.protein$end) %>%
+            data.frame()
+        
+        ## we need to use as.data.table()/as.data.frame()/as_tibble() to access the results.
+        ##relevant.coverage.tbl <- as_tibble(relevant.coverage)
+        #coverage.vec <- relevant.coverage.tbl$coverage
+        ##mean.coverage <- base::mean(coverage.vec)
+        
+        ##my.protein.coverage.df <- mutate(my.protein, mean_coverage=mean.coverage)
+        ##return(my.protein.coverage.df)
+        return(my.protein)
+    }
+    
+    ## get the proteins in the reference genome.
+    reference.gff <- row.df$gff_path
+    ref.gff.data <- import.gff(reference.gff)
+    ref.proteins <- ref.gff.data[ref.gff.data$type == 'CDS']
+    ## AFAIK Granges and GrangeLists are not designed for split-apply-combine.
+    ## trying is incredibly slow and truly painful... convert into a vanilla R data frame.
+    ref.protein.df <- data.frame(ref = ref.proteins) %>%
+        select(ref.start, ref.end, ref.width, ref.Note, ref.Name, ref.Alias, ref.ID) %>%
+        dplyr::rename(Gene = ref.Name) %>%
+        dplyr::rename(Alias = ref.Alias) %>%
+        dplyr::rename(ID = ref.ID) %>%
+        dplyr::rename(start = ref.start) %>%
+        dplyr::rename(end = ref.end) %>%
+        dplyr::rename(gene_length = ref.width) %>%
+        dplyr::rename(product = ref.Note)
+
+    protein.coverage.inputlist <- ref.protein.df %>% split(.$Gene)
+
+    my.protein <- protein.coverage.inputlist[[1]]
+
+    get.coverage.per.protein(my.protein)
+    
+    protein.coverage.df <- protein.coverage.inputlist %>%
+        ## get the coverage for each protein in the reference genome.
+        map_dfr(.f = get.coverage.per.protein)
+
+    
+    return(protein.coverage.df)
+}
+
+
+## This will be edited, input for getting coverage per gene for relevant samples.
+protein.coverage.input.df <- B59.Tet5.mixedpops %>%
+    left_join(metagenome.metadata) %>%
+    select(-SampleType) %>%
+    left_join(ancestral.clones.df)
+
+
+sample.protein.coverage.df <- protein.coverage.input.df %>%
+    split(.$Sample) %>%
+    map_dfr(.f = get.protein.coverage.per.sample)
+
+row.df <- sample.protein.coverage.df[[1]]
+
 ##This plot will also help in identifying the boundaries of the amplification.
 
 
+
 ## calculate mean coverage for every gene in K12.
-## IMPORTANT NOTE : Use the GFF annotation files to get gene coordinates, since
+## Use the GFF annotation files to get gene coordinates, since
 ## this is a bit different from the coordinates in the standard K12 MG1655 reference genome,
-## after using breseq to infer the ancestral genomes.
+
 
 
