@@ -1,5 +1,9 @@
 ##copy-number-analysis.R by Rohan Maddamsetti.
 
+## TODO: rewrite this code (and the upstream python script get-one-day-expt-transposon-coverage.py)
+## in Julia for speed and for cleaner code. This code is slow!
+
+
 ## 1) use xml2 to get negative binomial fit from
 ## breseq output summary.html. This is H0 null distribution of 1x coverage.
 
@@ -16,16 +20,12 @@
 ## 5) return copy number and boundaries for each significant amplification.
 
 library(tidyverse)
-library(scales)      # pairs nicely with ggplot2 for plot label formatting
-library(gridExtra)   # a helper for arranging individual ggplot objects
-library(ggthemes)    # has a clean theme for ggplot2
-library(viridis)
-library(DT)          # prettier data.frame output
-library(data.table)  # faster fread()
-library(dtplyr)      # dplyr works with data.table now.
-library(cowplot)     # layout figures nicely.
 library(xml2)
+library(cowplot)
+library(data.table)
+library(dtplyr)
 library(assertthat)
+library(viridis)
 
 ## Bioconductor dependencies
 library(IRanges)
@@ -260,29 +260,23 @@ plot.amp.segments <- function(annotated.amps) {
             size=20,
             frame=Plasmid)) +
         geom_segment() +
-        ## draw vertical lines at boundaries of MD1 and MD12 deletions
-        ## in Table 1 of the the paper "Engineering a Reduced Escherichia coli Genome"
-        geom_vline(size=0.2,
-                   color = 'green',
-                   linetype = 'dashed',
-                   ##  coordinates of MD1-right and MD12-left
-                   xintercept = c(324632/1000000, 564278/1000000)
-                   ) +
-        ## draw vertical lines at yaiT for data exploration.
-        geom_vline(size=0.2,
-                   color = 'red',
-                   linetype = 'dashed',
-                   ## yaiT amplification coordinates
-                   xintercept = c(392236/1000000, 393317/1000000)
-                   ## yaiT start and end coordinates (for both fragments)
-                   ##xintercept = c(389475/1000000, 393642/1000000)
-                   ) +
         ## draw vertical lines at acrBAR starts.
         geom_vline(size=0.2,
                    color = 'red',
                    linetype = 'dashed',
-                   xintercept = c(480478/1000000, 484843/1000000, 484985/1000000)
-                   ) +
+                   xintercept = c(480478/1000000, 484843/1000000, 484985/1000000)) +
+        ## draw lines at boundaries of the MD1 deletion in "Engineering a Reduced Escherichia coli Genome"
+        geom_vline(size=0.2,
+                   color = 'purple',
+                   linetype = 'dashed',
+                   xintercept = c(262914/1000000, 324588/1000000)) + 
+        ## draw vertical lines at boundaries of MD12 deletion
+        ## in Table 1 of the the paper "Engineering a Reduced Escherichia coli Genome"
+        geom_vline(size=0.2,
+                   color = 'green',
+                   linetype = 'dashed',
+                   ##  coordinates of cryptic prophage DL12 (MD12) deletion.
+                   xintercept = c(563979/1000000, 585280/1000000)) +
         xlab("Genomic position (Mb)") +
         ylab("") +
         scale_color_viridis(name="copy number",option="plasma") +
@@ -469,7 +463,6 @@ Fig4E.df <- ancestral.and.evolved.replicon.coverage.ratio.df %>%
     mutate(Population = as.factor(Population)) %>%
     mutate(Day = as.factor(Day))
   
-
 Fig4E <- ggplot(Fig4E.df,
                        aes(x = Day,
                            y = ratio,
@@ -479,9 +472,6 @@ Fig4E <- ggplot(Fig4E.df,
     geom_point(size=3) +
     theme_classic() +
     theme(legend.position = "bottom") +
-    #scale_x_continuous(breaks=c(0,1)) + ## set scale for Days.
-    #scale_shape_discrete(name = "Tetracycline concentration\n(ug/mL)") +
-    #guides(color = "none") +
     theme(strip.background = element_blank()) +
     ylab("tetA-transposons per chromosome")
 
@@ -509,7 +499,8 @@ annotated.amps <- annotate.amplifications(amps.with.ancestors)
 ## make a figure of the significant amplifications found with the bonferroni method.
 amp.segment.plot <- plot.amp.segments(annotated.amps)
 ## show the plot.
-amp.segment.plot
+ggsave("../results/B59-amplification-heatmap.pdf", amp.segment.plot)
+
 
 parallel.amplified.genes <- annotated.amps %>%
     group_by(gene, locus_tag, start, end) %>%
@@ -526,10 +517,12 @@ acrABR.amps <- annotated.amps %>%
 
 ################################################################################
 ## Figure 4F.
-## TODO: Make a figure of normalized coverage per gene in E. coli K12+B59 samples.
+## TODO: Make a figure of normalized chromosomal coverage per gene in E. coli K12+B59 samples.
+## show K12+B30 samples too, as an additional control.
 ##These samples do not have an active transposase, and there is evidence of
 ##copy number variation in a very large region surround the native efflux pump operon
 ##acrAB.
+
 
 ## for each sample, calculate mean coverage per protein-coding gene.
 get.protein.coverage.per.sample <- function(row.df) { 
@@ -541,29 +534,25 @@ get.protein.coverage.per.sample <- function(row.df) {
     print(gnome)
    
     genome.coverage.file <- file.path(breseq.output.dir, "08_mutation_identification", "NC_000913.coverage.tab")
-    
-    ## use dtplyr for speed!
-    genome.coverage.dt <- lazy_dt(fread(genome.coverage.file)) %>%
+    ## use dtplyr for fast input.
+    genome.coverage.df <- fread(genome.coverage.file) %>%
+        lazy_dt() %>%
         select(position,unique_top_cov,unique_bot_cov) %>%
-        mutate(coverage=unique_top_cov+unique_bot_cov)
+        mutate(coverage=unique_top_cov+unique_bot_cov) %>%
+        ## immediately turn into a data.frame when we are done.
+        ## just reading the data into memory is a major bottleneck.
+        as.data.frame()
 
     get.coverage.per.protein <- function(my.protein) {
-
-        relevant.coverage <- genome.coverage.dt %>%
+        relevant.coverage <- genome.coverage.df %>%
             dplyr::filter(position >= my.protein$start) %>%
-            dplyr::filter(position <= my.protein$end) %>%
-            data.frame()
+            dplyr::filter(position <= my.protein$end)
         
-        ## we need to use as.data.table()/as.data.frame()/as_tibble() to access the results.
-        ##relevant.coverage.tbl <- as_tibble(relevant.coverage)
-        #coverage.vec <- relevant.coverage.tbl$coverage
-        ##mean.coverage <- base::mean(coverage.vec)
-        
-        ##my.protein.coverage.df <- mutate(my.protein, mean_coverage=mean.coverage)
-        ##return(my.protein.coverage.df)
-        return(my.protein)
+        mean.coverage <- base::mean(relevant.coverage$coverage) 
+        my.protein.coverage.df <- mutate(my.protein, mean_coverage=mean.coverage)
+        return(my.protein.coverage.df)
     }
-    
+
     ## get the proteins in the reference genome.
     reference.gff <- row.df$gff_path
     ref.gff.data <- import.gff(reference.gff)
@@ -578,43 +567,107 @@ get.protein.coverage.per.sample <- function(row.df) {
         dplyr::rename(start = ref.start) %>%
         dplyr::rename(end = ref.end) %>%
         dplyr::rename(gene_length = ref.width) %>%
-        dplyr::rename(product = ref.Note)
+        dplyr::rename(product = ref.Note) %>%
+        ## this next line filters out the tetA and CmR genes on the transposon and plasmid.
+        dplyr::filter(!is.na(gene_length))
 
-    protein.coverage.inputlist <- ref.protein.df %>% split(.$Gene)
+    ## now get the coverage for each protein in the reference genome.
+    protein.coverage.df <- ref.protein.df %>%
+        split(.$Gene) %>%
+        map_dfr(.f = get.coverage.per.protein) %>%
+        ## this is a critical step: we need to label with the sample,
+        mutate(Sample = gnome) %>%
+        ## and add the sample metadata.
+        left_join(row.df)
 
-    my.protein <- protein.coverage.inputlist[[1]]
-
-    get.coverage.per.protein(my.protein)
-    
-    protein.coverage.df <- protein.coverage.inputlist %>%
-        ## get the coverage for each protein in the reference genome.
-        map_dfr(.f = get.coverage.per.protein)
-
-    
     return(protein.coverage.df)
 }
 
 
-## This will be edited, input for getting coverage per gene for relevant samples.
-protein.coverage.input.df <- B59.Tet5.mixedpops %>%
+## CRITICAL TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+## double check the position comparison code, to make sure there is no bug there-- heed the warnings().
+
+
+ancestral.protein.coverage.input.df <- ancestralclone.input.df %>%
+    left_join(ancestralclone.metadata) %>%
+    select(-SampleType) %>%
+    left_join(ancestral.clones.df)
+
+evolved.protein.coverage.input.df <- mixedpop.input.df %>%
     left_join(metagenome.metadata) %>%
     select(-SampleType) %>%
     left_join(ancestral.clones.df)
 
-
-sample.protein.coverage.df <- protein.coverage.input.df %>%
+## get coverage per gene for all ancestral clones.
+ancestral.clone.protein.coverage.df <- ancestral.protein.coverage.input.df %>%
     split(.$Sample) %>%
     map_dfr(.f = get.protein.coverage.per.sample)
 
-row.df <- sample.protein.coverage.df[[1]]
-
-##This plot will also help in identifying the boundaries of the amplification.
-
-
-
-## calculate mean coverage for every gene in K12.
-## Use the GFF annotation files to get gene coordinates, since
-## this is a bit different from the coordinates in the standard K12 MG1655 reference genome,
+## get coverage per gene for all evolved samples.
+evolved.sample.protein.coverage.df <- evolved.protein.coverage.input.df %>%
+    split(.$Sample) %>%
+    map_dfr(.f = get.protein.coverage.per.sample)
 
 
+saved.protein.coverage.df <- sample.protein.coverage.df
+
+## make a Figure 4H.
+evolved.protein.coverage.df2 <- evolved.sample.protein.coverage.df %>%
+    mutate(is.B59.Tet5 = ifelse(Transposon == "B59", ifelse(Tet == 5, TRUE, FALSE), FALSE)) %>%
+    relocate(Sample, Population, Transposon, Tet, Plasmid) %>%
+    ## update the names of the Transposon factor for a prettier plot.
+    mutate(Transposon_factor = fct_recode(as.factor(Transposon),
+                                          `Tn5+` = "B30",
+                                          `Tn5-` = "B59")) %>%
+    mutate(Tet_factor = fct_recode(as.factor(Tet),
+                                   `Tet 0` = "0",
+                                   `Tet 5` = "5")) %>%
+    ## update the names of the Plasmid factor for a prettier plot.
+    mutate(Plasmid_factor = fct_recode(as.factor(Plasmid),
+                                       `No plasmid` = "None",
+                                       p15A = "p15A")) %>%
+    ## unite the Transposon_factor, Tet_factor columns together.
+    unite("Treatment", Transposon_factor:Tet_factor, sep="\n", remove = FALSE)
+    
+
+evolved.coverage.plot <- ggplot(evolved.protein.coverage.df2,
+                             aes(x=start, y=mean_coverage, color = is.B59.Tet5)) +
+    facet_grid(Treatment~Plasmid_factor) +
+    geom_point(size=0.01,alpha=0.05) +
+    theme_classic() +
+    ## draw vertical lines at acrBAR starts.
+    geom_vline(size=0.2,
+               color = 'red',
+               linetype = 'dashed',
+               xintercept = c(480478, 484843, 484985)) +
+    ## draw lines at boundaries of the MD1 deletion in "Engineering a Reduced Escherichia coli Genome"
+    #geom_vline(size=0.2,
+     #          color = 'purple',
+      #         linetype = 'dashed',
+       #        xintercept = c(262914, 324588)) + 
+    ## draw vertical lines at boundaries of MD12 deletion
+    ## in Table 1 of the the paper "Engineering a Reduced Escherichia coli Genome"
+    #geom_vline(size=0.2,
+     #          color = 'green',
+      #         linetype = 'dashed',
+               ##  coordinates of cryptic propage DL12 (MD12) deletion.
+      #         xintercept = c(563979, 585280)) +
+    scale_x_continuous(name = "Genomic position (Mb)", breaks = c(0,1000000,2000000,3000000,4000000),
+                       labels = c(0,1,2,3,4)) +
+    scale_y_continuous(name = "Illumina read coverage", breaks = c(0,250,500), limits=c(0,500)) +
+    theme(axis.text.y = element_text(size = 5)) +
+    guides(color = "none") +
+    scale_color_manual(values=c("gray", "blue"))
+
+ggsave("../results/Fig4H.pdf", evolved.coverage.plot, height=3,width=7)
+
+## ALSO: let's look at genes that have no unique coverage-- these are repeats!
+repeated.genes.by.coverage <- evolved.protein.coverage.df2 %>%
+    filter(mean_coverage < 50) %>%
+    filter(Tet == 5) %>%
+    filter(Transposon == "B59") %>%
+    filter(start > 200000) %>%
+    filter(end < 1000000) %>%
+    select(Sample, Population, Treatment, start, end, gene_length, product, Gene, Alias, ID, mean_coverage) %>%
+    arrange(start)
 
