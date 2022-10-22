@@ -270,3 +270,74 @@ K12.one.day.fig3 <- ggplot(K12.one.day.results,
     ylab("plasmids per chromosome")
 
 ggsave("../results/K12-B59-B30-qPCR-2022-9-01-fig3.pdf", K12.one.day.fig3, width=7, height = 3)
+
+#############################################################################
+######################################################################
+## Experiment done on 10/21/2022.
+## 2 day qPCR + whole genome sequencing experiment, using K12-B107, K12-B111,
+## K12-B123, K12-B134, K12-B142, K12-B143 to generalize over native transposons
+## with varying transposition kinetics.
+## IMPORTANT: I used the same mix of qPCR probes used on 9/1/2022.
+
+K12.generality.two.day.data <- read.csv("../data/qPCR/2022-10-21_K12-native-transposon-Tet5-Day2-culture_qPCR.csv")
+
+## Use Yi's calibration curve.
+K12.generality.two.day.results <- K12.generality.two.day.data %>%
+    split(.$Well) %>%
+    map_dfr(calc.all.probe.fold.differences) %>%
+    mutate(Replicate = as.factor(Replicate)) %>%
+    mutate(TetConc = as.factor(TetConc))
+
+## Using Yi's calibration produces a more sensible result.
+K12.generality.fig <- ggplot(K12.generality.two.day.results,
+                          aes(x = Day,
+                              y = transposons.per.chromosome,
+                              color = Transposon,
+                              shape = TetConc)) +
+    facet_wrap(.~Plasmid, scales="free") +
+    geom_point(size=3) +
+    theme_classic() +
+    theme(legend.position = "bottom") +
+    scale_x_continuous(breaks=c(0,1)) + ## set scale for Days.
+    scale_shape_discrete(name = "tetracycline concentration\n(ug/mL)") +
+ ##   guides(color = "none") +
+    theme(strip.background = element_blank()) +
+    ylab("Transposons per chromosome")
+
+ggsave("../results/K12-generality-qPCR-2022-10-21-fig1.pdf", K12.generality.fig, width=7, height = 3)
+
+
+## plot transposons per plasmids
+K12.generality.fig2 <- ggplot(K12.generality.two.day.results,
+                           aes(x = Day,
+                               y = transposons.per.plasmid,
+                               color = Transposon,
+                               shape = TetConc)) +
+    facet_wrap(.~Plasmid, scales="free") +
+    geom_point(size=3) +
+    theme_classic() +
+    theme(legend.position = "bottom") +
+    scale_x_continuous(breaks=c(0,1)) + ## set scale for Days.
+    scale_shape_discrete(name = "tetracycline concentration\n(ug/mL)") +
+ ##   guides(color = "none") +
+    theme(strip.background = element_blank()) +
+    ylab("Transposons per plasmid")
+
+ggsave("../results/K12-generality-qPCR-2022-10-21-fig2.pdf", K12.generality.fig2, width=7, height = 3)
+
+K12.generality.fig3 <- ggplot(K12.generality.two.day.results,
+                           aes(x = Day,
+                               y = plasmids.per.chromosome,
+                               color = Transposon,
+                               shape = TetConc)) +
+    facet_wrap(.~Plasmid, scales="free") +
+    geom_point(size=3) +
+    theme_classic() +
+    theme(legend.position = "bottom") +
+    scale_x_continuous(breaks=c(0,1)) + ## set scale for Days.
+    scale_shape_discrete(name = "tetracycline concentration\n(ug/mL)") +
+##    guides(color = "none") +
+    theme(strip.background = element_blank()) +
+    ylab("plasmids per chromosome")
+
+ggsave("../results/K12-generality-qPCR-2022-10-21-fig3.pdf", K12.generality.fig3, width=7, height = 3)

@@ -32,7 +32,7 @@ md"""
 
 **linear ODE model version 4**.
 
-Rohan Maddamsetti and Lingchong You.
+Rohan Maddamsetti, Teng Wang, Yi Yao, and Lingchong You.
 """
 
 
@@ -47,22 +47,22 @@ I built a toy model to illustrate why multiple identical copies of a protein seq
 
 There are three subpopulations of bacteria. Each cell contains a chromosome and a multi-copy plasmid. Each chromosome and plasmid may contain an antibiotic resistance gene (ARG). An ARG on a chromosome is shown as a large black bar, and an ARG on the plasmid is shown as a small black bar.
 
-We are interested in the dynamics of the three subpopulations due to growth and mutation (duplication, loss, and transfer dynamics of the ARG). I roughly follow the modeling framework used by Lopatkin et al. (2017) "Persistence and reversal of plasmid-mediated antibiotic resistance", and described in that paper's Supplementary Information.
+We are interested in the dynamics of the three subpopulations due to growth and mutation (duplication, loss, and transfer dynamics of the ARG). I roughly follow the modeling framework used by Lopatkin et al. (2017) "Persistence and reversal of plasmid-mediated antibiotic resistance" and by Yao et al. (2022) "Intra-and interpopulation transposition of mobile genetic elements driven by antibiotic selection" and described in those papers' Supplementary Information.
 
 **Model Assumptions**
 
 *Growth dynamics*. We assume that there is a steady inflow of nutrients and antibiotic, and a steady outflow of depleted media and cells, reflected by a constant dilution rate, $D$. This assumption allows the population to grow continously at a steady-state population size. We normalize the number of cells by the carrying capacity, such that each state variable represents the percentage of carrying capacity that is taken up by the subpopulation-- note that this is *not* the relative frequency of cells in the population, because the total population may be at a steady state that is less than carrying capacity. The growth rate of each subpopulation is modeled by  growth functions $f_i > 0$, that we describe in greater detail below.
 
-*Mutation dynamics.* We define a mutation as a transition from one state to another, due to gene duplication, gene loss through recombination, and transposition. Each event occurs at a constant rate $d$, $r$, and $\eta$, respectively. We assume that excision rates are negligible, such that transpositions leave the original copy unchanged in the chromosome.
+*Mutation dynamics.* We define a mutation as a transition from one state to another due to gene duplication by transposition. Each transition occurs at a constant rate $\eta$. We assume that transposon excision rates rates are negligible, such that duplication events leave the original copy unchanged in the chromosome.
 
 These assumptions lead to a system of differential equations of the form:
 
-$\frac{dx_i}{dt} = f_ix_i(1 - \Sigma x_i) - Dx_i + Q_i$ where the first term reflects logistic growth at a rate $f_i$ when carrying capacity has not been reached, the second term reflects constant dilution due to a fixed outflow rate, and the third term wraps up all the state transitions (mutation dynamics) due to gene duplication, loss, and transposition. 
+$\frac{dx_i}{dt} = f_ix_i(1 - \Sigma x_i) - Dx_i + Q_i$ where the first term reflects logistic growth at a rate $f_i$ when carrying capacity has not been reached, the second term reflects constant dilution due to a fixed outflow rate, and the third term wraps up all the state transitions (mutation dynamics). 
 
 
 **Model Equations**
 
-$\frac{dx_1}{dt} = f_1x_1 (1 - \Sigma x_i) - Dx_1 -  2\eta) x_1$
+$\frac{dx_1}{dt} = f_1x_1 (1 - \Sigma x_i) - Dx_1 -  2\eta x_1$
 
 $\frac{dx_2}{dt} = f_2x_2 (1 - \Sigma x_i) - Dx_2 + \eta x_1$
 
@@ -398,12 +398,6 @@ end
 
 # ╔═╡ 4ebc8fd9-4b5e-46e8-89f5-5f33b038ad11
 findcolorscheme("cvd")
-
-# ╔═╡ 168db078-f02b-4fae-a53d-aab122fa98c8
-md""" **Acknowledgements**
-
-Thanks to Teng Wang and Yi Yao for helpful comments and feedback."""
-
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -2462,6 +2456,5 @@ version = "0.9.1+5"
 # ╠═72620850-de0b-4199-8a9d-4340cce432a7
 # ╠═7386e490-ef6b-42ec-9445-5ccb006bb6ef
 # ╠═4ebc8fd9-4b5e-46e8-89f5-5f33b038ad11
-# ╟─168db078-f02b-4fae-a53d-aab122fa98c8
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
