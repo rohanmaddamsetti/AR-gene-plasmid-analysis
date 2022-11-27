@@ -343,6 +343,13 @@ TableS1 <- make.TableS1(gbk.annotation, duplicate.proteins)
 ## write Supplementary Table S1 to file.
 write.csv(x=TableS1, file="../results/TableS1.csv")
 
+## Yi asked me to make these comparisons.
+TableS1.chromosome.dups <- make.TableS1(gbk.annotation,
+                                             filter(duplicate.proteins, chromosome_count > 1))
+
+TableS1.plasmid.dups <- make.TableS1(gbk.annotation,
+                                             filter(duplicate.proteins, plasmid_count > 1))
+
 ######################
 ## Table S2. Control: does the distribution of ARG singletons
 ## (i.e. genes that have NOT duplicated) follow the distribution
@@ -381,8 +388,28 @@ TableS2 <- make.TableS2(gbk.annotation, singleton.proteins)
 ## write TableS2 to file.
 write.csv(x=TableS2, file="../results/TableS2.csv")
 
+## Yi asked me to make these comparisons.
+TableS2.chromosome.only <- make.TableS2(gbk.annotation,
+                                             filter(singleton.proteins, plasmid_count == 0))
+
+TableS2.plasmid.only <- make.TableS2(gbk.annotation,
+                                             filter(singleton.proteins, chromosome_count == 0))
+
+
 gc() ## free memory after dealing with singleton data.
 
+#########################################################################
+## make a figure for Yi.
+YiFigA <- make.confint.figure.panel(TableS1.chromosome.dups, order.by.total.isolates, "D-ARGs (only chromosome)")
+YiFigB <- make.confint.figure.panel(TableS1.plasmid.dups, order.by.total.isolates, "D-ARGs (only plasmid)",
+                                        no.category.label = TRUE)
+YiFigC <- make.confint.figure.panel(TableS2.chromosome.only, order.by.total.isolates, "S-ARGs (only chromosome)") +
+    scale_x_continuous(breaks = c(0.85, 1), limits = c(0.85, 1))
+YiFigD <- make.confint.figure.panel(TableS2.plasmid.only, order.by.total.isolates, "S-ARGs (only plasmid)",
+                                    no.category.label = TRUE)
+
+YiFig <- plot_grid(YiFigA, YiFigB, YiFigC, YiFigD, labels = c("A", "B","C",'D'), nrow = 2, rel_widths = c(1.3, 1, 1.3, 1))
+ggsave("../results/FigForYi.pdf",YiFig,width=6.5,height=3.75)
 #########################################################################
 ## Table S3. Control: does the number of isolates with duplicate genes
 ## follow the sampling distribution of isolates?

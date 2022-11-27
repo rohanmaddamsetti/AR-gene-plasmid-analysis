@@ -304,7 +304,7 @@ MakeMutCountMatrixFigure <- function(evolved.muts, show.all=FALSE, use.treatment
                               values = c("#ffdf00", "#bebada", "#fb8072", "#80b1d3", "#fdb462"))
         
         if (leg == FALSE) {
-            fig <- fig + guides(fill= "none")
+            fig <- fig + guides(fill = "none")
         }
         return(fig)
     }
@@ -341,7 +341,7 @@ MakeSummedAlleleFrequencyMatrixFigure <- function(evolved.muts,
 
     ## First, make a mutation matrix for plotting.
     matrix.data <- evolved.muts %>%
-        ## unite the Transposon, Plasmid, Tet columns together.
+        ## unite the Transposon_factor, Plasmid_factor, Tet_factor columns together.
         unite("Treatment", Transposon_factor:Tet_factor, sep="\n", remove = FALSE) %>%
         group_by(Gene, Sample, Transposon, Plasmid, Tet, Treatment) %>%
         summarize(summed.Allele.Frequency = sum(Frequency)) %>%
@@ -432,7 +432,7 @@ MakeSummedAlleleFrequencyMatrixFigure <- function(evolved.muts,
         ## get the legend from the last panel.
         my.legend <- get_legend(Active.A31.Tet5.matrix.panel)
         ## now remove the legend from the panel.
-        Active.A18.Tet5.matrix.panel <- Active.A31.Tet5.matrix.panel + guides(fill = "none")
+        Active.A31.Tet5.matrix.panel <- Active.A31.Tet5.matrix.panel + guides(fill = "none")
     }
     
     ## Using the patchwork library for layout.
