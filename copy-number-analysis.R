@@ -442,13 +442,13 @@ write.csv(evolved.replicon.coverage.ratio.df, "../results/one-day-expt-plasmid-t
           quote=F, row.names=FALSE)
 
 ################################################################################
-## Figure 4E.
+## Figure 5A.
 
-## This is the big data frame for making Figure 4E.
+## This is the big data frame for making Figure 5A.
 ancestral.and.evolved.replicon.coverage.ratio.df <- full_join(
     ancestral.replicon.coverage.ratio.df, evolved.replicon.coverage.ratio.df)
 
-Fig4E.df <- ancestral.and.evolved.replicon.coverage.ratio.df %>%
+Fig5A.df <- ancestral.and.evolved.replicon.coverage.ratio.df %>%
     filter(ratio_type == "transposons.per.chromosome") %>%
     ## update the names of the Plasmid factor for a prettier plot.
     mutate(Plasmid = fct_recode(as.factor(Plasmid),
@@ -463,7 +463,7 @@ Fig4E.df <- ancestral.and.evolved.replicon.coverage.ratio.df %>%
     mutate(Population = as.factor(Population)) %>%
     mutate(Day = as.factor(Day))
   
-Fig4E <- ggplot(Fig4E.df,
+Fig5A <- ggplot(Fig5A.df,
                        aes(x = Day,
                            y = ratio,
                            color = Transposon,
@@ -475,7 +475,7 @@ Fig4E <- ggplot(Fig4E.df,
     theme(strip.background = element_blank()) +
     ylab("tetA-transposons per chromosome")
 
-ggsave("../results/Fig4E.pdf", Fig4E, width=4.5, height=3.25)
+ggsave("../results/Fig5A.pdf", Fig5A, width=4.5, height=3.25)
 
 ########################################################
 ## Heatmap figure for examining amplifications.
@@ -516,8 +516,8 @@ acrABR.amps <- annotated.amps %>%
     filter(str_detect(gene, "acr"))
 
 ################################################################################
-## Figure 4F.
-## TODO: Make a figure of normalized chromosomal coverage per gene in E. coli K12+B59 samples.
+## Figure 5D.
+## Make a figure of normalized chromosomal coverage per gene in E. coli K12+B59 samples.
 ## show K12+B30 samples too, as an additional control.
 ##These samples do not have an active transposase, and there is evidence of
 ##copy number variation in a very large region surround the native efflux pump operon
@@ -659,7 +659,7 @@ evolved.coverage.plot <- ggplot(evolved.protein.coverage.df2,
     guides(color = "none") +
     scale_color_manual(values=c("gray", "blue"))
 
-ggsave("../results/Fig4H.pdf", evolved.coverage.plot, height=3,width=7)
+ggsave("../results/Fig5D.pdf", evolved.coverage.plot, height=3,width=7)
 
 ## ALSO: let's look at genes that have no unique coverage-- these are repeats!
 repeated.genes.by.coverage <- evolved.protein.coverage.df2 %>%

@@ -123,7 +123,7 @@ freq.panel.output <- "../results/one-day-expt-allele-freqs.pdf"
 ggsave(freq.panel, file=freq.panel.output,width=10,height=4)
 
 ###############################################
-## Figure 4F: make a stacked bar plot of the kinds of mutations in each treatment.
+## Figure 5B: make a stacked bar plot of the kinds of mutations in each treatment.
 
 ## This function sums mutations per replicate population.
 make.mutation.class.df <- function(evolved.mutations.df) {
@@ -184,12 +184,12 @@ plot.mutation.summary.stackbar <- function(mutation.class.df, leg=FALSE, weight.
     return(fig)
 }
 
-## Now make Figure 4F.
+## Now make Figure 5B.
 mutation.class.df <- make.mutation.class.df(evolved.mutations)
 
-Fig4F <- plot.mutation.summary.stackbar(mutation.class.df, TRUE, FALSE)
-fig4F.output <- "../results/Fig4F.pdf"
-ggsave(Fig4F, file=fig4F.output,width=6,height=5)
+Fig5B <- plot.mutation.summary.stackbar(mutation.class.df, TRUE, FALSE)
+fig5B.output <- "../results/Fig5B.pdf"
+ggsave(Fig5B, file=fig5B.output,width=6,height=5)
 
 
 #################################################################################
@@ -226,7 +226,7 @@ parallel.genes <- gene.level.parallel.mutations %>%
     arrange(desc(count))
 
 #################################################################################
-### Figure 4G: make a matrix plot of genes with mutations in two or more clones.
+### Figure 5C: make a matrix plot of genes with mutations in two or more clones.
 ################################################################################
 MakeMutCountMatrixFigure <- function(evolved.muts, show.all=FALSE, use.treatment.hit.sort=FALSE) {
 
@@ -448,9 +448,9 @@ MakeSummedAlleleFrequencyMatrixFigure <- function(evolved.muts,
 }
 
 
-## Figure 4G.
-Fig4G <- MakeMutCountMatrixFigure(Tet5.evolved.mutations, show.all=TRUE, use.treatment.hit.sort=TRUE)
-Fig4G.outf <- "../results/Fig4G.pdf"
-ggsave(Fig4G.outf, Fig4G, height=4, width=6)
+## Figure 5C.
+Fig5C <- MakeMutCountMatrixFigure(Tet5.evolved.mutations, show.all=TRUE, use.treatment.hit.sort=TRUE)
+Fig5C.outf <- "../results/Fig5C.pdf"
+ggsave(Fig5C.outf, Fig5C, height=4, width=6)
 
 

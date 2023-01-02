@@ -1979,3 +1979,95 @@ make.ARG.MGE.region.contingency.table <- function(joined.duplications,
 joined.regions.contingency.table <- make.ARG.MGE.region.contingency.table(joined.duplications, antibiotic.keywords, IS.keywords)
 
 fisher.test(joined.regions.contingency.table)
+
+#######################################################################################
+## What is the relative contribution of segmental duplications to transpositions for duplicated ARGs in this dataset?
+## This analysis shows that segmental duplications play a relatively small role compared to MGEs.
+
+## get all regions containing duplicated ARGs.
+joined.regions.containing.ARGs <- joined.duplications %>%
+    filter(str_detect(.$product,antibiotic.keywords)) %>%
+    select(Annotation_Accession, Replicon_Accession, Replicon_type,
+           region_index, region_length, num_proteins_in_region, region_start, region_end) %>%
+    distinct() %>%
+    ## index these distinct regions containing duplicated ARGs
+    mutate(dupARG_region_index = row_number())
+
+## get all associated information, including sequences.
+joined.duplications.containing.ARGs <- joined.regions.containing.ARGs %>%
+    ## join in this way to keep the dupARG_region_index column.
+    left_join(joined.duplications)
+## write to file.
+write.csv(x=joined.duplications.containing.ARGs,
+          file="../results/joined-duplications-containing-ARGs.csv")
+
+## from looking at this spreadsheet, several segmental duplications contain several ARGs as well as transposases etc.
+## so counting statistics per ARG may not be the best unit for counting independent units.
+
+## let's count the number of these joined duplications containing ARGs that represent segmental duplications,
+## and let's get the repeat number of these segmental duplications too.
+
+count.duplicates.within.region <- function(region.df) {
+    region.df %>%
+        group_by(
+            ## general region metadata
+            Annotation_Accession, Replicon_Accession, Replicon_type,
+            region_index, region_length, num_proteins_in_region, region_start, region_end,
+            ## actual sequence data
+            protein_length, product, sequence) %>%
+        summarize(dup.count = n()) %>%
+        ungroup()
+}
+
+
+dup.ARG.regions.with.segmental.dup.data <- joined.duplications.containing.ARGs %>%
+    split(.$dupARG_region_index) %>%
+    map_dfr(count.duplicates.within.region)
+
+## just look at ARGs within these regions with segmental dup data.
+dup.ARGs.within.regions.with.segmental.dup.data <- dup.ARG.regions.with.segmental.dup.data %>%
+    filter(str_detect(.$product,antibiotic.keywords)) %>%
+    select(Annotation_Accession, Replicon_Accession, Replicon_type,
+           region_length, num_proteins_in_region, protein_length, product, sequence, dup.count) %>%
+    distinct()
+## write to file.
+write.csv(x=dup.ARGs.within.regions.with.segmental.dup.data,
+          file="../results/joined-regions-just-ARGs-and-dup-counts.csv")
+
+## let's make a table of dup.counts for duplicated ARGs.
+segmental.duplication.ARG.count.table <- dup.ARGs.within.regions.with.segmental.dup.data %>%
+    group_by(dup.count) %>%
+    summarize(duplication_copy_number = n())
+
+## based on this table, 5381 duplicated ARGs are not segmental duplications, out of 5,661 duplicated ARGs
+## in the joined regions.
+
+#################################################
+## What MGE functions are associated with duplicated ARGs?
+## To answer this question, let's look at MGE functions that are jointly duplicated in the same region as
+## duplicated ARGs.
+
+## 7,822 genes with MGE-associated functions here.
+MGEs.in.joined.duplications.containing.ARGs <- joined.duplications.containing.ARGs %>%
+    filter(str_detect(.$product,IS.keywords))
+## write to file.
+write.csv(x=MGEs.in.joined.duplications.containing.ARGs,
+          file="../results/joined-regions-MGE-functions-associated-with-dupARGs.csv")
+
+## 4,756 transposase sequences here (out of the 7,822).
+transposase.in.joined.duplications.containing.ARGs <- joined.duplications.containing.ARGs %>%
+    filter(str_detect(.$product,"transposase"))
+
+## 680 integrases here (out of the 7,822).
+integrase.in.joined.duplications.containing.ARGs <- joined.duplications.containing.ARGs %>%
+    filter(str_detect(.$product,"integrase"))
+
+
+
+## let's make a table of the transposases for downstream analysis.
+transposase.in.dup.regions.table <- transposase.in.joined.duplications.containing.ARGs %>%
+    select(Annotation_Accession, Replicon_Accession, Replicon_type, protein_id, product, sequence)
+## and write it to file.
+write.csv(x=transposase.in.joined.duplications.containing.ARGs,
+          file="../results/transposases-in-dup-regions-with-ARGs.csv")
+
