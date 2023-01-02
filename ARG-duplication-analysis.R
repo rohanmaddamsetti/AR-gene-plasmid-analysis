@@ -2068,6 +2068,6 @@ integrase.in.joined.duplications.containing.ARGs <- joined.duplications.containi
 transposase.in.dup.regions.table <- transposase.in.joined.duplications.containing.ARGs %>%
     select(Annotation_Accession, Replicon_Accession, Replicon_type, protein_id, product, sequence)
 ## and write it to file.
-write.csv(x=transposase.in.joined.duplications.containing.ARGs,
+write.csv(x=transposase.in.dup.regions.table,
           file="../results/transposases-in-dup-regions-with-ARGs.csv")
 
