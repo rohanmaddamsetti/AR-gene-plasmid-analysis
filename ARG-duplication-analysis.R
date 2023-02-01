@@ -185,11 +185,12 @@ if (COUNT.PLASMID.PROTEINS.AS.DUPLICATES) {
         filter(plasmid_count == 0) %>%
         inner_join(gbk.annotation)
 
-    } else { ## just get the singleton protein by filtering.
-        singleton.proteins <- all.proteins %>%
-            filter(count == 1) %>%
-            inner_join(gbk.annotation)     
+} else { ## just get the singleton protein by filtering.
+    singleton.proteins <- all.proteins %>%
+        filter(count == 1) %>%
+        inner_join(gbk.annotation)     
 }
+
 ## free up memory by deallocating all.proteins,
 rm(all.proteins)
 ## and running garbage collection.
@@ -1261,7 +1262,7 @@ Fig2H <- make.Fig2DEFGHI.panel(Fig2H.df, order.by.total.isolates,
                          "Chromosome:\nS-ARGs",
                          "Proportion of\nchromosomal genes",
                          no.category.label = TRUE) +
-    scale_x_continuous(label=fancy_scientific, breaks = c(4e-3, 6e-3), limits = c(4e-3, 6e-3)))
+    scale_x_continuous(label=fancy_scientific, breaks = c(4e-3, 6e-3), limits = c(4e-3, 6e-3))
 Fig2I <- make.Fig2DEFGHI.panel(Fig2I.df, order.by.total.isolates,
                          "Plasmids:\nS-ARGs",
                          "Proportion of\nplasmid genes",
@@ -1549,11 +1550,9 @@ sum(Duke.ESBL.remaining.duplicate.proteins$count) ## 821 other duplicate protein
 Duke.ESBL.singleton.ARGs <- Duke.ESBL.singleton.proteins %>%
     filter(str_detect(.$product,antibiotic.keywords))
 
-
 ## 3181 singleton MGE protein sequences in the genomes.
 Duke.ESBL.singleton.MGE.proteins <- Duke.ESBL.singleton.proteins %>%
     filter(str_detect(.$product,IS.keywords))
-
 
 ## 6475 unknown singleton protein sequences in the genomes.
 Duke.ESBL.singleton.unknown.proteins <- Duke.ESBL.singleton.proteins %>%
@@ -1916,9 +1915,6 @@ all.joined.duplications <- read.csv("../results/joined-duplicate-proteins.csv") 
     ## for numeric consistency, remove all duplications with NA product annotations.
     filter(!is.na(product))
 
-joined.duplications <- all.joined.duplications ##%>%
-    ## let's also remove all regions that only contain a single gene.
-    ##filter(num_proteins_in_region > 1)
 
 make.ARG.MGE.region.contingency.table <- function(joined.duplications,
                                                   antibiotic.keywords,
@@ -1976,7 +1972,7 @@ make.ARG.MGE.region.contingency.table <- function(joined.duplications,
     return(joined.regions.contingency.table)
 }
 
-joined.regions.contingency.table <- make.ARG.MGE.region.contingency.table(joined.duplications, antibiotic.keywords, IS.keywords)
+joined.regions.contingency.table <- make.ARG.MGE.region.contingency.table(all.joined.duplications, antibiotic.keywords, IS.keywords)
 
 fisher.test(joined.regions.contingency.table)
 
@@ -1985,7 +1981,7 @@ fisher.test(joined.regions.contingency.table)
 ## This analysis shows that segmental duplications play a relatively small role compared to MGEs.
 
 ## get all regions containing duplicated ARGs.
-joined.regions.containing.ARGs <- joined.duplications %>%
+joined.regions.containing.ARGs <- all.joined.duplications %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
     select(Annotation_Accession, Replicon_Accession, Replicon_type,
            region_index, region_length, num_proteins_in_region, region_start, region_end) %>%
@@ -1996,7 +1992,7 @@ joined.regions.containing.ARGs <- joined.duplications %>%
 ## get all associated information, including sequences.
 joined.duplications.containing.ARGs <- joined.regions.containing.ARGs %>%
     ## join in this way to keep the dupARG_region_index column.
-    left_join(joined.duplications)
+    left_join(all.joined.duplications)
 ## write to file.
 write.csv(x=joined.duplications.containing.ARGs,
           file="../results/joined-duplications-containing-ARGs.csv")
