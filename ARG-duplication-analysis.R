@@ -2063,8 +2063,6 @@ transposase.in.joined.duplications.containing.ARGs <- joined.duplications.contai
 integrase.in.joined.duplications.containing.ARGs <- joined.duplications.containing.ARGs %>%
     filter(str_detect(.$product,"integrase"))
 
-
-
 ## let's make a table of the transposases for downstream analysis.
 transposase.in.dup.regions.table <- transposase.in.joined.duplications.containing.ARGs %>%
     select(Annotation_Accession, Replicon_Accession, Replicon_type, protein_id, product, sequence)
@@ -2072,3 +2070,59 @@ transposase.in.dup.regions.table <- transposase.in.joined.duplications.containin
 write.csv(x=transposase.in.dup.regions.table,
           file="../results/transposases-in-dup-regions-with-ARGs.csv")
 
+#####################################################
+## Examine the frequency of transposase sequences that are found with ARGs, and
+## host range of these transposases.
+
+annotated.ARG.associated.transposases <- transposase.in.joined.duplications.containing.ARGs %>%
+    left_join(gbk.annotation) %>%
+    ## Annotate the genera.
+    mutate(Genus = stringr::word(Organism, 1))
+
+## Potential TODO: cluster these transposons, allowing k-mismatches from most common
+## sequence within a cluster. I can do this analysis in Julia. For now let's examine just the unique
+## sequences in order to make a rank order list and see the distribution across genus for each sequence.
+
+ARG.associated.transposase.sequences <-  annotated.ARG.associated.transposases %>%
+    group_by(Genus, sequence) %>% summarize(count.per.genus = n()) %>% arrange(desc(count.per.genus)) %>%
+    ## remove rows with missing Genus.
+    filter(!is.na(Genus))
+
+##make a rank column by total count of the sequence across Genus.
+ARG.associated.transposase.ranks <- annotated.ARG.associated.transposases %>%
+    group_by(sequence) %>% summarize(total.count = n()) %>%
+    arrange(desc(total.count)) %>%
+    mutate(rank = row_number()) %>%
+    ungroup()
+
+ARG.associated.transposase.sequences.with.ranks <- ARG.associated.transposase.sequences %>%
+    full_join(ARG.associated.transposase.ranks)
+
+ARG.associated.transposase.rank.plot1 <- ARG.associated.transposase.sequences.with.ranks %>%
+    ggplot(aes(x=rank, fill=Genus, y=count.per.genus)) +
+    geom_bar(position="stack", stat="identity") +
+    theme_classic()
+
+ARG.associated.transposase.rank.plot1
+ggsave("../results/ARG-transposon-rank-plot1.pdf",ARG.associated.transposase.rank.plot1)
+
+## filter on just the top ranks.
+top.ARG.associated.transposase.sequences.with.ranks <- ARG.associated.transposase.sequences.with.ranks %>%
+    filter(rank < 10)
+
+ARG.associated.transposase.rank.plot2 <- top.ARG.associated.transposase.sequences.with.ranks %>%
+    ggplot(aes(x=rank, fill=Genus, y=count.per.genus)) +
+    geom_bar(position="stack", stat="identity") +
+    theme_classic()
+
+ARG.associated.transposase.rank.plot2
+ggsave("../results/ARG-transposon-rank-plot2.pdf",ARG.associated.transposase.rank.plot2)
+
+Ecoli.ARG.associated.transposases <- annotated.ARG.associated.transposases %>%
+    filter(str_detect(.$Organism, "Escherichia coli")) %>%
+    group_by(product, sequence) %>%
+    summarize(count = n()) %>%
+    arrange(desc(count))
+## and write it to file.
+write.csv(x=Ecoli.ARG.associated.transposases,
+          file="../results/Ecoli-transposases-in-dup-regions-with-ARGs.csv")
