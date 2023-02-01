@@ -1929,35 +1929,38 @@ make.ARG.MGE.region.contingency.table <- function(joined.duplications,
     ## get the regions-- drop the sequence information.
     ## There are 756,165 regions in total.
     joined.regions <- joined.duplications %>%
-        select(Annotation_Accession, Replicon_Accession, Replicon_type, region_index) %>%
+        select(Annotation_Accession, Replicon_Accession, Replicon_type,
+               region_index, region_length, num_proteins_in_region, region_start, region_end) %>%
         distinct()
     
     ARG.joined.regions <- ARG.joined.duplications %>%
-        select(Annotation_Accession, Replicon_Accession, Replicon_type, region_index) %>%
+        select(Annotation_Accession, Replicon_Accession, Replicon_type,
+               region_index, region_length, num_proteins_in_region, region_start, region_end) %>%
         distinct()
     
     no.ARG.joined.regions <- anti_join(joined.regions, ARG.joined.regions)
     
     MGE.joined.regions <- MGE.joined.duplications %>%
-        select(Annotation_Accession, Replicon_Accession, Replicon_type, region_index) %>%
+        select(Annotation_Accession, Replicon_Accession, Replicon_type,
+               region_index, region_length, num_proteins_in_region, region_start, region_end) %>%
         distinct()
     
     no.MGE.joined.regions <- anti_join(joined.regions, MGE.joined.regions)
     
     ## count regions (groups) that contain both ARGs and MGE genes.
-    ## 3166 regions contain both ARGs and MGE genes.
+    ## 2777 regions contain both ARGs and MGE genes.
     ARG.and.MGE.joined.regions <- inner_join(ARG.joined.regions, MGE.joined.regions)
     
     ## count regions (groups) that contain ARGs but no MGE genes.
-    ## 2710 regions contain ARGs but no MGE genes.
+    ## 2375 regions contain ARGs but no MGE genes.
     ARG.and.no.MGE.joined.regions <- inner_join(ARG.joined.regions, no.MGE.joined.regions)
     
     ## count regions (groups) that contain MGE genes but no ARGs.
-    ## 572375 regions contain MGE genes but no ARGs.
+    ## 508073 regions contain MGE genes but no ARGs.
     MGE.and.no.ARG.joined.regions <- inner_join(no.ARG.joined.regions, MGE.joined.regions)
     
     ## count regions (groups) that have neither MGE genes nor ARGs.
-    ## 177363 regions contain neither MGE genes nor ARGs.
+    ## 156292 regions contain neither MGE genes nor ARGs.
     no.MGE.and.no.ARG.joined.regions <- inner_join(no.ARG.joined.regions,no.MGE.joined.regions)
     
     ## now use a contingency table to test whether duplicated ARGs and duplicated MGEs
@@ -1980,7 +1983,7 @@ fisher.test(joined.regions.contingency.table)
 ## What is the relative contribution of segmental duplications to transpositions for duplicated ARGs in this dataset?
 ## This analysis shows that segmental duplications play a relatively small role compared to MGEs.
 
-## get all regions containing duplicated ARGs.
+## get all regions containing duplicated ARGs (5152 of these).
 joined.regions.containing.ARGs <- all.joined.duplications %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
     select(Annotation_Accession, Replicon_Accession, Replicon_type,
@@ -2009,6 +2012,8 @@ count.duplicates.within.region <- function(region.df) {
             ## general region metadata
             Annotation_Accession, Replicon_Accession, Replicon_type,
             region_index, region_length, num_proteins_in_region, region_start, region_end,
+            ## keep the dupARG_region_index column to keep track of what region each ARG is in.
+            dupARG_region_index,
             ## actual sequence data
             protein_length, product, sequence) %>%
         summarize(dup.count = n()) %>%
@@ -2024,19 +2029,19 @@ dup.ARG.regions.with.segmental.dup.data <- joined.duplications.containing.ARGs %
 dup.ARGs.within.regions.with.segmental.dup.data <- dup.ARG.regions.with.segmental.dup.data %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
     select(Annotation_Accession, Replicon_Accession, Replicon_type,
-           region_length, num_proteins_in_region, protein_length, product, sequence, dup.count) %>%
+           region_length, num_proteins_in_region, protein_length, product, sequence, dup.count, dupARG_region_index) %>%
     distinct()
 ## write to file.
 write.csv(x=dup.ARGs.within.regions.with.segmental.dup.data,
           file="../results/joined-regions-just-ARGs-and-dup-counts.csv")
 
-## let's make a table of dup.counts for duplicated ARGs.
-segmental.duplication.ARG.count.table <- dup.ARGs.within.regions.with.segmental.dup.data %>%
-    group_by(dup.count) %>%
-    summarize(duplication_copy_number = n())
+## 282 ARGs have multiple copies in the same region of duplicated genes.
+segmental.ARG.duplications <- dup.ARGs.within.regions.with.segmental.dup.data %>%
+    filter(dup.count > 1)
+## These 282 ARGs are found in 196 unique regions of duplicated genes.
+length(unique(segmental.ARG.duplications$dupARG_region_index))
+## so 196 out of the 5,152 joined regions containing duplicated ARGs have multiple copies of some ARG.
 
-## based on this table, 5381 duplicated ARGs are not segmental duplications, out of 5,661 duplicated ARGs
-## in the joined regions.
 
 #################################################
 ## What MGE functions are associated with duplicated ARGs?
