@@ -35,8 +35,15 @@ julia compare-transposases.jl
 using DataFrames, DataFramesMeta, CSV, BioSequences, BioAlignments, FASTX, CodecZlib
 
 
-function ClusterTransposases(yao_library_dict, duplicated_transposase_df, max_mismatches, affinegap)
-
+function CompareTransposases(yao_library_dict, duplicated_transposase_df, max_mismatches)
+    ## create an affine gap scoring model
+    affinegap = AffineGapScoreModel(
+        match=1,
+        mismatch=-1,
+        gap_open=-1,
+        gap_extend=-1
+    )
+    
     ## let's keep things really simple at first.    
     clusters = Dict((k, Vector()) for k ∈ keys(yao_library_dict))
 
@@ -61,7 +68,7 @@ end
 
 function main()
 
-    max_mismatches = 3 ## perfect matches required.
+    max_mismatches = 3 ## vary this parameter to examine perfect matches, and near-perfect matches.
 
     """ The table of the native transposases in Yi's library. """
     YaoLibraryCSV = "../data/YiYao-native-transposon-library-IS-Finder-seqs.csv"
@@ -73,20 +80,12 @@ function main()
     DuplicatedTransposasesCSV = "../results/transposases-in-dup-regions-with-ARGs.csv"
     duplicated_transposase_df = DataFrame(CSV.File(DuplicatedTransposasesCSV))
     
-    ## create an affine gap scoring model
-    affinegap = AffineGapScoreModel(
-        match=1,
-        mismatch=-1,
-        gap_open=-1,
-        gap_extend=-1
-    )
-
     ## create a lookup table between Yao Catalogy ID and AA sequences.
     yao_library_dict = Dict((k, v) for (k, v) ∈ zip(yao_library_df.Catalog_number, yao_library_df.sequence))
     
     ## cluster the transposases.
     ## This takes 106 seconds.
-    @time clusters = ClusterTransposases(yao_library_dict, duplicated_transposase_df, max_mismatches, affinegap)
+    @time clusters = CompareTransposases(yao_library_dict, duplicated_transposase_df, max_mismatches)
     """"
      perfect matches to the following transposases in Yi's library:
      pB112 (IS6-IS26). ISFinder reports that this element is associated with many different ARGs in nature.

@@ -2063,13 +2063,6 @@ transposase.in.joined.duplications.containing.ARGs <- joined.duplications.contai
 integrase.in.joined.duplications.containing.ARGs <- joined.duplications.containing.ARGs %>%
     filter(str_detect(.$product,"integrase"))
 
-## let's make a table of the transposases for downstream analysis.
-transposase.in.dup.regions.table <- transposase.in.joined.duplications.containing.ARGs %>%
-    select(Annotation_Accession, Replicon_Accession, Replicon_type, protein_id, product, sequence)
-## and write it to file.
-write.csv(x=transposase.in.dup.regions.table,
-          file="../results/transposases-in-dup-regions-with-ARGs.csv")
-
 #####################################################
 ## Examine the frequency of transposase sequences that are found with ARGs, and
 ## host range of these transposases.
@@ -2078,10 +2071,53 @@ annotated.ARG.associated.transposases <- transposase.in.joined.duplications.cont
     left_join(gbk.annotation) %>%
     ## Annotate the genera.
     mutate(Genus = stringr::word(Organism, 1))
+## write relevant columns  to file, so that I can cluster these transposons,
+## allowing k-mismatches from most common sequence within a cluster, using Julia.
+annotated.ARG.associated.transposases %>%
+    select(product, Genus, sequence) %>%
+    rename(product_annotation = product) %>%
+write.csv(file="../results/transposases-in-dup-regions-with-ARGs.csv", quote=FALSE,row.names=FALSE)
 
-## Potential TODO: cluster these transposons, allowing k-mismatches from most common
-## sequence within a cluster. I can do this analysis in Julia. For now let's examine just the unique
-## sequences in order to make a rank order list and see the distribution across genus for each sequence.
+## now read in the clustered transposons made by cluster-transposases.jl.
+clustered.ARG.associated.transposases <- read.csv(
+    "../results/merged_transposases-in-dup-regions-with-ARGs.csv")
+## now let's examine the clustered sequences in order to make a rank order list
+## and see the distribution across genus for each sequence.
+
+##make a rank column by total count of the sequence across Genus.
+clustered.ARG.associated.transposase.ranks <- clustered.ARG.associated.transposases %>%
+    group_by(sequence) %>% summarize(total.count = sum(count)) %>%
+    arrange(desc(total.count)) %>%
+    mutate(rank = row_number()) %>%
+    ungroup()
+
+clustered.ARG.associated.transposases.with.ranks <- clustered.ARG.associated.transposases %>%
+    full_join(clustered.ARG.associated.transposase.ranks)
+
+clustered.ARG.associated.transposase.rank.plot1 <- clustered.ARG.associated.transposases.with.ranks %>%
+    ggplot(aes(x=rank, fill=Genus, y=count)) +
+    geom_bar(position="stack", stat="identity") +
+    theme_classic()
+
+clustered.ARG.associated.transposase.rank.plot1
+ggsave("../results/clustered-ARG-transposon-rank-plot1.pdf",clustered.ARG.associated.transposase.rank.plot1)
+
+## filter on just the top ranks.
+top.clustered.ARG.associated.transposases.with.ranks <- clustered.ARG.associated.transposases.with.ranks %>%
+    filter(rank <= 10)
+
+clustered.ARG.associated.transposase.rank.plot2 <- top.clustered.ARG.associated.transposases.with.ranks %>%
+    ggplot(aes(x=rank, fill=Genus, y=count)) +
+    geom_bar(position="stack", stat="identity") +
+    theme_classic()
+
+clustered.ARG.associated.transposase.rank.plot2
+ggsave("../results/clustered-ARG-transposon-rank-plot2.pdf", clustered.ARG.associated.transposase.rank.plot2)
+
+
+
+# let's examine just the unique sequences in order to make a rank order list
+## and see the distribution across genus for each sequence.
 
 ARG.associated.transposase.sequences <-  annotated.ARG.associated.transposases %>%
     group_by(Genus, sequence) %>% summarize(count.per.genus = n()) %>% arrange(desc(count.per.genus)) %>%
@@ -2094,7 +2130,7 @@ ARG.associated.transposase.ranks <- annotated.ARG.associated.transposases %>%
     arrange(desc(total.count)) %>%
     mutate(rank = row_number()) %>%
     ungroup()
-
+## and join back to get the Genus information.
 ARG.associated.transposase.sequences.with.ranks <- ARG.associated.transposase.sequences %>%
     full_join(ARG.associated.transposase.ranks)
 
@@ -2126,3 +2162,40 @@ Ecoli.ARG.associated.transposases <- annotated.ARG.associated.transposases %>%
 ## and write it to file.
 write.csv(x=Ecoli.ARG.associated.transposases,
           file="../results/Ecoli-transposases-in-dup-regions-with-ARGs.csv")
+
+##################################################################
+## Examine what ARGs are linked with what transposases in the duplicated regions.
+
+transposases.to.join.to.ARGs <- annotated.ARG.associated.transposases %>%
+    select(Annotation_Accession, Replicon_Accession, Replicon_type,
+           region_index, region_length, num_proteins_in_region, region_start, region_end,
+           dupARG_region_index,
+           protein_index, product, sequence, host, isolation_source,
+           Annotation, Organism, Strain, Genus) %>%
+    rename(transposase_protein_index = protein_index) %>%
+    rename(transposase_product = product) %>%
+    rename(transposase_sequence = sequence)
+
+ARGs.to.join.to.transposases <- joined.duplications.containing.ARGs %>%
+    filter(str_detect(.$product,antibiotic.keywords)) %>%
+    left_join(gbk.annotation) %>%
+    ## Annotate the genera.
+    mutate(Genus = stringr::word(Organism, 1)) %>%
+    ## filter for region_ids found in transposases.to.join.to.ARGs.
+    filter(dupARG_region_index %in% transposases.to.join.to.ARGs$dupARG_region_index) %>%
+    ## get the same columns as in transposases.to.join.to.ARGs
+    select(Annotation_Accession, Replicon_Accession, Replicon_type,
+           region_index, region_length, num_proteins_in_region, region_start, region_end,
+           dupARG_region_index,
+           protein_index, product, sequence, host, isolation_source,
+           Annotation, Organism, Strain, Genus) %>%
+    rename(ARG_protein_index = protein_index) %>%
+    rename(ARG_product = product) %>%
+    rename(ARG_sequence = sequence)
+
+## CRITICAL TODO: check whether this is correct!!!!!!
+ARGs.linked.to.transposases <- full_join(transposases.to.join.to.ARGs, ARGs.to.join.to.transposases)
+## and write it to file.
+write.csv(x=ARGs.linked.to.transposases,
+          file="../results/transposases-and-ARGs-in-common-dup-region.csv")
+
