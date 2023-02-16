@@ -2080,7 +2080,10 @@ write.csv(file="../results/transposases-in-dup-regions-with-ARGs.csv", quote=FAL
 
 ## now read in the clustered transposons made by cluster-transposases.jl.
 clustered.ARG.associated.transposases <- read.csv(
-    "../results/merged_transposases-in-dup-regions-with-ARGs.csv")
+    "../results/merged_transposases-in-dup-regions-with-ARGs.csv") %>%
+    ## remove "NA" Genera
+    filter(!is.na(Genus))
+
 ## now let's examine the clustered sequences in order to make a rank order list
 ## and see the distribution across genus for each sequence.
 
@@ -2092,27 +2095,33 @@ clustered.ARG.associated.transposase.ranks <- clustered.ARG.associated.transposa
     ungroup()
 
 clustered.ARG.associated.transposases.with.ranks <- clustered.ARG.associated.transposases %>%
-    full_join(clustered.ARG.associated.transposase.ranks)
+    full_join(clustered.ARG.associated.transposase.ranks) %>%
+    arrange(rank, desc(count))
 
-clustered.ARG.associated.transposase.rank.plot1 <- clustered.ARG.associated.transposases.with.ranks %>%
+full.plot.of.clustered.ARG.associated.transposases <- clustered.ARG.associated.transposases.with.ranks %>%
     ggplot(aes(x=rank, fill=Genus, y=count)) +
     geom_bar(position="stack", stat="identity") +
-    theme_classic()
+    theme_classic() +
+    theme(legend.position="bottom")
 
-clustered.ARG.associated.transposase.rank.plot1
-ggsave("../results/clustered-ARG-transposon-rank-plot1.pdf",clustered.ARG.associated.transposase.rank.plot1)
+ggsave("../results/full-plot-of-clustered-ARG-transposons.pdf",
+       full.plot.of.clustered.ARG.associated.transposases,
+       width=10, height=6)
 
 ## filter on just the top ranks.
-top.clustered.ARG.associated.transposases.with.ranks <- clustered.ARG.associated.transposases.with.ranks %>%
+top.clustered.ARG.associated.transposases <- clustered.ARG.associated.transposases.with.ranks %>%
     filter(rank <= 10)
 
-clustered.ARG.associated.transposase.rank.plot2 <- top.clustered.ARG.associated.transposases.with.ranks %>%
+plot.of.top.clustered.ARG.associated.transposases <- top.clustered.ARG.associated.transposases %>%
     ggplot(aes(x=rank, fill=Genus, y=count)) +
     geom_bar(position="stack", stat="identity") +
-    theme_classic()
+    theme_classic()  +
+    theme(legend.position="bottom") +
+    scale_x_continuous(breaks=seq(1, 10, 1))
 
-clustered.ARG.associated.transposase.rank.plot2
-ggsave("../results/clustered-ARG-transposon-rank-plot2.pdf", clustered.ARG.associated.transposase.rank.plot2)
+## This will be Figure 3E.
+ggsave("../results/top-clustered-ARG-transposons.pdf",
+       plot.of.top.clustered.ARG.associated.transposases, height = 5)
 
 
 
