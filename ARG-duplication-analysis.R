@@ -1447,46 +1447,39 @@ Fig3C <- big.selection.test.df %>%
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
 ################################################################################
-## Figure 3D: compare linkage between D-ARGs and MGE-genes and S-ARGs and MGE-genes.
+## compare linkage between D-ARGs and MGE-genes and S-ARGs and MGE-genes.
+## These calculations go into the manuscript, but no specific figure.
 
 ARG.MGE.adjacency.data <- read.csv("../results/ARG-MGE-adjacency-counts.csv") %>%
     pivot_longer(cols=everything(), names_to="original_column", values_to = "Count") %>%
     mutate(ARG.class = ifelse(str_detect(original_column,"dARG"),"D-ARGs","S-ARGs")) %>%
     mutate(next.to.MGE = ifelse(str_detect(original_column,"not"),FALSE,TRUE))
 
-Fig3D.total <- ARG.MGE.adjacency.data %>% group_by(ARG.class) %>%
+ARG.MGE.adjacency.total <- ARG.MGE.adjacency.data %>% group_by(ARG.class) %>%
     summarize(ARG.total=sum(Count))
 
-Fig3D.next.to.MGEs <- filter(ARG.MGE.adjacency.data,
+ARGs.next.to.MGEs <- filter(ARG.MGE.adjacency.data,
                              next.to.MGE==TRUE) %>%
     rename(next.to.MGE.count=Count) %>%
     select(ARG.class, next.to.MGE.count)
 
-Fig3D.df <- full_join(Fig3D.total, Fig3D.next.to.MGEs) %>%
+ARG.MGE.adjacency.df <- full_join(ARG.MGE.adjacency.total, ARGs.next.to.MGEs) %>%
     mutate(percent.next.to.MGE = next.to.MGE.count/ARG.total)
 
-Fig3D <- Fig3D.df %>%
-    ggplot(aes(x=percent.next.to.MGE, y=ARG.class)) +
-    geom_bar(stat="identity") +
-    theme_classic() + ylab("") +
-    xlab("Proportion of ARGs adjacent to an MGE-associated gene")
-
 ## formally calculate statistical significance with a binomial test.
-Fig3D.statistic <- binom.test(
-    x=filter(Fig3D.df,ARG.class=="D-ARGs")$next.to.MGE.count, ## x = 3769
-    n=filter(Fig3D.df,ARG.class=="D-ARGs")$ARG.total, ## n = 8168
-    p = filter(Fig3D.df,ARG.class=="S-ARGs")$percent.next.to.MGE)
+ARG.MGE.adjacency.statistic <- binom.test(
+    x=filter(ARG.MGE.adjacency.df,ARG.class=="D-ARGs")$next.to.MGE.count, ## x = 3769
+    n=filter(ARG.MGE.adjacency.df,ARG.class=="D-ARGs")$ARG.total, ## n = 8168
+    p = filter(ARG.MGE.adjacency.df,ARG.class=="S-ARGs")$percent.next.to.MGE)
 
 
 ################################################################################
-## Make full Fig 3 here.
-
-mainFig3 <- plot_grid(Fig3A, Fig3B, Fig3C, labels = c('A','B','C'), nrow = 1, rel_widths=c(1.4,1,1),
+## Write Fig 3 ABC to file. Fig 3D is a diagram of a workflow, and Figure 3E is produced at the end
+## of this script.
+Fig3.top.panels <- plot_grid(Fig3A, Fig3B, Fig3C, labels = c('A','B','C'), nrow = 1, rel_widths=c(1.4,1,1),
               align = 'h', axis = 'tb')
-Fig3ABC <- plot_grid(mainFig3, Fig3legend, ncol = 1, rel_heights = c(1,0.2))
-
-Fig3 <- plot_grid(Fig3ABC, Fig3D, labels=c("","D"), nrow = 2, rel_heights = c(1, 0.3))
-ggsave("../results/Fig3.pdf", Fig3, width=8.75, height=4)
+Fig3ABC <- plot_grid(Fig3.top.panels, Fig3legend, ncol = 1, rel_heights = c(1,0.2))
+ggsave("../results/Fig3ABC.pdf", Fig3ABC, width=8.75, height=4)
 
 ################################################################################
 ## Figure 4A. A deterministic ODE model demonstrates that selection can
@@ -2106,22 +2099,37 @@ full.plot.of.clustered.ARG.associated.transposases <- clustered.ARG.associated.t
 
 ggsave("../results/full-plot-of-clustered-ARG-transposons.pdf",
        full.plot.of.clustered.ARG.associated.transposases,
-       width=10, height=6)
+       width=8, height=7)
 
 ## filter on just the top ranks.
 top.clustered.ARG.associated.transposases <- clustered.ARG.associated.transposases.with.ranks %>%
     filter(rank <= 10)
+## write this out, so that I can make a table of these transposase classes by hand.
+write.csv(x=top.clustered.ARG.associated.transposases, file="../results/top-clustered-ARG-associated-transposases.csv")
 
-plot.of.top.clustered.ARG.associated.transposases <- top.clustered.ARG.associated.transposases %>%
-    ggplot(aes(x=rank, fill=Genus, y=count)) +
+## by hand, I made a table of rank to IS Class for these top 10 transposase classes,
+## by using blastp searches of the top sequence in the cluster against the ISFinder database:
+## https://www-is.biotoul.fr/blast.php
+top.transposase.annotations <- read.csv("../data/Top10-ARG-associated-transposase-annotations.csv")
+## now add these data as a column.
+annotated.top.clustered.ARG.associated.transposases <- full_join(
+    top.clustered.ARG.associated.transposases,
+    top.transposase.annotations) %>%
+    ## order the labels according to their rank.
+    mutate(Transposase = factor(Transposase,levels=unique(Transposase), ordered=TRUE))
+    
+
+plot.of.top.clustered.ARG.associated.transposases <- annotated.top.clustered.ARG.associated.transposases %>%
+    ggplot(aes(x=Transposase, fill=Genus, y=count)) +
     geom_bar(position="stack", stat="identity") +
     theme_classic()  +
-    theme(legend.position="bottom") +
-    scale_x_continuous(breaks=seq(1, 10, 1))
+    theme(legend.position="bottom", legend.title=element_blank(),
+          legend.text = element_text(size = 8)) +
+    theme(axis.text.x  = element_text(angle=45,vjust=0.5))
 
 ## This will be Figure 3E.
 ggsave("../results/top-clustered-ARG-transposons.pdf",
-       plot.of.top.clustered.ARG.associated.transposases, height = 5)
+       plot.of.top.clustered.ARG.associated.transposases, height = 5, width=6)
 
 
 
