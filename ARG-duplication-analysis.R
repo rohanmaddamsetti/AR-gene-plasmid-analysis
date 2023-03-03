@@ -217,9 +217,19 @@ plasmid.annotation <- protein.db.metadata %>%
     arrange(desc(number))
 
 ##########################################################################
-## Figure 1 is a schematic of the analysis pipeline.
+## Figure 1ABCD. A deterministic ODE model demonstrates that selection can
+## drive the evolution of duplicated ARGs on plasmids.
+
+## The panels of this figure are generated in my Pluto notebook:
+## duplication-linear-ODE-model.jl.
 ##########################################################################
-## Code and data structures for Figure 2ABC.
+## Figure 1E is an analysis of the 9-day Tet50 evolution experiment.
+##########################################################################
+## Figure 2 is an analysis of the one-day Tet5 evolution experiment.
+##########################################################################
+## Figure 3 is a schematic of the analysis pipeline.
+##########################################################################
+## Code and data structures for Figure 4ABC.
 
 ## See Wikipedia reference:
 ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
@@ -337,7 +347,7 @@ make.confint.figure.panel <- function(Table, order.by.total.isolates, title,
     return(Fig.panel)
 }
 
-## Data structure for Figure 2A:
+## Data structure for Figure 4A:
 ## normal-approximation confidence intervals for the percentage
 ## of isolates with duplicated ARGs.
 TableS1 <- make.TableS1(gbk.annotation, duplicate.proteins)
@@ -384,33 +394,29 @@ make.TableS2 <- function(gbk.annotation, singleton.proteins) {
     return(TableS2)
 }
 
-## This data frame will be used for Figure 2B.
+## This data frame will be used for Figure 4B.
 TableS2 <- make.TableS2(gbk.annotation, singleton.proteins)
 ## write TableS2 to file.
 write.csv(x=TableS2, file="../results/TableS2.csv")
-
-## Yi asked me to make these comparisons.
+#########################################################################
+## make Supplementary Figure S2.
 TableS2.chromosome.only <- make.TableS2(gbk.annotation,
                                              filter(singleton.proteins, plasmid_count == 0))
 
 TableS2.plasmid.only <- make.TableS2(gbk.annotation,
                                              filter(singleton.proteins, chromosome_count == 0))
-
-
 gc() ## free memory after dealing with singleton data.
 
-#########################################################################
-## make a figure for Yi.
-YiFigA <- make.confint.figure.panel(TableS1.chromosome.dups, order.by.total.isolates, "D-ARGs (only chromosome)")
-YiFigB <- make.confint.figure.panel(TableS1.plasmid.dups, order.by.total.isolates, "D-ARGs (only plasmid)",
+S2FigA <- make.confint.figure.panel(TableS1.chromosome.dups, order.by.total.isolates, "D-ARGs (only chromosome)")
+S2FigB <- make.confint.figure.panel(TableS1.plasmid.dups, order.by.total.isolates, "D-ARGs (only plasmid)",
                                         no.category.label = TRUE)
-YiFigC <- make.confint.figure.panel(TableS2.chromosome.only, order.by.total.isolates, "S-ARGs (only chromosome)") +
+S2FigC <- make.confint.figure.panel(TableS2.chromosome.only, order.by.total.isolates, "S-ARGs (only chromosome)") +
     scale_x_continuous(breaks = c(0.85, 1), limits = c(0.85, 1))
-YiFigD <- make.confint.figure.panel(TableS2.plasmid.only, order.by.total.isolates, "S-ARGs (only plasmid)",
+S2FigD <- make.confint.figure.panel(TableS2.plasmid.only, order.by.total.isolates, "S-ARGs (only plasmid)",
                                     no.category.label = TRUE)
 
-YiFig <- plot_grid(YiFigA, YiFigB, YiFigC, YiFigD, labels = c("A", "B","C",'D'), nrow = 2, rel_widths = c(1.3, 1, 1.3, 1))
-ggsave("../results/FigForYi.pdf",YiFig,width=6.5,height=3.75)
+S2Fig <- plot_grid(S2FigA, S2FigB, S2FigC, S2FigD, labels = c("A", "B","C",'D'), nrow = 2, rel_widths = c(1.3, 1, 1.3, 1))
+ggsave("../results/S2Fig.pdf",S2Fig,width=6.5,height=3.75)
 #########################################################################
 ## Table S3. Control: does the number of isolates with duplicate genes
 ## follow the sampling distribution of isolates?
@@ -441,13 +447,13 @@ make.TableS3 <- function(gbk.annotation, duplicate.proteins) {
     return(TableS3)
 }
 
-## Data structure for Figure 2C.
+## Data structure for Figure 4C.
 TableS3 <- make.TableS3(gbk.annotation, duplicate.proteins)
 ## write TableS3 to file.
 write.csv(x=TableS3, file="../results/TableS3.csv")
 
 ######################################################################
-## Supplementary Figure S2: Control for Taxonomy (simpler control than for phylogeny)
+## Supplementary Figure S3: Control for Taxonomy (simpler control than for phylogeny)
 
 ## let's look at the taxonomic distribution of strains with duplicated ARGs.
 duplicated.ARG.seq.genera.summary <- duplicate.proteins %>%
@@ -501,7 +507,7 @@ genera.isolate.comparison.df <- full_join(
 
 ## Hmmm... sampling biases could be problematic,
 ## since antibiotic-resistant bacteria are more likely to be sequenced.
-S2FigA <- genera.isolate.comparison.df %>%
+S3FigA <- genera.isolate.comparison.df %>%
     ggplot(aes(x=sqrt(genome.count),
                y = sqrt(duplicated.ARG.genome.count),
                label = Genus,
@@ -525,7 +531,7 @@ filtered.duplicate.proteins <- duplicate.proteins %>%
 
 filtered.TableS1 <- make.TableS1(filtered.gbk.annotation, filtered.duplicate.proteins)
 
-S2FigB <- make.confint.figure.panel(filtered.TableS1, order.by.total.isolates, "D-ARGs after\nfiltering top genera")
+S3FigB <- make.confint.figure.panel(filtered.TableS1, order.by.total.isolates, "D-ARGs after\nfiltering top genera")
 
 ## let's check the results, just for the top ARG genera.
 top.ARG.genera.duplicate.proteins <- duplicate.proteins %>%
@@ -534,7 +540,7 @@ top.ARG.genera.duplicate.proteins <- duplicate.proteins %>%
 top.ARG.genera.TableS1 <- make.TableS1(top.ARG.genera.isolates,
                                        top.ARG.genera.duplicate.proteins)
 
-S2FigC <- make.confint.figure.panel(
+S3FigC <- make.confint.figure.panel(
     top.ARG.genera.TableS1, order.by.total.isolates,
     "D-ARGs in\ntop genera only",
     no.category.label = TRUE)
@@ -556,24 +562,24 @@ single.organism.singleton.proteins <- singleton.proteins %>%
 single.organism.TableS1 <- make.TableS1(
     single.organism.gbk.annotation, single.organism.duplicate.proteins)
 
-S2FigD <- make.confint.figure.panel(
+S3FigD <- make.confint.figure.panel(
     single.organism.TableS1, order.by.total.isolates,
     "D-ARGs after\ndownsampling species",
         no.category.label = TRUE)
 
-S2FigBCD <- plot_grid(S2FigB, S2FigC, S2FigD, labels = c("B","C",'D'), nrow = 1, rel_widths = c(1.5, 1, 1, 1))
+S3FigBCD <- plot_grid(S3FigB, S3FigC, S3FigD, labels = c("B","C",'D'), nrow = 1, rel_widths = c(1.5, 1, 1, 1))
 
 
-S2Fig <- plot_grid(S2FigA, S2FigBCD, labels = c("A", ""), nrow = 2, rel_heights = c(2,1))
+S3Fig <- plot_grid(S3FigA, S3FigBCD, labels = c("A", ""), nrow = 2, rel_heights = c(2,1))
 
-ggsave("../results/S2Fig.pdf", S2Fig, height = 6, width=7.5)
+ggsave("../results/S3Fig.pdf", S3Fig, height = 6, width=7.5)
 
 ##rm(single.organism.duplicate.proteins)
 ##rm(single.organism.singleton.proteins)
 ##gc()
 
 ##################################################################
-## Figures S1 and S3. Proportion of isolates with duplicated or single-copy ARGs
+## Figures S1 and S4. Proportion of isolates with duplicated or single-copy ARGs
 ## for 12 different antibiotic classes.
 ########################################
 ## Figure S1: Duplicated ARGs.
@@ -763,57 +769,57 @@ macrolide.control.table <- make.IsolateEnrichmentControlTable(
     macrolide.keywords)
 
 
-S3FigA <- make.confint.figure.panel(chloramphenicol.control.table,
+S4FigA <- make.confint.figure.panel(chloramphenicol.control.table,
                                       order.by.total.isolates,
                                       "chloramphenicol\nresistance")
-S3FigB <- make.confint.figure.panel(tetracycline.control.table,
+S4FigB <- make.confint.figure.panel(tetracycline.control.table,
                                       order.by.total.isolates,
                                       "tetracycline\nresistance",
                                       no.category.label = TRUE)
-S3FigC <- make.confint.figure.panel(MLS.control.table,
+S4FigC <- make.confint.figure.panel(MLS.control.table,
                                       order.by.total.isolates,
                                       "MLS\nresistance",
                                       no.category.label = TRUE)
-S3FigD <- make.confint.figure.panel(multidrug.control.table,
+S4FigD <- make.confint.figure.panel(multidrug.control.table,
                                       order.by.total.isolates,
                                       "multidrug\nresistance")
-S3FigE <- make.confint.figure.panel(beta.lactam.control.table,
+S4FigE <- make.confint.figure.panel(beta.lactam.control.table,
                                       order.by.total.isolates,
                                       "beta-lactam\nresistance",
                                       no.category.label = TRUE)
-S3FigF <- make.confint.figure.panel(glycopeptide.control.table,
+S4FigF <- make.confint.figure.panel(glycopeptide.control.table,
                                       order.by.total.isolates,
                                       "glycopeptide\nresistance",
                                       no.category.label = TRUE)
-S3FigG <- make.confint.figure.panel(polypeptide.control.table,
+S4FigG <- make.confint.figure.panel(polypeptide.control.table,
                                       order.by.total.isolates,
                                       "polypeptide\nresistance")
-S3FigH <- make.confint.figure.panel(diaminopyrimidine.control.table,
+S4FigH <- make.confint.figure.panel(diaminopyrimidine.control.table,
                                       order.by.total.isolates,
                                       "diaminopyrimidine\nresistance",
                                       no.category.label = TRUE)
-S3FigI <- make.confint.figure.panel(sulfonamide.control.table,
+S4FigI <- make.confint.figure.panel(sulfonamide.control.table,
                                       order.by.total.isolates,
                                       "sulfonamide\nresistance",
                                       no.category.label = TRUE)
-S3FigJ <- make.confint.figure.panel(quinolone.control.table,
+S4FigJ <- make.confint.figure.panel(quinolone.control.table,
                                     order.by.total.isolates,
                                     "quinolone\nresistance")
-S3FigK <- make.confint.figure.panel(aminoglycoside.control.table,
+S4FigK <- make.confint.figure.panel(aminoglycoside.control.table,
                                       order.by.total.isolates,
                                       "aminoglycoside\nresistance",
                                       no.category.label = TRUE)
-S3FigL <- make.confint.figure.panel(macrolide.control.table,
+S4FigL <- make.confint.figure.panel(macrolide.control.table,
                                       order.by.total.isolates,
                                       "macrolide\nresistance",
                                       no.category.label = TRUE)
 
-S3Fig <- plot_grid(NULL, ## The nesting is to add a title.
+S4Fig <- plot_grid(NULL, ## The nesting is to add a title.
                    plot_grid(
-                       S3FigA, S3FigB, S3FigC,
-                       S3FigD, S3FigE, S3FigF,
-                       S3FigG, S3FigH, S3FigI,
-                       S3FigJ, S3FigK, S3FigL,
+                       S4FigA, S4FigB, S4FigC,
+                       S4FigD, S4FigE, S4FigF,
+                       S4FigG, S4FigH, S4FigI,
+                       S4FigJ, S4FigK, S4FigL,
                    rel_widths = c(1.5, 1, 1,
                                   1.5, 1, 1,
                                   1.5, 1, 1),
@@ -821,10 +827,10 @@ S3Fig <- plot_grid(NULL, ## The nesting is to add a title.
                    labels = c("S-ARGs", ""),
                    ncol = 1,
                    rel_heights = c(0.025, 1))
-ggsave("../results/S3Fig.pdf", S3Fig, height = 9, width = 8)
+ggsave("../results/S4Fig.pdf", S4Fig, height = 9, width = 8)
 
 #########################
-## S7 Figure.
+## S8 Figure.
 ## Analysis of duplicate pairs found just on chromosome, just on plasmid, or
 ## on both chromosomes and plasmids.
 
@@ -868,7 +874,7 @@ just.plasmid.summary <- just.plasmid.cases %>%
                Annotation,
                levels = rev(order.by.total.isolates)))
 
-S7FigA <- ggplot(both.chr.and.plasmid.summary,
+S8FigA <- ggplot(both.chr.and.plasmid.summary,
                   aes(x = Count,
                       y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
@@ -878,10 +884,10 @@ S7FigA <- ggplot(both.chr.and.plasmid.summary,
     xlab("Frequency") +
     ylab("")
 
-S7Fig.legend <- get_legend(S7FigA)
-S7FigA <- S7FigA + guides(fill = "none")
+S8Fig.legend <- get_legend(S7FigA)
+S8FigA <- S7FigA + guides(fill = "none")
 
-S7FigB <- ggplot(just.chromosome.summary,
+S8FigB <- ggplot(just.chromosome.summary,
                   aes(x = Count,
                       y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
@@ -891,7 +897,7 @@ S7FigB <- ggplot(just.chromosome.summary,
     xlab("Frequency") +
     ylab("")
 
-S7FigC <- ggplot(just.plasmid.summary,
+S8FigC <- ggplot(just.plasmid.summary,
                   aes(x = Count,
                       y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
@@ -901,10 +907,10 @@ S7FigC <- ggplot(just.plasmid.summary,
     xlab("Frequency") +
     ylab("")
 
-S7Fig <- plot_grid(NULL, S7FigA, S7FigB, S7FigC, S7Fig.legend, ncol = 1,
+S8Fig <- plot_grid(NULL, S8FigA, S8FigB, S8FigC, S8Fig.legend, ncol = 1,
                    labels = c("Genomic distribution of D-genes", "A","B","C"),
                    rel_heights=c(0.35,1,1,1,0.25))
-ggsave("../results/S7Fig.pdf", S7Fig, width=5, height=8)
+ggsave("../results/S8Fig.pdf", S8Fig, width=5, height=8)
 
 ######################################################################
 ## Table S4. Show number of duplicated genes on chromosomes, and number of
@@ -1068,12 +1074,12 @@ plasmid.chromosome.singleton.ARG.contingency.test <- function(TableS5) {
 
 plasmid.chromosome.singleton.ARG.contingency.test(TableS5)
 ################################################################################
-## Use the data in Tables S4 and S5 to make the data structures for Figure 2DEFGHI.
+## Use the data in Tables S4 and S5 to make the data structures for Figure 4DEFGHI.
 ## The point of this figure is to show that the distribution of
 ## duplicated ARGs is not predicted by the distribution of single-copy ARGs
 ## in the ecological categories.
 
-make.Fig2DEFGHI.df <- function(TableS1, TableS4, TableS5) {
+make.Fig4DEFGHI.df <- function(TableS1, TableS4, TableS5) {
     order.by.total_isolates <- TableS1$Annotation
     
     df <- full_join(TableS4, TableS5) %>%
@@ -1095,8 +1101,8 @@ make.Fig2DEFGHI.df <- function(TableS1, TableS4, TableS5) {
 }
 
 
-Fig2DEFGHI.df <- make.Fig2DEFGHI.df(TableS1, TableS4, TableS5)
-## Figure 2DEFGHI.
+Fig4DEFGHI.df <- make.Fig4DEFGHI.df(TableS1, TableS4, TableS5)
+## Figure 4DEFGHI.
 ## Plot point estimates for the fraction of chromosomal genes that are
 ## the fraction of genes that are duplicated ARGs (panel D),
 ## the fraction of chromosomal genes that are duplicated ARGs (panel E),
@@ -1105,8 +1111,8 @@ Fig2DEFGHI.df <- make.Fig2DEFGHI.df(TableS1, TableS4, TableS5)
 ## the fraction of chromosomal genes that are single-copy ARGs (panel H),
 ## the fraction of plasmid genes that are single-copy ARGs (panel I),
 
-## Fig2D
-Fig2D.df <- Fig2DEFGHI.df %>%
+## Fig4D
+Fig4D.df <- Fig4DEFGHI.df %>%
     mutate(p = total_duplicate_ARGs/(total_genes)) %>%
     ## use the normal approximation for binomial proportion conf.ints
     mutate(se = sqrt(p*(1-p)/total_genes)) %>%
@@ -1121,8 +1127,8 @@ Fig2D.df <- Fig2DEFGHI.df %>%
            p, Left, Right)
 
 
-## Fig2E: the fraction of chromosomal genes that are duplicated ARGs.
-Fig2E.df <- Fig2DEFGHI.df %>%
+## Fig4E: the fraction of chromosomal genes that are duplicated ARGs.
+Fig4E.df <- Fig4DEFGHI.df %>%
     mutate(p = chromosomal_duplicate_ARGs/(total_chromosomal_genes)) %>%
     ## use the normal approximation for binomial proportion conf.ints
     mutate(se = sqrt(p*(1-p)/total_chromosomal_genes)) %>%
@@ -1136,7 +1142,7 @@ Fig2E.df <- Fig2DEFGHI.df %>%
     select(Annotation, chromosomal_duplicate_ARGs, total_chromosomal_genes,
            p, Left, Right)
 
-Fig2F.df <- Fig2DEFGHI.df %>%
+Fig4F.df <- Fig4DEFGHI.df %>%
     mutate(p = plasmid_duplicate_ARGs/(total_plasmid_genes)) %>%
     ## use the normal approximation for binomial proportion conf.ints
     mutate(se = sqrt(p*(1-p)/total_plasmid_genes)) %>%
@@ -1150,7 +1156,7 @@ Fig2F.df <- Fig2DEFGHI.df %>%
     select(Annotation, plasmid_duplicate_ARGs, total_plasmid_genes,
            p, Left, Right)
 
-Fig2G.df <- Fig2DEFGHI.df %>%
+Fig4G.df <- Fig4DEFGHI.df %>%
     mutate(p = total_singleton_ARGs/(total_genes)) %>%
     ## use the normal approximation for binomial proportion conf.ints
     mutate(se = sqrt(p*(1-p)/total_genes)) %>%
@@ -1165,7 +1171,7 @@ Fig2G.df <- Fig2DEFGHI.df %>%
     select(Annotation, total_singleton_ARGs, total_genes,
            p, Left, Right)
 
-Fig2H.df <- Fig2DEFGHI.df %>%
+Fig4H.df <- Fig4DEFGHI.df %>%
     mutate(p = chromosomal_singleton_ARGs/(total_chromosomal_genes)) %>%
     ## use the normal approximation for binomial proportion conf.ints
     mutate(se = sqrt(p*(1-p)/total_chromosomal_genes)) %>%
@@ -1180,7 +1186,7 @@ Fig2H.df <- Fig2DEFGHI.df %>%
            p, Left, Right)
 
 
-Fig2I.df <- Fig2DEFGHI.df %>%
+Fig4I.df <- Fig4DEFGHI.df %>%
     mutate(p = plasmid_singleton_ARGs/(total_plasmid_genes)) %>%
     ## use the normal approximation for binomial proportion conf.ints
     mutate(se = sqrt(p*(1-p)/total_plasmid_genes)) %>%
@@ -1195,7 +1201,7 @@ Fig2I.df <- Fig2DEFGHI.df %>%
            p, Left, Right)
 
 
-make.Fig2DEFGHI.panel <- function(Table, order.by.total.isolates, title,
+make.Fig4DEFGHI.panel <- function(Table, order.by.total.isolates, title,
                             xlabel, no.category.label = FALSE) {
     panel <- Table %>%
         mutate(Annotation = factor(
@@ -1218,78 +1224,78 @@ make.Fig2DEFGHI.panel <- function(Table, order.by.total.isolates, title,
     return(panel)
 }
 
-## Finally -- make Figure 2ABC.
-Fig2A <- make.confint.figure.panel(TableS1, order.by.total.isolates, "D-ARGs") +
+## Finally -- make Figure 4ABC.
+Fig4A <- make.confint.figure.panel(TableS1, order.by.total.isolates, "D-ARGs") +
         scale_x_continuous(breaks = c(0, 0.15), limits = c(0,0.16))
 
-Fig2B <- make.confint.figure.panel(TableS2, order.by.total.isolates,
+Fig4B <- make.confint.figure.panel(TableS2, order.by.total.isolates,
                                    "S-ARGs", no.category.label=TRUE) +
     scale_x_continuous(breaks = c(0.85, 1.0), limits = c(0.85,1))
 
-Fig2C <- make.confint.figure.panel(TableS3, order.by.total.isolates,
+Fig4C <- make.confint.figure.panel(TableS3, order.by.total.isolates,
                                    "All D-genes", no.category.label=TRUE) +
     scale_x_continuous(breaks = c(0.75, 0.95), limits = c(0.75, 0.95))
 
-Fig2ABC.title <- title_theme <- ggdraw() +
+Fig4ABC.title <- title_theme <- ggdraw() +
     draw_label("Isolate-level analysis",fontface="bold")
 
-Fig2ABC <- plot_grid(Fig2A, Fig2B, Fig2C, labels=c('A','B','C'),
+Fig4ABC <- plot_grid(Fig4A, Fig4B, Fig4C, labels=c('A','B','C'),
                      rel_widths = c(1.5,1,1), nrow=1)
 
-Fig2ABC.with.title <- plot_grid(Fig2ABC.title, Fig2ABC, ncol = 1, rel_heights = c(0.1, 1))
+Fig4ABC.with.title <- plot_grid(Fig4ABC.title, Fig4ABC, ncol = 1, rel_heights = c(0.1, 1))
 
-## the rest of Figure 2 -- Fig2DEFGHI -- requires Tables S4 and S5.
+## the rest of Figure 4 -- Fig4DEFGHI -- requires Tables S4 and S5.
 ## I manually set axis labels so that they don't run into each other.
-Fig2D <- make.Fig2DEFGHI.panel(Fig2D.df, order.by.total.isolates,
+Fig4D <- make.Fig4DEFGHI.panel(Fig4D.df, order.by.total.isolates,
                          "\nD-ARGs",
                          "Proportion of\nall genes") +
     scale_x_continuous(label=fancy_scientific, breaks = c(0, 2e-4), limits = c(0,2.2e-4))
-Fig2E <- make.Fig2DEFGHI.panel(Fig2E.df, order.by.total.isolates,
+Fig4E <- make.Fig4DEFGHI.panel(Fig4E.df, order.by.total.isolates,
                          "Chromosome:\nD-ARGs",
                          "Proportion of\nchromosomal genes",
                          no.category.label = TRUE) +
     scale_x_continuous(label=fancy_scientific, breaks = c(0, 8e-5), limits = c(0,9e-5))
-Fig2F <- make.Fig2DEFGHI.panel(Fig2F.df, order.by.total.isolates,
+Fig4F <- make.Fig4DEFGHI.panel(Fig4F.df, order.by.total.isolates,
                          "Plasmids:\nD-ARGs",
                          "Proportion of\nplasmid genes",
                          no.category.label = TRUE) +
     scale_x_continuous(label=fancy_scientific, breaks = c(0, 5e-3), limits = c(0,5.4e-3))
-Fig2G <- make.Fig2DEFGHI.panel(Fig2G.df, order.by.total.isolates,
+Fig4G <- make.Fig4DEFGHI.panel(Fig4G.df, order.by.total.isolates,
                          "\nS-ARGs",
                          "Proportion of\nall genes") +
     scale_x_continuous(label=fancy_scientific, breaks = c(3.5e-3, 7e-3), limits = c(3.5e-3,7.4e-3))
-Fig2H <- make.Fig2DEFGHI.panel(Fig2H.df, order.by.total.isolates,
+Fig4H <- make.Fig4DEFGHI.panel(Fig4H.df, order.by.total.isolates,
                          "Chromosome:\nS-ARGs",
                          "Proportion of\nchromosomal genes",
                          no.category.label = TRUE) +
     scale_x_continuous(label=fancy_scientific, breaks = c(4e-3, 6e-3), limits = c(4e-3, 6e-3))
-Fig2I <- make.Fig2DEFGHI.panel(Fig2I.df, order.by.total.isolates,
+Fig4I <- make.Fig4DEFGHI.panel(Fig4I.df, order.by.total.isolates,
                          "Plasmids:\nS-ARGs",
                          "Proportion of\nplasmid genes",
                          no.category.label = TRUE) +
     scale_x_continuous(label=fancy_scientific, breaks = c(3e-3, 2e-2))
 
-Fig2DEFGHI.title <- title_theme <- ggdraw() +
+Fig4DEFGHI.title <- title_theme <- ggdraw() +
     draw_label("Gene-level analysis",fontface="bold")
 
-Fig2DEFGHI <- plot_grid(Fig2D, Fig2E, Fig2F, Fig2G, Fig2H, Fig2I,
+Fig4DEFGHI <- plot_grid(Fig4D, Fig4E, Fig4F, Fig4G, Fig4H, Fig4I,
                   labels = c('D','E','F','G','H','I'), nrow=2,
                   rel_widths = c(1.5, 1, 1, 1.5, 1, 1))
 
-Fig2DEFGHI.with.title <- plot_grid(Fig2DEFGHI.title, Fig2DEFGHI,
+Fig4DEFGHI.with.title <- plot_grid(Fig4DEFGHI.title, Fig4DEFGHI,
                                    ncol = 1, rel_heights = c(0.06, 1))
 
-## Now, make the complete Figure 2!
-Fig2 <- plot_grid(Fig2ABC.with.title, Fig2DEFGHI.with.title,
+## Now, make the complete Figure 4!
+Fig4 <- plot_grid(Fig4ABC.with.title, Fig4DEFGHI.with.title,
                   ncol = 1, rel_heights = c(0.3,0.7))
 
-ggsave("../results/Fig2.pdf", Fig2, height=6.25, width=6.25)
+ggsave("../results/Fig4.pdf", Fig4, height=6.25, width=6.25)
 
 ##########################################################################
-## Figure 3: Visualization of ARGs on plasmids and chromosomes, and evidence for selection.
+## Figure 5: Visualization of ARGs on plasmids and chromosomes, and evidence for selection.
 
-## set up data structures for Figure 3AB.
-Fig3A.data <- duplicate.proteins %>%
+## set up data structures for Figure 5AB.
+Fig5A.data <- duplicate.proteins %>%
     mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
     group_by(Annotation, Category) %>%
     summarize(Plasmid = sum(plasmid_count), Chromosome = sum(chromosome_count)) %>%
@@ -1300,7 +1306,7 @@ Fig3A.data <- duplicate.proteins %>%
                Annotation,
                levels = rev(order.by.total.isolates)))
 
-Fig3B.data <- singleton.proteins %>%
+Fig5B.data <- singleton.proteins %>%
     mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
     group_by(Annotation, Category) %>%
     summarize(Plasmid = sum(plasmid_count), Chromosome = sum(chromosome_count)) %>%
@@ -1311,7 +1317,7 @@ Fig3B.data <- singleton.proteins %>%
                Annotation,
                levels = rev(order.by.total.isolates)))
 
-Fig3A <- ggplot(Fig3A.data, aes(x = Count, y = Annotation, fill = Category)) +
+Fig5A <- ggplot(Fig5A.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
     facet_wrap(.~Episome) +
     theme_classic() +
@@ -1321,10 +1327,10 @@ Fig3A <- ggplot(Fig3A.data, aes(x = Count, y = Annotation, fill = Category)) +
     theme(strip.background = element_blank()) +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
-Fig3legend <- get_legend(Fig3A)
-Fig3A <- Fig3A + guides(fill = "none")
+Fig5legend <- get_legend(Fig5A)
+Fig5A <- Fig5A + guides(fill = "none")
 
-Fig3B <- ggplot(Fig3B.data, aes(x = Count, y = Annotation, fill = Category)) +
+Fig5B <- ggplot(Fig5B.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
     facet_wrap(.~Episome) +
     theme_classic() +
@@ -1336,11 +1342,11 @@ Fig3B <- ggplot(Fig3B.data, aes(x = Count, y = Annotation, fill = Category)) +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
 ## remove the dataframes to save memory.
-##rm(Fig3A.data)
-##rm(Fig3B.data)
+##rm(Fig5A.data)
+##rm(Fig5B.data)
 ##gc()
 
-## Figure 3C: 
+## Figure 5C: 
 ## The observed ecological distribution of duplicate genes is driven by either
 ## selection, HGT, or associations with MGEs.
 
@@ -1436,7 +1442,7 @@ big.selection.test.df <- ARG.selection.test.df %>%
     full_join(MGE.selection.test.df) %>%
     full_join(other.selection.test.df)
 
-Fig3C <- big.selection.test.df %>%
+Fig5C <- big.selection.test.df %>%
     ggplot(aes(y = Annotation, x = log(dup.singleton.ratio), color = Category)) +
     geom_point() + theme_classic() +
     geom_vline(xintercept = 0, color = "red", linetype = "dashed") +
@@ -1474,21 +1480,15 @@ ARG.MGE.adjacency.statistic <- binom.test(
 
 
 ################################################################################
-## Write Fig 3 ABC to file. Fig 3D is a diagram of a workflow, and Figure 3E is produced at the end
+## Write Fig5 ABC to file. Fig 5D is a diagram of a workflow, and Figure 5E is produced at the end
 ## of this script.
-Fig3.top.panels <- plot_grid(Fig3A, Fig3B, Fig3C, labels = c('A','B','C'), nrow = 1, rel_widths=c(1.4,1,1),
+Fig5.top.panels <- plot_grid(Fig5A, Fig5B, Fig5C, labels = c('A','B','C'), nrow = 1, rel_widths=c(1.4,1,1),
               align = 'h', axis = 'tb')
-Fig3ABC <- plot_grid(Fig3.top.panels, Fig3legend, ncol = 1, rel_heights = c(1,0.2))
-ggsave("../results/Fig3ABC.pdf", Fig3ABC, width=8.75, height=4)
+Fig5ABC <- plot_grid(Fig5.top.panels, Fig5legend, ncol = 1, rel_heights = c(1,0.2))
+ggsave("../results/Fig5ABC.pdf", Fig5ABC, width=8.75, height=4)
 
 ################################################################################
-## Figure 4A. A deterministic ODE model demonstrates that selection can
-## drive the evolution of duplicated ARGs on plasmids.
-
-## The panels of this figure are generated in my Pluto notebook:
-## duplication-linear-ODE-model.jl.
-################################################################################
-## Supplementary Figure S4.
+## Supplementary Figure S5.
 ## Let's analyze duplicated genes in the 12 GN0XXXX genomes that were sequenced with
 ## long-read technology (PacBio) by Vance Fowler's lab.
 ## Jon Bethke characterized the resistances of these strains, and additionally
@@ -1561,28 +1561,28 @@ Duke.ESBL.remaining.singleton.proteins <- Duke.ESBL.singleton.proteins %>%
     filter(!str_detect(.$product,unknown.protein.keywords))
 
 #####################################
-## Now make Supplementary Figure S4.
+## Now make Supplementary Figure S5.
 
-S4FigA.data <- Duke.ESBL.duplicate.proteins %>%
+S5FigA.data <- Duke.ESBL.duplicate.proteins %>%
     mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
     group_by(Annotation_Accession, Category) %>%
     summarize(Count = sum(count))
 
-S4FigB.data <- Duke.ESBL.singleton.proteins %>%
+S5FigB.data <- Duke.ESBL.singleton.proteins %>%
     mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
     group_by(Annotation_Accession, Category) %>%
     summarize(Count = sum(count))
 
-S4FigA1 <- ggplot(S4FigA.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+S5FigA1 <- ggplot(S5FigA.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
     geom_bar(stat="identity") +
     theme_classic() +
     theme(legend.position="bottom") +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
-S4Figlegend <- get_legend(S4FigA1)
-S4FigA1 <- S4FigA1 + guides(fill = "none")
+S5Figlegend <- get_legend(S5FigA1)
+S5FigA1 <- S5FigA1 + guides(fill = "none")
 
-S4FigA2 <- ggplot(S4FigA.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+S5FigA2 <- ggplot(S5FigA.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
     geom_bar(stat="identity", position = "fill") +
     theme_classic() +
     ## remove genome name labels.
@@ -1591,21 +1591,21 @@ S4FigA2 <- ggplot(S4FigA.data, aes(x = Count, y = Annotation_Accession, fill = C
     xlab("Frequency") +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
-S4FigA.title <- ggdraw() + draw_label("Distribution of duplicated genes in 12 ESBL-resistant isolates", fontface='bold')
+S5FigA.title <- ggdraw() + draw_label("Distribution of duplicated genes in 12 ESBL-resistant isolates", fontface='bold')
 
-S4FigA <- plot_grid(S4FigA.title,
-                   plot_grid(S4FigA1, S4FigA2, labels = c("A",""),
+S5FigA <- plot_grid(S5FigA.title,
+                   plot_grid(S5FigA1, S5FigA2, labels = c("A",""),
                              nrow=1, rel_widths=c(2,1)),
                    nrow=2, rel_heights=c(0.2,2))
 
 
-S4FigB1 <- ggplot(S4FigB.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+S5FigB1 <- ggplot(S5FigB.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
     geom_bar(stat="identity") +
     theme_classic() +
     guides(fill = "none") +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
-S4FigB2 <- ggplot(S4FigB.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+S5FigB2 <- ggplot(S5FigB.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
     geom_bar(stat="identity", position = "fill") +
     theme_classic() +
     ## remove genome name labels.
@@ -1615,19 +1615,19 @@ S4FigB2 <- ggplot(S4FigB.data, aes(x = Count, y = Annotation_Accession, fill = C
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
 
-S4FigB.title <- ggdraw() + draw_label("Distribution of single-copy genes in 12 ESBL-resistant isolates", fontface='bold')
+S5FigB.title <- ggdraw() + draw_label("Distribution of single-copy genes in 12 ESBL-resistant isolates", fontface='bold')
 
-S4FigB <- plot_grid(S4FigB.title,
-                   plot_grid(S4FigB1, S4FigB2, labels = c("B",""),
+S5FigB <- plot_grid(S5FigB.title,
+                   plot_grid(S5FigB1, S5FigB2, labels = c("B",""),
                              nrow=1, rel_widths=c(2,1)),
                    nrow=2, rel_heights=c(0.2,2))
 
-## now make the full Supplementary Figure S4.
-S4Fig <- plot_grid(S4FigA, S4FigB, S4Figlegend, ncol = 1, rel_heights = c(2,2,0.25))
-ggsave("../results/S4Fig.pdf", S4Fig, height = 7, width = 10)
+## now make the full Supplementary Figure S5.
+S5Fig <- plot_grid(S5FigA, S5FigB, S5Figlegend, ncol = 1, rel_heights = c(2,2,0.25))
+ggsave("../results/S5Fig.pdf", S5Fig, height = 7, width = 10)
 
 ################################################################################
-## Supplementary Figure S5.
+## Supplementary Figure S6.
 ## Let's analyze duplicated genes in 46 genomes that were sequenced with
 ## long-read technology by BARNARDS group in Nature Microbiology (2022).
 
@@ -1689,28 +1689,28 @@ BARNARDS.remaining.singleton.proteins <- BARNARDS.singleton.proteins %>%
     filter(!str_detect(.$product,unknown.protein.keywords))
 
 #####################################
-## Now make Supplementary Figure S5.
+## Now make Supplementary Figure S6.
 
-S5FigA.data <- BARNARDS.duplicate.proteins %>%
+S6FigA.data <- BARNARDS.duplicate.proteins %>%
     mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
     group_by(Annotation_Accession, Category) %>%
     summarize(Count = sum(count))
 
-S5FigB.data <- BARNARDS.singleton.proteins %>%
+S6FigB.data <- BARNARDS.singleton.proteins %>%
     mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
     group_by(Annotation_Accession, Category) %>%
     summarize(Count = sum(count))
 
-S5FigA1 <- ggplot(S5FigA.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+S6FigA1 <- ggplot(S6FigA.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
     geom_bar(stat="identity") +
     theme_classic() +
     theme(legend.position="bottom") +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
-S5Figlegend <- get_legend(S5FigA1)
-S5FigA1 <- S5FigA1 + guides(fill = "none")
+S6Figlegend <- get_legend(S6FigA1)
+S6FigA1 <- S6FigA1 + guides(fill = "none")
 
-S5FigA2 <- ggplot(S5FigA.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+S6FigA2 <- ggplot(S6FigA.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
     geom_bar(stat="identity", position = "fill") +
     theme_classic() +
     ## remove genome name labels.
@@ -1719,21 +1719,21 @@ S5FigA2 <- ggplot(S5FigA.data, aes(x = Count, y = Annotation_Accession, fill = C
     xlab("Frequency") +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
-S5FigA.title <- ggdraw() + draw_label("Distribution of duplicated genes in 46 genomes from the BARNARDS study", fontface='bold')
+S6FigA.title <- ggdraw() + draw_label("Distribution of duplicated genes in 46 genomes from the BARNARDS study", fontface='bold')
 
-S5FigA <- plot_grid(S5FigA.title,
-                   plot_grid(S5FigA1, S5FigA2, labels = c("A",""),
+S6FigA <- plot_grid(S6FigA.title,
+                   plot_grid(S6FigA1, S6FigA2, labels = c("A",""),
                              nrow=1, rel_widths=c(2,1)),
                    nrow=2, rel_heights=c(0.2,2))
 
 
-S5FigB1 <- ggplot(S5FigB.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+S6FigB1 <- ggplot(S6FigB.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
     geom_bar(stat="identity") +
     theme_classic() +
     guides(fill = "none") +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
-S5FigB2 <- ggplot(S5FigB.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+S6FigB2 <- ggplot(S6FigB.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
     geom_bar(stat="identity", position = "fill") +
     theme_classic() +
     ## remove genome name labels.
@@ -1743,16 +1743,16 @@ S5FigB2 <- ggplot(S5FigB.data, aes(x = Count, y = Annotation_Accession, fill = C
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
 
-S5FigB.title <- ggdraw() + draw_label("Distribution of single-copy genes in 46 genomes from the BARNARDS study", fontface='bold')
+S6FigB.title <- ggdraw() + draw_label("Distribution of single-copy genes in 46 genomes from the BARNARDS study", fontface='bold')
 
-S5FigB <- plot_grid(S5FigB.title,
-                   plot_grid(S5FigB1, S5FigB2, labels = c("B",""),
+S6FigB <- plot_grid(S6FigB.title,
+                   plot_grid(S6FigB1, S6FigB2, labels = c("B",""),
                              nrow=1, rel_widths=c(2,1)),
                    nrow=2, rel_heights=c(0.2,2))
 
-## now make the full Supplementary Figure S5.
-S5Fig <- plot_grid(S5FigA, S5FigB, S5Figlegend, ncol = 1, rel_heights = c(2,2,0.25))
-ggsave("../results/S5Fig.pdf", S5Fig, height = 14, width = 8)
+## now make the full Supplementary Figure S6.
+S6Fig <- plot_grid(S6FigA, S6FigB, S6Figlegend, ncol = 1, rel_heights = c(2,2,0.25))
+ggsave("../results/S6Fig.pdf", S6Fig, height = 14, width = 8)
 
 
 ## clinical resistance genomes are even more enriched with ARGs than the baseline dataset.
@@ -1760,7 +1760,7 @@ ggsave("../results/S5Fig.pdf", S5Fig, height = 14, width = 8)
 binom.test(x=28,n=58,p=0.1407)
 
 ################################################################################
-## Supplementary Figure S6.
+## Supplementary Figure S7.
 ## Let's analyze duplicated genes in 149 genomes that were sequenced with
 ## long-read technology by  Dantas group in mSystems (2022).
 
@@ -1821,28 +1821,28 @@ Dantas.remaining.singleton.proteins <- Dantas.singleton.proteins %>%
     filter(!str_detect(.$product,unknown.protein.keywords))
 
 #####################################
-## Now make Supplementary Figure S6.
+## Now make Supplementary Figure S7.
 
-S6FigA.data <- Dantas.duplicate.proteins %>%
+S7FigA.data <- Dantas.duplicate.proteins %>%
     mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
     group_by(Annotation_Accession, Category) %>%
     summarize(Count = sum(count))
 
-S6FigB.data <- Dantas.singleton.proteins %>%
+S7FigB.data <- Dantas.singleton.proteins %>%
     mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
     group_by(Annotation_Accession, Category) %>%
     summarize(Count = sum(count))
 
-S6FigA1 <- ggplot(S6FigA.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+S7FigA1 <- ggplot(S7FigA.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
     geom_bar(stat="identity") +
     theme_classic() +
     theme(legend.position="bottom") +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
-S6Figlegend <- get_legend(S6FigA1)
-S6FigA1 <- S6FigA1 + guides(fill = "none")
+S7Figlegend <- get_legend(S7FigA1)
+S7FigA1 <- S7FigA1 + guides(fill = "none")
 
-S6FigA2 <- ggplot(S6FigA.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+S7FigA2 <- ggplot(S7FigA.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
     geom_bar(stat="identity", position = "fill") +
     theme_classic() +
     ## remove genome name labels.
@@ -1851,20 +1851,20 @@ S6FigA2 <- ggplot(S6FigA.data, aes(x = Count, y = Annotation_Accession, fill = C
     xlab("Frequency") +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
-S6FigA.title <- ggdraw() + draw_label("Distribution of duplicated genes in 149 genomes from Mahmud et al. (2022)", fontface='bold')
+S7FigA.title <- ggdraw() + draw_label("Distribution of duplicated genes in 149 genomes from Mahmud et al. (2022)", fontface='bold')
 
-S6FigA <- plot_grid(S6FigA.title,
-                   plot_grid(S6FigA1, S6FigA2, labels = c("A",""),
+S7FigA <- plot_grid(S7FigA.title,
+                   plot_grid(S7FigA1, S7FigA2, labels = c("A",""),
                              nrow=1, rel_widths=c(2,1)),
                    nrow=2, rel_heights=c(0.2,2))
 
-S6FigB1 <- ggplot(S6FigB.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+S7FigB1 <- ggplot(S7FigB.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
     geom_bar(stat="identity") +
     theme_classic() +
     guides(fill = "none") +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
-S6FigB2 <- ggplot(S6FigB.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+S7FigB2 <- ggplot(S7FigB.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
     geom_bar(stat="identity", position = "fill") +
     theme_classic() +
     ## remove genome name labels.
@@ -1874,20 +1874,20 @@ S6FigB2 <- ggplot(S6FigB.data, aes(x = Count, y = Annotation_Accession, fill = C
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
 
 
-S6FigB.title <- ggdraw() + draw_label("Distribution of single-copy genes in 149 genomes from Mahmud et al. (2022)", fontface='bold')
+S7FigB.title <- ggdraw() + draw_label("Distribution of single-copy genes in 149 genomes from Mahmud et al. (2022)", fontface='bold')
 
-S6FigB <- plot_grid(S6FigB.title,
-                   plot_grid(S6FigB1, S6FigB2, labels = c("B",""),
+S7FigB <- plot_grid(S7FigB.title,
+                   plot_grid(S7FigB1, S7FigB2, labels = c("B",""),
                              nrow=1, rel_widths=c(2,1)),
                    nrow=2, rel_heights=c(0.2,2))
 
-## now make the full Supplementary Figure S6. This is too big in dimensions... save
+## now make the full Supplementary Figure S7. This is too big in dimensions... save
 ## panels A and B separately as well.
-ggsave("../results/S6FigA.pdf", S6FigA, height = 18, width = 8)
-ggsave("../results/S6FigB.pdf", S6FigB, height = 18, width = 8)
+ggsave("../results/S7FigA.pdf", S7FigA, height = 18, width = 8)
+ggsave("../results/S7FigB.pdf", S7FigB, height = 18, width = 8)
 
-S6Fig <- plot_grid(S6FigA, S6FigB, S6Figlegend, ncol = 1, rel_heights = c(2,2,0.25))
-ggsave("../results/S6Fig.pdf", S6Fig, height = 40, width = 8)
+S7Fig <- plot_grid(S7FigA, S7FigB, S7Figlegend, ncol = 1, rel_heights = c(2,2,0.25))
+ggsave("../results/S7Fig.pdf", S7Fig, height = 40, width = 8)
 
 
 
@@ -2127,11 +2127,9 @@ plot.of.top.clustered.ARG.associated.transposases <- annotated.top.clustered.ARG
           legend.text = element_text(size = 8)) +
     theme(axis.text.x  = element_text(angle=45,vjust=0.5))
 
-## This will be Figure 3E.
+## This will be Figure 5E.
 ggsave("../results/top-clustered-ARG-transposons.pdf",
        plot.of.top.clustered.ARG.associated.transposases, height = 5, width=6)
-
-
 
 # let's examine just the unique sequences in order to make a rank order list
 ## and see the distribution across genus for each sequence.
@@ -2179,40 +2177,3 @@ Ecoli.ARG.associated.transposases <- annotated.ARG.associated.transposases %>%
 ## and write it to file.
 write.csv(x=Ecoli.ARG.associated.transposases,
           file="../results/Ecoli-transposases-in-dup-regions-with-ARGs.csv")
-
-##################################################################
-## Examine what ARGs are linked with what transposases in the duplicated regions.
-
-transposases.to.join.to.ARGs <- annotated.ARG.associated.transposases %>%
-    select(Annotation_Accession, Replicon_Accession, Replicon_type,
-           region_index, region_length, num_proteins_in_region, region_start, region_end,
-           dupARG_region_index,
-           protein_index, product, sequence, host, isolation_source,
-           Annotation, Organism, Strain, Genus) %>%
-    rename(transposase_protein_index = protein_index) %>%
-    rename(transposase_product = product) %>%
-    rename(transposase_sequence = sequence)
-
-ARGs.to.join.to.transposases <- joined.duplications.containing.ARGs %>%
-    filter(str_detect(.$product,antibiotic.keywords)) %>%
-    left_join(gbk.annotation) %>%
-    ## Annotate the genera.
-    mutate(Genus = stringr::word(Organism, 1)) %>%
-    ## filter for region_ids found in transposases.to.join.to.ARGs.
-    filter(dupARG_region_index %in% transposases.to.join.to.ARGs$dupARG_region_index) %>%
-    ## get the same columns as in transposases.to.join.to.ARGs
-    select(Annotation_Accession, Replicon_Accession, Replicon_type,
-           region_index, region_length, num_proteins_in_region, region_start, region_end,
-           dupARG_region_index,
-           protein_index, product, sequence, host, isolation_source,
-           Annotation, Organism, Strain, Genus) %>%
-    rename(ARG_protein_index = protein_index) %>%
-    rename(ARG_product = product) %>%
-    rename(ARG_sequence = sequence)
-
-## CRITICAL TODO: check whether this is correct!!!!!!
-ARGs.linked.to.transposases <- full_join(transposases.to.join.to.ARGs, ARGs.to.join.to.transposases)
-## and write it to file.
-write.csv(x=ARGs.linked.to.transposases,
-          file="../results/transposases-and-ARGs-in-common-dup-region.csv")
-
