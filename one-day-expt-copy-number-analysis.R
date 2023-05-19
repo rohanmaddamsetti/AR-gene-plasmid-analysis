@@ -651,18 +651,6 @@ evolved.coverage.plot <- ggplot(evolved.protein.coverage.df2,
                color = 'red',
                linetype = 'dashed',
                xintercept = c(480478, 484843, 484985)) +
-    ## draw lines at boundaries of the MD1 deletion in "Engineering a Reduced Escherichia coli Genome"
-    #geom_vline(size=0.2,
-     #          color = 'purple',
-      #         linetype = 'dashed',
-       #        xintercept = c(262914, 324588)) + 
-    ## draw vertical lines at boundaries of MD12 deletion
-    ## in Table 1 of the the paper "Engineering a Reduced Escherichia coli Genome"
-    #geom_vline(size=0.2,
-     #          color = 'green',
-      #         linetype = 'dashed',
-               ##  coordinates of cryptic propage DL12 (MD12) deletion.
-      #         xintercept = c(563979, 585280)) +
     scale_x_continuous(name = "Genomic position (Mb)", breaks = c(0,1000000,2000000,3000000,4000000),
                        labels = c(0,1,2,3,4)) +
     scale_y_continuous(name = "Illumina read coverage", breaks = c(0,250,500), limits=c(0,500)) +
