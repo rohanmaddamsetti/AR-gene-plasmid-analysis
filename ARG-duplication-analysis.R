@@ -884,8 +884,8 @@ S8FigA <- ggplot(both.chr.and.plasmid.summary,
     xlab("Frequency") +
     ylab("")
 
-S8Fig.legend <- get_legend(S7FigA)
-S8FigA <- S7FigA + guides(fill = "none")
+S8Fig.legend <- get_legend(S8FigA)
+S8FigA <- S8FigA + guides(fill = "none")
 
 S8FigB <- ggplot(just.chromosome.summary,
                   aes(x = Count,
@@ -911,6 +911,47 @@ S8Fig <- plot_grid(NULL, S8FigA, S8FigB, S8FigC, S8Fig.legend, ncol = 1,
                    labels = c("Genomic distribution of D-genes", "A","B","C"),
                    rel_heights=c(0.35,1,1,1,0.25))
 ggsave("../results/S8Fig.pdf", S8Fig, width=5, height=8)
+
+
+## Run some statistics to explicitly test whether
+## duplicated genes encoded solely on plasmids are more likely to encode antibiotic resistance
+## and functions other than those associated with mobile genetic elements,
+## in comparison to both duplicated genes encoded solely on the chromosome,
+## and duplicated genes encoded on plasmids and the chromosome, as is seen in S8Fig.
+
+category.summed.both.chr.and.plasmid <- both.chr.and.plasmid.summary %>%
+    group_by(Category) %>%
+    summarize(summed_count = sum(Count))
+
+category.summed.just.chromosome <- just.chromosome.summary %>%
+    group_by(Category) %>%
+    summarize(summed_count = sum(Count))
+
+category.summed.just.plasmid <- just.plasmid.summary %>%
+    group_by(Category) %>%
+    summarize(summed_count = sum(Count))
+
+both.chr.and.plasmid.test.vec <- c(
+    filter(category.summed.both.chr.and.plasmid,Category=='ARG')$summed_count
+    + filter(category.summed.both.chr.and.plasmid,Category=='Other function')$summed_count,
+    filter(category.summed.both.chr.and.plasmid,Category=='MGE')$summed_count)
+
+just.plasmid.test.vec <- c(
+    filter(category.summed.just.plasmid,Category=='ARG')$summed_count
+    + filter(category.summed.just.plasmid,Category=='Other function')$summed_count,
+    filter(category.summed.just.plasmid,Category=='MGE')$summed_count)
+
+just.chromosome.test.vec <- c(
+    filter(category.summed.just.chromosome,Category=='ARG')$summed_count
+    + filter(category.summed.just.chromosome,Category=='Other function')$summed_count,
+    filter(category.summed.just.chromosome,Category=='MGE')$summed_count)
+
+## test 1: compare proportions between just.plasmid and just.chromosome.
+binom.test(just.plasmid.test.vec,p=just.chromosome.test.vec[1]/sum(just.chromosome.test.vec))$p.value
+
+## test 2: compare proportions between just.plasmid and both plasmid and chromosome.
+binom.test(just.plasmid.test.vec,p=both.chr.and.plasmid.test.vec[1]/sum(both.chr.and.plasmid.test.vec))$p.value
+
 
 ######################################################################
 ## Table S4. Show number of duplicated genes on chromosomes, and number of
@@ -1340,6 +1381,16 @@ Fig5B <- ggplot(Fig5B.data, aes(x = Count, y = Annotation, fill = Category)) +
     theme(strip.background = element_blank()) +
     theme(axis.text.y=element_blank()) +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
+
+## let's get the actual numbers of duplicated MGE genes in the plasmid and chromosome,
+## to report in the main text.
+category.summed.D.genes <- Fig5A.data %>%
+    group_by(Category, Episome) %>%
+    summarize(summed_count = sum(Count))
+
+category.summed.S.genes <- Fig5B.data %>%
+    group_by(Category, Episome) %>%
+    summarize(summed_count = sum(Count))
 
 ## remove the dataframes to save memory.
 ##rm(Fig5A.data)

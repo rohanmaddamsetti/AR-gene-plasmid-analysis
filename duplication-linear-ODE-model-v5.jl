@@ -47,7 +47,7 @@ I built a toy model to illustrate why multiple identical copies of a protein seq
 
 There are three subpopulations of bacteria. Each cell contains a chromosome and a multi-copy plasmid. Each chromosome and plasmid may contain an antibiotic resistance gene (ARG). An ARG on a chromosome is shown as a large black bar, and an ARG on the plasmid is shown as a small black bar.
 
-We are interested in the dynamics of the three subpopulations due to growth and mutation (duplication, loss, and transfer dynamics of the ARG). I roughly follow the modeling framework used by Lopatkin et al. (2017) "Persistence and reversal of plasmid-mediated antibiotic resistance" and by Yao et al. (2022) "Intra-and interpopulation transposition of mobile genetic elements driven by antibiotic selection" and described in those papers' Supplementary Information.
+We are interested in the dynamics of the three subpopulations due to growth and mutation (duplication, loss, and transposition dynamics of the ARG). I roughly follow the modeling framework used by Lopatkin et al. (2017) "Persistence and reversal of plasmid-mediated antibiotic resistance" and by Yao et al. (2022) "Intra-and interpopulation transposition of mobile genetic elements driven by antibiotic selection" and described in those papers' Supplementary Information.
 
 **Model Assumptions**
 
@@ -119,7 +119,7 @@ Antibiotic Concentration = 2.0
 
 Duplication Cost = 0.1
 
-Transfer Rate = 0.0002  
+Transposition Rate = 0.0002  
 
 Dilution Rate = 0.1.
 
@@ -139,10 +139,10 @@ md""" Duplication Cost Slider"""
 @bind DuplicationCost Slider(0:0.01:0.5, show_value=true)
 
 # ╔═╡ 26e1c2e3-063c-4116-a0ac-b07fd6efb896
-md""" Transfer Rate Slider"""
+md""" Transposition Rate Slider"""
 
 # ╔═╡ 1589175b-fa55-4592-b8a8-36e7cd239101
-@bind TransferRate Slider(0:0.00001:0.0002, show_value=true)
+@bind TranspositionRate Slider(0:0.00001:0.0002, show_value=true)
 
 # ╔═╡ 73848f0b-6f2e-4aba-92e9-97ebaa97f5c6
 md""" Dilution Rate Slider"""
@@ -168,8 +168,8 @@ end
 # ╔═╡ fabbfa13-8b8e-4268-a48a-7ecac577bbb4
 begin 
 
-	## transfer rate.
-	η = TransferRate
+	## transposition rate.
+	η = TranspositionRate
 	
 	## Dilution rate.
 	D = DilutionRate
@@ -386,34 +386,13 @@ let
 		plot!(DI_timeseries.t, DI_timeseries.v, label=my_label,
 			legend = false,
 			ylabel="Duplication Index",
-			palette = :tol_bright,
+			palette = :Hokusai3, #:tol_bright,
 			xlabel="Time",
 			fontfamily="Helvetica",
 			grid = false)
 	end
 	
-	savefig(fig4D, "../results/linear-ODE-model-figures/Fig1D-DI-versus-TransferRate.pdf")
-	fig4D
-end
-
-# ╔═╡ 38bb6141-1c8d-4b92-b373-df23c7df28aa
-let
-	cost = 0.1
-	antibiotic_conc = 2.0
-	fig4D = plot(size=(3.5*72,3*72))
-	for duplication_rate in [0, 2e-7, 2e-6, 2e-5, 2e-4]
-		DI_timeseries = TimeSeriesDuplicationIndex(antibiotic_conc, cost, duplication_rate, D, y)
-		my_label = "cost = $cost"
-		plot!(DI_timeseries.t, DI_timeseries.v, label=my_label,
-			legend = false,
-			ylabel="Duplication Index",
-			palette = :tol_bright,
-			xlabel="Time",
-			fontfamily="Helvetica",
-			grid = false)
-	end
-	
-	savefig(fig4D, "../results/linear-ODE-model-figures/Fig1D-DI-versus-TransferRate.pdf")
+	savefig(fig4D, "../results/linear-ODE-model-figures/Fig1D-DI-versus-TranspositionRate.pdf")
 	fig4D
 end
 
@@ -2626,7 +2605,6 @@ version = "1.4.1+0"
 # ╠═4f859c18-0a3a-48c1-8fc6-e3d70324ddb0
 # ╠═625b835c-7bb1-47ef-93ab-f954741a55b3
 # ╠═022c37b3-6761-4958-8a43-5434dcccdedc
-# ╠═38bb6141-1c8d-4b92-b373-df23c7df28aa
 # ╠═36934771-b7a6-482e-b316-85ec429c5574
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

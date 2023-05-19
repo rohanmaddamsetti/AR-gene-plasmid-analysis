@@ -1,8 +1,6 @@
-##copy-number-analysis.R by Rohan Maddamsetti.
+##one-day-expt-copy-number-analysis.R by Rohan Maddamsetti.
 
-## TODO: rewrite this code (and the upstream python script get-one-day-expt-transposon-coverage.py)
-## in Julia for speed and for cleaner code. This code is slow!
-
+## TODO: the stuff related to Figure 5D is super slow.. speed up by preprocessing the slow bit in Python or Julia.
 
 ## 1) use xml2 to get negative binomial fit from
 ## breseq output summary.html. This is H0 null distribution of 1x coverage.
@@ -169,8 +167,21 @@ find.K12.candidate.amplifications <- function(breseq.output.dir, gnome) { #gnome
 
 
 find.K12.chromosomal.amplifications <- function(breseq.output.dir, gnome) { #gnome is not a misspelling.
-    
+  
     amplified.segments <- find.K12.candidate.amplifications(breseq.output.dir, gnome)
+    ## handle the case that there are no amplified.segments (empty dataframe).
+    if (nrow(amplified.segments) == 0) return(amplified.segments)
+    
+    ## Use xml2 to get negative binomial fit and relative variance from
+    ## breseq output summary.html. This is H0 null distribution of 1x coverage.
+    nbinom.fit <- coverage.nbinom.from.html(breseq.output.dir) %>%
+        filter(replicon=="chromosome")  
+    ## Use xml2 to get max read length from summary.html.
+    max.read.len <- max.readlen.from.html(breseq.output.dir)
+    genome.length <- 4641652 ## length of K-12 MG1655 reference.
+    my.size.parameter <- nbinom.fit$mean^2/(nbinom.fit$variance - nbinom.fit$mean)
+    alpha <- 0.05
+
     ## divide alpha by the number of tests for the bonferroni correction.
     bonferroni.alpha <- alpha/(genome.length + sum(amplified.segments$len))
     corrected.threshold <- qnbinom(p = bonferroni.alpha, mu = nbinom.fit$mean, size = my.size.parameter, lower.tail=FALSE)
@@ -328,7 +339,9 @@ ancestralclone.input.df <- data.frame(
     inner_join(ancestralclone.metadata)
 
 ancestral.clones.df <- ancestralclone.metadata %>%
-    ## these clones are the ancestors, so identical to sample ID.
+    ## these clones are the ancestors, so add a Ancestor column to sample ID.
+    ## IMPORTANT: ancestral.clones.df is needed downstream is some places,
+    ## in other places ancestralclone.metadata is what is needed.
    dplyr::rename(Ancestor = Sample) %>%
     select(-SampleType) %>%
     mutate(gff_name = paste0(Ancestor, ".gff3")) %>%
@@ -347,10 +360,8 @@ transposon.coverage.df <- read.csv(transposon.coverage.file) %>%
 
 
 ## data for the ancestral samples.
-ancestral.transposon.coverage.df <- transposon.coverage.df %>%
-    inner_join(ancestral.clones.df) %>%
-    ## don't need these columns
-    select(-gff_name, -gff_path)
+ancestral.transposon.coverage.df <- ancestralclone.metadata %>%
+    left_join(transposon.coverage.df)
 
 
 ancestral.replicon.coverage.df <- map_dfr(.x = ancestralclone.input.df$path, .f = coverage.nbinom.from.html) %>%
@@ -383,8 +394,8 @@ ancestral.replicon.coverage.ratio.df <- ancestral.replicon.coverage.df %>%
 
 
 ## data for the evolved samples.
-evolved.transposon.coverage.df <- transposon.coverage.df %>%
-    full_join(metagenome.metadata) %>%
+evolved.transposon.coverage.df <- metagenome.metadata %>%
+    left_join(transposon.coverage.df) %>%
     ## don't need this when joining to evolved.replicon.coverage.df
     select(-SampleType) %>%
     ## remove the pUC samples.
@@ -487,8 +498,8 @@ B59.Tet5.mixedpops <- mixedpop.input.df %>%
 
 amps.with.ancestors <- map2_df(B59.Tet5.mixedpops$path,
                                B59.Tet5.mixedpops$Sample,                              
-                               find.K12.candidate.amplifications) %>% ## for uncorrected p-values
-               ## find.K12.chromosomal.amplifications) %>% ## for corrected p-values
+                               ##find.K12.candidate.amplifications) %>% ## for uncorrected p-values
+                               find.K12.chromosomal.amplifications) %>% ## for corrected p-values
     ungroup() %>%
     left_join(metagenome.metadata) %>%
     select(-SampleType) %>%
