@@ -188,18 +188,30 @@ MakeMutCountMatrixFigure <- function(evolved.muts, show.all=FALSE, use.treatment
     
     B30.noPlasmid.Tet50.matrix.panel <- make.matrix.panel(matrix.data,"Tn5+ (TetA++)\nNo plasmid\nTet 50") +
         theme(axis.text.y=element_blank())
-    B30.A31.Tet50.matrix.panel <- make.matrix.panel(matrix.data, "Tn5+ (TetA++)\np15A\nTet 50") +
+
+    ## get the legend from the last panel, because this shows all the colors.
+    B30.A31.Tet50.matrix.panel <- make.matrix.panel(matrix.data, "Tn5+ (TetA++)\np15A\nTet 50", leg=TRUE) +
         theme(axis.text.y=element_blank())
+
+    Fig.legend <- get_legend(B30.A31.Tet50.matrix.panel)
+
+    ## now remove the legend from the last panel.
+    B30.A31.Tet50.matrix.panel <- B30.A31.Tet50.matrix.panel + guides(fill = "none")
     
     ## Using the patchwork library for layout.
-    matrix.figure <-
-        B59.noPlasmid.Tet50.matrix.panel +
+    matrix.panels <- B59.noPlasmid.Tet50.matrix.panel +
         B20.noPlasmid.Tet50.matrix.panel +
         B30.noPlasmid.Tet50.matrix.panel +
         B59.A31.Tet50.matrix.panel +
         B20.A31.Tet50.matrix.panel +
         B30.A31.Tet50.matrix.panel +
+        Fig.legend +
         plot_layout(nrow = 1)
+
+    ## hack to label x-axis from comments at: https://github.com/thomasp85/patchwork/issues/150
+    matrix.panels.grob <- patchwork::patchworkGrob(matrix.panels)
+    matrix.figure <- gridExtra::grid.arrange(matrix.panels.grob, left = "", bottom = "Evolved populations")
+        
     return(matrix.figure)
 }
 

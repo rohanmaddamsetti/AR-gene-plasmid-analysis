@@ -123,7 +123,7 @@ freq.panel.output <- "../results/one-day-expt-allele-freqs.pdf"
 ggsave(freq.panel, file=freq.panel.output,width=10,height=4)
 
 ###############################################
-## Figure 5B: make a stacked bar plot of the kinds of mutations in each treatment.
+## Figure 2B: make a stacked bar plot of the kinds of mutations in each treatment.
 
 ## This function sums mutations per replicate population.
 make.mutation.class.df <- function(evolved.mutations.df) {
@@ -184,12 +184,12 @@ plot.mutation.summary.stackbar <- function(mutation.class.df, leg=FALSE, weight.
     return(fig)
 }
 
-## Now make Figure 5B.
+## Now make Figure 2B.
 mutation.class.df <- make.mutation.class.df(evolved.mutations)
 
-Fig5B <- plot.mutation.summary.stackbar(mutation.class.df, TRUE, FALSE)
-fig5B.output <- "../results/Fig5B.pdf"
-ggsave(Fig5B, file=fig5B.output,width=6,height=5)
+Fig2B <- plot.mutation.summary.stackbar(mutation.class.df, TRUE, FALSE)
+fig2B.output <- "../results/Fig2B.pdf"
+ggsave(Fig2B, file=fig2B.output,width=6,height=5)
 
 
 #################################################################################
@@ -226,7 +226,7 @@ parallel.genes <- gene.level.parallel.mutations %>%
     arrange(desc(count))
 
 #################################################################################
-### Figure 5C: make a matrix plot of genes with mutations in two or more clones.
+### Figure 2C: make a matrix plot of genes with mutations in two or more clones.
 ################################################################################
 MakeMutCountMatrixFigure <- function(evolved.muts, show.all=FALSE, use.treatment.hit.sort=FALSE) {
 
@@ -311,7 +311,14 @@ MakeMutCountMatrixFigure <- function(evolved.muts, show.all=FALSE, use.treatment
 
     
     ## make Tet5 panels.
-    Inactive.noPlasmid.Tet5.matrix.panel <- make.matrix.panel(matrix.data, "Tn5-\nNo plasmid\nTet 5")
+    ## get the legend from the first panel.
+    Inactive.noPlasmid.Tet5.matrix.panel <- make.matrix.panel(matrix.data, "Tn5-\nNo plasmid\nTet 5", leg=TRUE)
+
+    Fig.legend <- get_legend(Inactive.noPlasmid.Tet5.matrix.panel)
+
+    ## now remove the legend from the first panel.
+    Inactive.noPlasmid.Tet5.matrix.panel <- Inactive.noPlasmid.Tet5.matrix.panel + guides(fill = "none")
+        
     ## Remove the gene labels to save space.
     Inactive.A31.Tet5.matrix.panel <- make.matrix.panel(matrix.data, "Tn5-\np15A\nTet 5") +
         theme(axis.text.y=element_blank())
@@ -322,12 +329,18 @@ MakeMutCountMatrixFigure <- function(evolved.muts, show.all=FALSE, use.treatment
         theme(axis.text.y=element_blank())
     
     ## Using the patchwork library for layout.
-    matrix.figure <-
+    matrix.panels <-
         Inactive.noPlasmid.Tet5.matrix.panel +
         Inactive.A31.Tet5.matrix.panel +
         Active.noPlasmid.Tet5.matrix.panel +
         Active.A31.Tet5.matrix.panel +
+        Fig.legend +
         plot_layout(nrow = 1)
+
+    ## hack to label x-axis from comments at: https://github.com/thomasp85/patchwork/issues/150
+    matrix.panels.grob <- patchwork::patchworkGrob(matrix.panels)
+    matrix.figure <- gridExtra::grid.arrange(matrix.panels.grob, left = "", bottom = "Evolved populations")
+    
     return(matrix.figure)
 }
 
@@ -448,9 +461,9 @@ MakeSummedAlleleFrequencyMatrixFigure <- function(evolved.muts,
 }
 
 
-## Figure 5C.
-Fig5C <- MakeMutCountMatrixFigure(Tet5.evolved.mutations, show.all=TRUE, use.treatment.hit.sort=TRUE)
-Fig5C.outf <- "../results/Fig5C.pdf"
-ggsave(Fig5C.outf, Fig5C, height=4, width=6)
+## Figure 2C.
+Fig2C <- MakeMutCountMatrixFigure(Tet5.evolved.mutations, show.all=TRUE, use.treatment.hit.sort=TRUE)
+Fig2C.outf <- "../results/Fig2C.pdf"
+ggsave(Fig2C.outf, Fig2C, height=4, width=7)
 
-
+ 

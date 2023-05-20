@@ -494,7 +494,9 @@ all.evolved.mutations <- read.csv(
 
 ## let's focus the analysis on the experiments generalizing across antibiotics.
 pop.clone.labels <- filter(all.pop.clone.labels, Antibiotic != "Tetracycline")
-evolved.mutations <- filter(all.evolved.mutations, Antibiotic != "Tetracycline")
+evolved.mutations <- filter(all.evolved.mutations, Antibiotic != "Tetracycline") %>%
+    ## these parallel mutations looks like false positives to me... filter out.
+    filter(Gene != "gltP/yjcO")
 
 ## make the matrix for the antibiotic generality expt.
 non.tet.evolved.mut.count.matrix <- MakeMutCountMatrix(evolved.mutations, show.all=TRUE)
@@ -508,23 +510,36 @@ B90.matrix.panel <- MakeMatrixPanel(non.tet.evolved.mut.count.matrix,
 B91.matrix.panel <- MakeMatrixPanel(non.tet.evolved.mut.count.matrix,
                                      "Kanamycin\n250") +
     theme(axis.text.y=element_blank())
+
+## get the legend from this panel, because this shows all the colors.
 B92.matrix.panel <- MakeMatrixPanel(non.tet.evolved.mut.count.matrix,
-                                     "Carbenicillin\n2000") +
+                                     "Carbenicillin\n2000", leg=TRUE) +
     theme(axis.text.y=element_blank())
+
 B95.matrix.panel <- MakeMatrixPanel(non.tet.evolved.mut.count.matrix,
                                      "Chloramphenicol\n70") +
     theme(axis.text.y=element_blank())
 
-S1FigB <-
+## get the legend.
+Fig.legend <- get_legend(B92.matrix.panel)
+## now remove the legend from the panel.
+B92.matrix.panel <- B92.matrix.panel + guides(fill = "none")
+
+matrix.panels <-
     B90.matrix.panel +
     B91.matrix.panel +
     B92.matrix.panel +
     B95.matrix.panel +
+    Fig.legend +
     plot_layout(nrow = 1)
+
+## hack to label x-axis from comments at: https://github.com/thomasp85/patchwork/issues/150
+matrix.panels.grob <- patchwork::patchworkGrob(matrix.panels)
+S1FigB <- gridExtra::grid.arrange(matrix.panels.grob, left = "", bottom = "Evolved populations")
 
 #################################################################################
 ## Now make S1 Figure.
 ## save the figure.
 S1Fig <- cowplot::plot_grid(S1FigA, S1FigB, labels=c("A","B"),nrow=2)
-ggsave(filename="../results/S1Fig.pdf", plot=S1Fig, height=9, width=7)
+ggsave(filename="../results/S1Fig.pdf", plot=S1Fig, height=9, width=8)
 
