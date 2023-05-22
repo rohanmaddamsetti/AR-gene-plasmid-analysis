@@ -84,13 +84,22 @@ categorize.as.MGE.ARG.or.other <- function(product) {
 all.proteins <- data.table::fread("../results/all-proteins.csv",
                                   drop="sequence")
 
+## get the genomes that passed assembly QC.
+## We will use this to filter episome.database and gbk.annotation.
+QCed.genomes <- read.csv("../results/genome-assembly-metadata.csv") %>%
+    as_tibble()
+
 ## annotate source sequences as plasmid or chromosome.
 episome.database <- read.csv("../results/chromosome-plasmid-table.csv") %>%
-    as_tibble()
+    as_tibble() %>%
+    ## filter based on QCed.genomes.
+    filter(Annotation_Accession %in% QCed.genomes$Annotation_Accession)
 
 gbk.annotation <- read.csv(
     "../results/computationally-annotated-gbk-annotation-table.csv") %>%
     as_tibble() %>%
+    ## filter based on QCed.genomes.
+    filter(Annotation_Accession %in% QCed.genomes$Annotation_Accession) %>%
     ## refer to NA annotations as "Unannotated".
     mutate(Annotation = replace_na(Annotation,"Unannotated")) %>%
     ## collapse Annotations into a smaller number of categories as follows:
