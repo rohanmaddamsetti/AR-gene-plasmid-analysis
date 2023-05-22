@@ -5,7 +5,7 @@ run-QC-and-make-assembly-stats-table.py by Rohan Maddamsetti
 
 Print out a table of assembly metadata, subsettting on assemblies
 that are deposited in RefSeq (i.e. passed RefSeq QC and no assembly anomalies),
-and are complete genomes (no spanned or unspanned gaps)
+and are complete genomes (no spanned or unspanned gaps, and no unplaced scaffolds)
 
 '''
 
@@ -48,6 +48,12 @@ with open("../results/genome-assembly-metadata.csv","w") as out_fh:
                 elif "Assembly anomaly" in line:
                     QC_failed = True
                     break
+                elif "unlocalized-scaffold" in line:
+                    if "total-length" in line:
+                        unlocalized_scaffold_length = int(line.split()[-1])
+                        if unlocalized_scaffold_length != 0:
+                            QC_failed = True
+                            break
                 elif line.startswith("# Organism name:"):
                     organism_name = line.split("# Organism name:")[-1].strip()
                 elif line.startswith("# Assembly level:"):

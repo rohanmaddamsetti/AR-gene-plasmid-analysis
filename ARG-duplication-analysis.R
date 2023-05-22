@@ -52,6 +52,13 @@ antibiotic.keywords <- "chloramphenicol|Chloramphenicol|tetracycline|Tetracyclin
 
 antibiotic.or.IS.keywords <- paste(IS.keywords,antibiotic.keywords,sep="|")
 
+## The regular expressions used by Zeevi et al. (2019).
+## Transposon: ‘transpos\S*|insertion|Tra[A-Z]|Tra[0-9]|IS[0-9]|conjugate transposon’
+## plasmid: ‘relax\S*|conjug\S*|mob\S*|plasmid|type IV|chromosome partitioning|chromosome segregation’
+## phage: ‘capsid|phage|tail|head|tape measure|antiterminatio’
+## other HGT mechanisms: ‘integrase|excision\S*|exo- nuclease|recomb|toxin|restrict\S*|resolv\S*|topoisomerase|reverse transcrip’
+## antibiotic resistance: ‘azole resistance|antibiotic resistance|TetR|tetracycline resistance|VanZ|betalactam\S*|beta-lactam|antimicrob\S*|lantibio\S*’.
+
 
 categorize.as.MGE.ARG.or.other <- function(product) {
     if (is.na(product))
@@ -63,15 +70,6 @@ categorize.as.MGE.ARG.or.other <- function(product) {
     else
         return("Other function")
 }
-
-
-## The regular expressions used by Zeevi et al. (2019).
-## These are not used in this analysis, but nice to have on hand.
-## Transposon: ‘transpos\S*|insertion|Tra[A-Z]|Tra[0-9]|IS[0-9]|conjugate transposon’
-## plasmid: ‘relax\S*|conjug\S*|mob\S*|plasmid|type IV|chromosome partitioning|chromosome segregation’
-## phage: ‘capsid|phage|tail|head|tape measure|antiterminatio’
-## other HGT mechanisms: ‘integrase|excision\S*|exo- nuclease|recomb|toxin|restrict\S*|resolv\S*|topoisomerase|reverse transcrip’
-## antibiotic resistance: ‘azole resistance|antibiotic resistance|TetR|tetracycline resistance|VanZ|betalactam\S*|beta-lactam|antimicrob\S*|lantibio\S*’.
 
 
 ################################################################################
@@ -94,6 +92,20 @@ episome.database <- read.csv("../results/chromosome-plasmid-table.csv") %>%
     as_tibble() %>%
     ## filter based on QCed.genomes.
     filter(Annotation_Accession %in% QCed.genomes$Annotation_Accession)
+
+## Double-check that every plasmid is associated with a chromosome.
+check.plasmid.accessions <- function(episome.database) {
+    plasmid.accessions <- sort(filter(episome.database, SequenceType=='plasmid')$Annotation_Accession)
+    chromosome.accessions <- sort(filter(episome.database, SequenceType=='chromosome')$Annotation_Accession)
+    bad.plasmid.vec <- sapply(plasmid.accessions,function(x) ifelse(x %in% chromosome.accessions,0,1))
+    if (sum(bad.plasmid.vec) > 0)
+        return(1) ## at least one plasmid is not associated with a chromosome
+    else
+        return(0) ## all plasmids are associated with chromosomes.
+}
+## run the test.
+check.plasmid.accessions(episome.database)
+
 
 gbk.annotation <- read.csv(
     "../results/computationally-annotated-gbk-annotation-table.csv") %>%
@@ -226,6 +238,26 @@ plasmid.annotation <- protein.db.metadata %>%
     arrange(desc(number))
 
 ##########################################################################
+## Supplementary Data Files 3 and 4.
+
+## Supplementary Data File 4:  Duplicated ARGs and their annotation.
+S4DataFile <- duplicate.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords)) %>%
+    as_tibble() %>%
+    arrange(Annotation_Accession)
+write.csv(x=S4DataFile, file="../results/FileS4-Duplicated-ARGs.csv",quote=F,row.names=F)
+
+## Supplementary Data File 3: All genomes, and whether or not they contain duplicated ARGs.
+S3DataFile <- gbk.annotation %>%
+    mutate(hasDuplicatedARGs = sapply(
+               Annotation_Accession,
+               function(x)
+                   ifelse(x %in% S4DataFile$Annotation_Accession,TRUE,FALSE)))
+write.csv(x=S3DataFile,
+          file="../results/FileS3-Complete-Genomes-in-NCBI-Refseq-with-Duplicated-ARG-annotation.csv",
+          quote=F, row.names=F)
+
+##########################################################################
 ## Figure 1ABCD. A deterministic ODE model demonstrates that selection can
 ## drive the evolution of duplicated ARGs on plasmids.
 
@@ -238,7 +270,7 @@ plasmid.annotation <- protein.db.metadata %>%
 ##########################################################################
 ## Figure 3 is a schematic of the analysis pipeline.
 ##########################################################################
-## Code and data structures for Figure 4ABC.
+## Code and data structures for Figure 2ABC.
 
 ## See Wikipedia reference:
 ## https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
