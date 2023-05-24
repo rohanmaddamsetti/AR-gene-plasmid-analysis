@@ -254,7 +254,7 @@ S3DataFile <- gbk.annotation %>%
                function(x)
                    ifelse(x %in% S4DataFile$Annotation_Accession,TRUE,FALSE)))
 write.csv(x=S3DataFile,
-          file="../results/FileS3-Complete-Genomes-in-NCBI-Refseq-with-Duplicated-ARG-annotation.csv",
+          file="../results/FileS3-Complete-Genomes-with-Duplicated-ARG-annotation.csv",
           quote=F, row.names=F)
 
 ##########################################################################
@@ -586,6 +586,26 @@ S3FigC <- make.confint.figure.panel(
     "D-ARGs in\ntop genera only",
     no.category.label = TRUE)
 
+## let's downsample the data, using Assembly-dereplicator.
+dereplicated.genomes <- read.table("../results/dereplicated-genomes.txt",header=FALSE) %>%
+    rename(fasta_file = V1) %>%
+    mutate(Annotation_Accession=str_replace(fasta_file, "_genomic.fna.gz","")) %>%
+    as_tibble()
+
+dereplicated.gbk.annotation <-  gbk.annotation %>%
+    filter(Annotation_Accession %in% dereplicated.genomes$Annotation_Accession)
+
+dereplicated.duplicate.proteins <-  duplicate.proteins %>%
+    filter(Annotation_Accession %in% dereplicated.genomes$Annotation_Accession)
+
+dereplicated.TableS1 <- make.TableS1(
+    dereplicated.gbk.annotation, dereplicated.duplicate.proteins)
+
+S3FigD <- make.confint.figure.panel(
+    dereplicated.TableS1, order.by.total.isolates,
+    "D-ARGs after\ndownsampling by Mash distance > 0.05",
+        no.category.label = FALSE)
+
 ## Let's try an alternative strategy: downsample the data such that only one
 ## sample for each organism is allowed.
 
@@ -603,17 +623,16 @@ single.organism.singleton.proteins <- singleton.proteins %>%
 single.organism.TableS1 <- make.TableS1(
     single.organism.gbk.annotation, single.organism.duplicate.proteins)
 
-S3FigD <- make.confint.figure.panel(
+S3FigE <- make.confint.figure.panel(
     single.organism.TableS1, order.by.total.isolates,
     "D-ARGs after\ndownsampling species",
         no.category.label = TRUE)
 
-S3FigBCD <- plot_grid(S3FigB, S3FigC, S3FigD, labels = c("B","C",'D'), nrow = 1, rel_widths = c(1.5, 1, 1, 1))
+S3FigBCDE <- plot_grid(S3FigB, S3FigC, S3FigD, S3FigE,
+                       labels = c("B","C",'D','E'), nrow = 2, rel_widths = c(1.5, 1, 1, 1, 1))
 
-
-S3Fig <- plot_grid(S3FigA, S3FigBCD, labels = c("A", ""), nrow = 2, rel_heights = c(2,1))
-
-ggsave("../results/S3Fig.pdf", S3Fig, height = 6, width=7.5)
+S3Fig <- plot_grid(S3FigA, S3FigBCDE, labels = c("A", ""), nrow = 2, rel_heights = c(2,2))
+ggsave("../results/S3Fig.pdf", S3Fig, height = 8, width=7.5)
 
 ##rm(single.organism.duplicate.proteins)
 ##rm(single.organism.singleton.proteins)
@@ -625,7 +644,7 @@ ggsave("../results/S3Fig.pdf", S3Fig, height = 6, width=7.5)
 ########################################
 ## Figure S1: Duplicated ARGs.
 
-chloramphenicol.table <- make.IsolateEnrichmentTable(
+ chloramphenicol.table <- make.IsolateEnrichmentTable(
     gbk.annotation,
     duplicate.proteins,
     chloramphenicol.keywords)

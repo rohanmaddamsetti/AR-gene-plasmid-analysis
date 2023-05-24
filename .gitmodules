@@ -1,0 +1,3 @@
+[submodule "external/Assembly-dereplicator"]
+	path = external/Assembly-dereplicator
+	url = https://github.com/rrwick/Assembly-dereplicator

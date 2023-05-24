@@ -6,7 +6,7 @@ fetch-assembly-stats.py by Rohan Maddamsetti.
 This script reads in ../results/best-prokaryotes.txt.
 
 NOTE: for path names to be processed properly, this script must be run
-from the src/ directory as python fetch-gbk-annotation.py.
+from the src/ directory as:  "python fetch-assembly-stats.py".
 '''
 
 import urllib.request
