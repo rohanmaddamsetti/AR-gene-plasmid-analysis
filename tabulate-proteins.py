@@ -47,8 +47,11 @@ with open(chromosome_plasmid_tbl, 'r') as chromosome_plasmid_fh:
         else:
             replicon_type_lookup_table[my_annot_accession] = {rep_id : rep_type}
 
+## make a unique sequence ID for each tabulated sequence.
+## This is incremented in the innermost loop.
+seq_id = 1
 with open(outf, 'w') as outfh:
-    header = "Annotation_Accession,count,chromosome_count,plasmid_count,unassembled_count,product,sequence\n"
+    header = "SeqID,Annotation_Accession,count,chromosome_count,plasmid_count,unassembled_count,product,sequence\n"
     outfh.write(header)
     for gbk_gz in tqdm(os.listdir("../results/gbk-annotation")):
         if not gbk_gz.endswith(".gbff.gz"): continue
@@ -75,18 +78,19 @@ with open(outf, 'w') as outfh:
                         prot_seq = feat.qualifiers['translation'][0]
                     except:
                         continue
-                    prot_id = feat.qualifiers['protein_id'][0]
                     try: ## replace all commas with semicolons! otherwise csv format is messed up.
                         prot_product = feat.qualifiers['product'][0].replace(',',';')
                     except:
                         prot_product = "NA"
                     if prot_seq not in protein_dict:
-                        protein_dict[prot_seq] = { "count":0,
+                        protein_dict[prot_seq] = { "SeqID":str(seq_id),
+                                                   "count":0,
                                                    "chromosome_count":0,
                                                    "plasmid_count":0,
                                                    "unassembled_count":0,
                                                    "product":prot_product,
                                                    "locations":[]}
+                        seq_id += 1 ## and increment the seq_id for the next new sequence added to the dict.
                     ## check to see that the location has not been seen before.
                     prot_location = str(feat.location)
                     if prot_location in protein_dict[prot_seq]["locations"]:
@@ -106,6 +110,6 @@ with open(outf, 'w') as outfh:
             else:
                 filtered_prot_dict = protein_dict
             for seq, v in filtered_prot_dict.items():
-                row = ','.join([annotation_accession,str(v["count"]), str(v["chromosome_count"]), str(v["plasmid_count"]), str(v["unassembled_count"]), v["product"], seq])
+                row = ','.join([v["SeqID"], annotation_accession, str(v["count"]), str(v["chromosome_count"]), str(v["plasmid_count"]), str(v["unassembled_count"]), v["product"], seq])
                 row = row + '\n'
                 outfh.write(row)

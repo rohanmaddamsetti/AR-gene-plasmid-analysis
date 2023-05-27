@@ -217,6 +217,7 @@ rm(all.proteins)
 ## and running garbage collection.
 gc()
 
+
 ########################################################################
 cds.counts <- read.csv("../results/protein_db_CDS_counts.csv")
 
@@ -603,7 +604,7 @@ dereplicated.TableS1 <- make.TableS1(
 
 S3FigD <- make.confint.figure.panel(
     dereplicated.TableS1, order.by.total.isolates,
-    "D-ARGs after\ndownsampling by Mash distance > 0.05",
+    "D-ARGs after downsampling\nby Mash distance > 0.005",
         no.category.label = FALSE)
 
 ## Let's try an alternative strategy: downsample the data such that only one
