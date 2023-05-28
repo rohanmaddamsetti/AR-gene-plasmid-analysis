@@ -18,7 +18,7 @@ fancy_scientific <- function(x) {
 ################################################################################
 ## Regular expressions used in this analysis.
 
-## The regular expressions used by Zeevi et al. (2019).
+## We build on the regular expressions used by Zeevi et al. (2019).
 ## Transposon: ‘transpos\S*|insertion|Tra[A-Z]|Tra[0-9]|IS[0-9]|conjugate transposon’
 ## plasmid: ‘relax\S*|conjug\S*|mob\S*|plasmid|type IV|chromosome partitioning|chromosome segregation’
 ## phage: ‘capsid|phage|tail|head|tape measure|antiterminatio’
@@ -33,9 +33,14 @@ unknown.protein.keywords <- "unknown|Unknown|hypothetical|Hypothetical|Uncharact
 ## so filter out those cases, when counting unknown proteins.
 
 ## match MGE genes using the following keywords in the "product" annotation
-IS.keywords <- "IS|transposon|Transposase|transposase|Transposable|transposable|virus|Phage|phage|integrase|Integrase|baseplate|tail|intron|Mobile|mobile|antitoxin|toxin|capsid|plasmid|Plasmid|conjug|Tra"
+transposon.keywords <- "IS|transpos\\S*|insertion|Tra[A-Z]|Tra[0-9]|IS[0-9]|conjugate transposon|Transpos\\S*|Tn[0-9]"
+plasmid.keywords <- "relax\\S*|conjug\\S*|mob\\S*|plasmid|type IV|chromosome partitioning|chromosome segregation|Mob\\S*|Plasmid"
+phage.keywords <- "capsid|phage|tail|head|tape measure|antiterminatio|Phage|virus|Baseplate|baseplate"
+other.HGT.keywords <- "Integrase|integrase|excision\\S*|exonuclease|recomb|toxin|restrict\\S*|resolv\\S*|topoisomerase|reverse transcrip|intron|antitoxin|toxin"
 
-MGE.or.unknown.protein.keywords <- paste(IS.keywords,unknown.protein.keywords,sep="|")
+
+MGE.keywords <- paste(transposon.keywords, plasmid.keywords, phage.keywords, other.HGT.keywords, sep="|")
+MGE.or.unknown.protein.keywords <- paste(MGE.keywords,unknown.protein.keywords,sep="|")
 
 ## Elongation Factor Tu (2 copies in most bacteria).
 ## \\b is a word boundary.
@@ -44,10 +49,10 @@ EFTu.keywords <- "\\bTu | Tu\\b|-Tu\\b"
 
 ## antibiotic-specific keywords.
 chloramphenicol.keywords <- "chloramphenicol|Chloramphenicol"
-tetracycline.keywords <- "tetracycline|Tetracycline"
+tetracycline.keywords <- "tetracycline resistance|Tetracycline resistance"
 MLS.keywords <- "macrolide|lincosamide|streptogramin"
-multidrug.keywords <- "Multidrug|multidrug|antibiotic resistance|MDR efflux|drug resistance"
-beta.lactam.keywords <- "lactamase|LACTAMASE|beta-lactam|oxacillinase|carbenicillinase"
+multidrug.keywords <- "Multidrug resistance|multidrug resistance|antibiotic resistance"
+beta.lactam.keywords <- "lactamase|LACTAMASE|beta-lactam|oxacillinase|carbenicillinase|betalactam\\S*"
 glycopeptide.keywords <- "glycopeptide resistance|VanZ|bleomycin|vancomycin resistance|VanA|VanY|VanX|VanH|streptothricin N-acetyltransferase"
 polypeptide.keywords <- "bacitracin|polymyxin B|phosphoethanolamine transferase|phosphoethanolamine--lipid A transferase"
 diaminopyrimidine.keywords <- "trimethoprim-resistant"
@@ -55,13 +60,14 @@ sulfonamide.keywords <- "sulfonamide-resistant|Sul1|sul1|sulphonamide resistance
 quinolone.keywords <- "quinolone|Quinolone|oxacin|qnr|Qnr"
 aminoglycoside.keywords <- "Aminoglycoside|aminoglycoside|streptomycin|Streptomycin|kanamycin|Kanamycin|tobramycin|Tobramycin|gentamicin|Gentamicin|neomycin|Neomycin|16S rRNA (guanine(1405)-N(7))-methyltransferase|23S rRNA (adenine(2058)-N(6))-methyltransferase|spectinomycin 9-O-adenylyltransferase|Spectinomycin 9-O-adenylyltransferase|Rmt"
 macrolide.keywords <- "macrolide|ketolide|Azithromycin|azithromycin|Clarithromycin|clarithromycin|Erythromycin|erythromycin|Erm|EmtA"
-antimicrobial.keywords <- "QacE|Quaternary ammonium|quaternary ammonium|Quarternary ammonium|quartenary ammonium|fosfomycin|ribosomal protection|rifampin ADP-ribosyl"
+antimicrobial.keywords <- "QacE|Quaternary ammonium|quaternary ammonium|Quarternary ammonium|quartenary ammonium|fosfomycin|ribosomal protection|rifampin ADP-ribosyl|azole resistance|antimicrob\\S*|lantibio\\S*"
+
 
 antibiotic.keywords <- paste(chloramphenicol.keywords, tetracycline.keywords, MLS.keywords, multidrug.keywords,
     beta.lactam.keywords, glycopeptide.keywords, polypeptide.keywords, diaminopyrimidine.keywords,
     sulfonamide.keywords, quinolone.keywords, aminoglycoside.keywords, macrolide.keywords, antimicrobial.keywords, sep="|")
 
-antibiotic.or.IS.keywords <- paste(IS.keywords,antibiotic.keywords,sep="|")
+antibiotic.or.MGE.keywords <- paste(MGE.keywords,antibiotic.keywords,sep="|")
 
 
 
@@ -70,7 +76,7 @@ categorize.as.MGE.ARG.or.other <- function(product) {
         return("Other function")
     else if (str_detect(product, antibiotic.keywords))
         return("ARG")
-    else if (str_detect(product, IS.keywords))
+    else if (str_detect(product, MGE.keywords))
         return("MGE")
     else
         return("Other function")
@@ -261,6 +267,86 @@ S3DataFile <- gbk.annotation %>%
 write.csv(x=S3DataFile,
           file="../results/FileS3-Complete-Genomes-with-Duplicated-ARG-annotation.csv",
           quote=F, row.names=F)
+
+##########################################################################
+## As a control, we will redo the whole analysis, scoring ARGs and MGE-associated genes
+## using the CARD and mobileOG-db databases (>80% ID over >85% length of best hit).
+
+all.proteins.in.CARD <- read.csv("../results/all-proteins-in-CARD.csv") %>%
+    as_tibble() %>%
+    ## now merge with gbk annotation.
+    inner_join(gbk.annotation)
+
+all.proteins.in.mobileOGdb <- read.csv("../results/all-proteins-in-mobileOG-db.csv") %>%
+    as_tibble() %>%
+    ## now merge with gbk annotation.
+    inner_join(gbk.annotation)
+
+duplicate.proteins.in.CARD <- all.proteins.in.CARD %>%
+    filter(count > 1)
+singleton.proteins.in.CARD <- all.proteins.in.CARD %>%
+    filter(count == 1)
+
+duplicate.proteins.in.mobileOGdb <- all.proteins.in.mobileOGdb %>%
+    filter(count > 1)
+singleton.proteins.in.mobileOGdb <- all.proteins.in.mobileOGdb %>%
+    filter(count == 1)
+
+## Measure precision and recall of keywords, treating CARD hits as ground truth.
+duplicate.ARGs.by.keyword <- duplicate.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords))
+
+## True positives (CARD)
+duplicate.proteins.in.CARD.matched.by.keywords <- duplicate.proteins.in.CARD %>%
+    filter(str_detect(.$product,antibiotic.keywords))
+
+## False negatives (CARD)
+duplicate.proteins.in.CARD.not.matched.by.keywords <- duplicate.proteins.in.CARD %>%
+    filter(!str_detect(.$product,antibiotic.keywords))
+
+## false positives (CARD)
+duplicate.ARGs.not.in.CARD <- duplicate.ARGs.by.keyword %>%
+    filter(!(SeqID %in% duplicate.proteins.in.CARD$SeqID)) %>%
+    as_tibble()
+
+
+## duplicated ARG precision = 0.87
+length(duplicate.proteins.in.CARD.matched.by.keywords$SeqID)/(length(duplicate.ARGs.not.in.CARD$SeqID) + length(duplicate.proteins.in.CARD.matched.by.keywords$SeqID))
+
+## duplicated ARG recall = 0.88
+length(duplicate.proteins.in.CARD.matched.by.keywords$SeqID)/(length(duplicate.proteins.in.CARD.not.matched.by.keywords$SeqID) + length(duplicate.proteins.in.CARD.matched.by.keywords$SeqID))
+
+
+##############
+## Measure precision and recall of keywords, treating mobileOG-db hits as ground truth.
+duplicate.MGE.genes.by.keyword <- duplicate.proteins %>%
+    filter(str_detect(.$product,MGE.keywords))
+
+## True positives (mobileOG-db)
+duplicate.proteins.in.mobileOGdb.matched.by.keywords <- duplicate.proteins.in.mobileOGdb %>%
+    filter(str_detect(.$product,MGE.keywords))
+
+
+## False negatives (mobileOG-db)
+duplicate.proteins.in.mobileOGdb.not.matched.by.keywords <- duplicate.proteins.in.mobileOGdb %>%
+    filter(!str_detect(.$product,MGE.keywords))
+
+
+## potential false positives (mobileOG-db)
+duplicate.MGE.genes.not.in.mobileOGdb <- duplicate.MGE.genes.by.keyword %>%
+    filter(!(SeqID %in% duplicate.proteins.in.mobileOGdb$SeqID)) %>%
+    as_tibble()
+
+sort(unique(duplicate.proteins.in.mobileOGdb.not.matched.by.keywords$product))
+
+
+## duplicated MGE genes precision = 0.794
+length(duplicate.proteins.in.mobileOGdb.matched.by.keywords$SeqID)/(length(duplicate.MGE.genes.not.in.mobileOGdb$SeqID) + length(duplicate.proteins.in.mobileOGdb.matched.by.keywords$SeqID))
+
+## duplicated MGE genes recall = 0.829
+length(duplicate.proteins.in.mobileOGdb.matched.by.keywords$SeqID)/(length(duplicate.proteins.in.mobileOGdb.not.matched.by.keywords$SeqID) + length(duplicate.proteins.in.mobileOGdb.matched.by.keywords$SeqID))
+
+
 
 ##########################################################################
 ## Figure 1ABCD. A deterministic ODE model demonstrates that selection can
@@ -645,80 +731,6 @@ ggsave("../results/S3Fig.pdf", S3Fig, height = 8, width=7.5)
 
 ########################################################################
 ## Control analysis: score ARGs and MGEs using the CARD and mobileOG-db databases.
-
-all.proteins.in.CARD <- read.csv("../results/all-proteins-in-CARD.csv") %>%
-    as_tibble() %>%
-    ## now merge with gbk annotation.
-    inner_join(gbk.annotation)
-
-all.proteins.in.mobileOGdb <- read.csv("../results/all-proteins-in-mobileOG-db.csv") %>%
-    as_tibble() %>%
-    ## now merge with gbk annotation.
-    inner_join(gbk.annotation)
-
-duplicate.proteins.in.CARD <- all.proteins.in.CARD %>%
-    filter(count > 1)
-singleton.proteins.in.CARD <- all.proteins.in.CARD %>%
-    filter(count == 1)
-
-duplicate.proteins.in.mobileOGdb <- all.proteins.in.mobileOGdb %>%
-    filter(count > 1)
-singleton.proteins.in.mobileOGdb <- all.proteins.in.mobileOGdb %>%
-    filter(count == 1)
-
-
-## Measure precision and recall of my keyword search
-## using CARD and mobileOG-db.
-duplicate.ARGs <- duplicate.proteins %>%
-    filter(str_detect(.$product,antibiotic.keywords))
-
-singleton.ARGs <- singleton.proteins %>%
-    filter(str_detect(.$product,antibiotic.keywords))
-
-## have to remove the sequence column from duplicate.ARGs to merge.
-all.keyword.matched.ARGs <- rbind(
-    select(duplicate.ARGs,-sequence),
-    singleton.ARGs)
-
-## True positives
-duplicate.proteins.in.CARD.matched.by.keywords <- duplicate.proteins.in.CARD %>%
-    filter(str_detect(.$product,antibiotic.keywords))
-
-all.proteins.in.CARD.matched.by.keywords <- all.proteins.in.CARD %>%
-    filter(str_detect(.$product,antibiotic.keywords))
-
-## False negatives
-duplicate.proteins.in.CARD.not.matched.by.keywords <- duplicate.proteins.in.CARD %>%
-    filter(!str_detect(.$product,antibiotic.keywords))
-
-all.proteins.in.CARD.not.matched.by.keywords <- all.proteins.in.CARD %>%
-    filter(!str_detect(.$product,antibiotic.keywords))
-
-## POTENTIAL FALSE POSITIVES!
-duplicate.ARGs.not.in.CARD <- duplicate.ARGs %>%
-    filter(!(SeqID %in% duplicate.proteins.in.CARD$SeqID)) %>%
-    as_tibble()
-
-all.ARGs.not.in.CARD <- all.keyword.matched.ARGs %>%
-    filter(!(SeqID %in% duplicate.proteins.in.CARD$SeqID)) %>%
-    as_tibble()
-
-sort(unique(duplicate.ARGs.not.in.CARD$product))
-
-#sort(unique(duplicate.proteins.in.CARD.not.matched.by.keywords$product))
-sort(unique(all.proteins.in.CARD.not.matched.by.keywords$product))
-
-## duplicated ARG precision = 0.852
-length(duplicate.proteins.in.CARD.matched.by.keywords$SeqID)/(length(duplicate.ARGs.not.in.CARD$SeqID) + length(duplicate.proteins.in.CARD.matched.by.keywords$SeqID))
-
-## all ARG precision = 0.219
-length(all.proteins.in.CARD.matched.by.keywords$SeqID)/(length(all.ARGs.not.in.CARD$SeqID) + length(all.proteins.in.CARD.matched.by.keywords$SeqID))
-
-## duplicated ARG recall = 0.911
-length(duplicate.proteins.in.CARD.matched.by.keywords$SeqID)/(length(duplicate.proteins.in.CARD.not.matched.by.keywords$SeqID) + length(duplicate.proteins.in.CARD.matched.by.keywords$SeqID))
-
-## all ARG recall = 0.54
-length(all.proteins.in.CARD.matched.by.keywords$SeqID)/(length(all.proteins.in.CARD.not.matched.by.keywords$SeqID) + length(all.proteins.in.CARD.matched.by.keywords$SeqID))
 
 
 make.DIAMOND.ARG.Table <- function(gbk.annotation, DIAMOND.ARGs) {
@@ -1675,7 +1687,7 @@ MGE.selection.test.df <- make.selection.test.df(
     duplicate.proteins,
     singleton.proteins,
     order.by.total.isolates,
-    IS.keywords) %>%
+    MGE.keywords) %>%
     select(Annotation, dup.singleton.ratio) %>%
     mutate(Category = "MGE")
 
@@ -1683,7 +1695,7 @@ other.selection.test.df <- make.selection.test.df(
     duplicate.proteins,
     singleton.proteins,
     order.by.total.isolates,
-    antibiotic.or.IS.keywords, negate = TRUE) %>%
+    antibiotic.or.MGE.keywords, negate = TRUE) %>%
     select(Annotation, dup.singleton.ratio) %>%
     mutate(Category = "Other function")
 
@@ -1767,21 +1779,21 @@ sum(Duke.ESBL.duplicate.ARGs$count) ## 23 duplicated ARGs in total.
 
 ## 215 MGE protein sequences are duplicated.
 Duke.ESBL.duplicate.MGE.proteins <- Duke.ESBL.duplicate.proteins %>%
-    filter(str_detect(.$product,IS.keywords))
+    filter(str_detect(.$product,MGE.keywords))
 sum(Duke.ESBL.duplicate.MGE.proteins$count) ## 547 duplicated MGE proteins in total.
 
 ## 208 unknown protein sequences are duplicated.
 Duke.ESBL.duplicate.unknown.proteins <- Duke.ESBL.duplicate.proteins %>%
     ## some hypothetical proteins are "ISXX family insertion sequence hypothetical protein"
     ## so filter out those cases.
-    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,MGE.keywords)) %>%
     filter(str_detect(.$product,unknown.protein.keywords))
 sum(Duke.ESBL.duplicate.unknown.proteins$count) ## 450 duplicated unknown proteins in total.
 
 ## 396 remaining cases of duplicated proteins.
 Duke.ESBL.remaining.duplicate.proteins <- Duke.ESBL.duplicate.proteins %>%
     filter(!str_detect(.$product,antibiotic.keywords)) %>%
-    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,MGE.keywords)) %>%
     filter(!str_detect(.$product,unknown.protein.keywords))
 sum(Duke.ESBL.remaining.duplicate.proteins$count) ## 821 other duplicate proteins in total.
 
@@ -1794,19 +1806,19 @@ Duke.ESBL.singleton.ARGs <- Duke.ESBL.singleton.proteins %>%
 
 ## 3181 singleton MGE protein sequences in the genomes.
 Duke.ESBL.singleton.MGE.proteins <- Duke.ESBL.singleton.proteins %>%
-    filter(str_detect(.$product,IS.keywords))
+    filter(str_detect(.$product,MGE.keywords))
 
 ## 6475 unknown singleton protein sequences in the genomes.
 Duke.ESBL.singleton.unknown.proteins <- Duke.ESBL.singleton.proteins %>%
     ## some hypothetical proteins are "ISXX family insertion sequence hypothetical protein"
     ## so filter out those cases.
-    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,MGE.keywords)) %>%
     filter(str_detect(.$product,unknown.protein.keywords))
 
 ## 47049 remaining cases of singleton proteins in the genomes.
 Duke.ESBL.remaining.singleton.proteins <- Duke.ESBL.singleton.proteins %>%
     filter(!str_detect(.$product,antibiotic.keywords)) %>%
-    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,MGE.keywords)) %>%
     filter(!str_detect(.$product,unknown.protein.keywords))
 
 #####################################
@@ -1900,17 +1912,17 @@ BARNARDS.duplicate.ARGs <- BARNARDS.duplicate.proteins %>%
 sum(BARNARDS.duplicate.ARGs$count) ## 2 duplicated ARGs in total.
 
 BARNARDS.duplicate.MGE.proteins <- BARNARDS.duplicate.proteins %>%
-    filter(str_detect(.$product,IS.keywords))
+    filter(str_detect(.$product,MGE.keywords))
 sum(BARNARDS.duplicate.MGE.proteins$count) ## 75 duplicated MGE proteins in total.
 
 BARNARDS.duplicate.unknown.proteins <- BARNARDS.duplicate.proteins %>%
-    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,MGE.keywords)) %>%
     filter(str_detect(.$product,unknown.protein.keywords))
 sum(BARNARDS.duplicate.unknown.proteins$count) ## 167 duplicated unknown proteins in total.
 
 BARNARDS.remaining.duplicate.proteins <- BARNARDS.duplicate.proteins %>%
     filter(!str_detect(.$product,antibiotic.keywords)) %>%
-    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,MGE.keywords)) %>%
     filter(!str_detect(.$product,unknown.protein.keywords))
 sum(BARNARDS.remaining.duplicate.proteins$count) ## 241 other duplicate proteins in total.
 
@@ -1924,17 +1936,17 @@ BARNARDS.singleton.ARGs <- BARNARDS.singleton.proteins %>%
 
 ## 9602 singleton MGE protein sequences in the genomes.
 BARNARDS.singleton.MGE.proteins <- BARNARDS.singleton.proteins %>%
-    filter(str_detect(.$product,IS.keywords))
+    filter(str_detect(.$product,MGE.keywords))
 
 BARNARDS.singleton.unknown.proteins <- BARNARDS.singleton.proteins %>%
     ## some hypothetical proteins are "ISXX family insertion sequence hypothetical protein"
     ## so filter out those cases.
-    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,MGE.keywords)) %>%
     filter(str_detect(.$product,unknown.protein.keywords))
 
 BARNARDS.remaining.singleton.proteins <- BARNARDS.singleton.proteins %>%
     filter(!str_detect(.$product,antibiotic.keywords)) %>%
-    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,MGE.keywords)) %>%
     filter(!str_detect(.$product,unknown.protein.keywords))
 
 #####################################
@@ -2033,17 +2045,17 @@ Dantas.duplicate.ARGs <- Dantas.duplicate.proteins %>%
 sum(Dantas.duplicate.ARGs$count) ## 128 duplicated ARGs in total.
 
 Dantas.duplicate.MGE.proteins <- Dantas.duplicate.proteins %>%
-    filter(str_detect(.$product,IS.keywords))
+    filter(str_detect(.$product,MGE.keywords))
 sum(Dantas.duplicate.MGE.proteins$count) ## 6290 duplicated MGE proteins in total.
 
 Dantas.duplicate.unknown.proteins <- Dantas.duplicate.proteins %>%
-    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,MGE.keywords)) %>%
     filter(str_detect(.$product,unknown.protein.keywords))
 sum(Dantas.duplicate.unknown.proteins$count) ## 1318 duplicated unknown proteins in total.
 
 Dantas.remaining.duplicate.proteins <- Dantas.duplicate.proteins %>%
     filter(!str_detect(.$product,antibiotic.keywords)) %>%
-    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,MGE.keywords)) %>%
     filter(!str_detect(.$product,unknown.protein.keywords))
 sum(Dantas.remaining.duplicate.proteins$count) ## 1585 other duplicate proteins in total.
 
@@ -2056,17 +2068,17 @@ Dantas.singleton.ARGs <- Dantas.singleton.proteins %>%
 
 ## 40361 singleton MGE protein sequences in the genomes.
 Dantas.singleton.MGE.proteins <- Dantas.singleton.proteins %>%
-    filter(str_detect(.$product,IS.keywords))
+    filter(str_detect(.$product,MGE.keywords))
 
 Dantas.singleton.unknown.proteins <- Dantas.singleton.proteins %>%
     ## some hypothetical proteins are "ISXX family insertion sequence hypothetical protein"
     ## so filter out those cases.
-    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,MGE.keywords)) %>%
     filter(str_detect(.$product,unknown.protein.keywords))
 
 Dantas.remaining.singleton.proteins <- Dantas.singleton.proteins %>%
     filter(!str_detect(.$product,antibiotic.keywords)) %>%
-    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,MGE.keywords)) %>%
     filter(!str_detect(.$product,unknown.protein.keywords))
 
 #####################################
@@ -2170,17 +2182,17 @@ Hawkey.duplicate.ARGs <- Hawkey.duplicate.proteins %>%
 sum(Hawkey.duplicate.ARGs$count) ## 128 duplicated ARGs in total.
 
 Hawkey.duplicate.MGE.proteins <- Hawkey.duplicate.proteins %>%
-   filter(str_detect(.$product,IS.keywords))
+   filter(str_detect(.$product,MGE.keywords))
 sum(Hawkey.duplicate.MGE.proteins$count) ## 3718 duplicated MGE proteins in total.
 
 Hawkey.duplicate.unknown.proteins <- Hawkey.duplicate.proteins %>%
-    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,MGE.keywords)) %>%
     filter(str_detect(.$product,unknown.protein.keywords))
 sum(Hawkey.duplicate.unknown.proteins$count) ## 763 duplicated unknown proteins in total.
 
 Hawkey.remaining.duplicate.proteins <- Hawkey.duplicate.proteins %>%
     filter(!str_detect(.$product,antibiotic.keywords)) %>%
-    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,MGE.keywords)) %>%
     filter(!str_detect(.$product,unknown.protein.keywords))
 sum(Hawkey.remaining.duplicate.proteins$count) ## 1017 other duplicate proteins in total.
 
@@ -2193,17 +2205,17 @@ Hawkey.singleton.ARGs <- Hawkey.singleton.proteins %>%
 
 ## 20246 singleton MGE protein sequences in the genomes.
 Hawkey.singleton.MGE.proteins <- Hawkey.singleton.proteins %>%
-    filter(str_detect(.$product,IS.keywords))
+    filter(str_detect(.$product,MGE.keywords))
 
 Hawkey.singleton.unknown.proteins <- Hawkey.singleton.proteins %>%
     ## some hypothetical proteins are "ISXX family insertion sequence hypothetical protein"
     ## so filter out those cases.
-    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,MGE.keywords)) %>%
     filter(str_detect(.$product,unknown.protein.keywords))
 
 Hawkey.remaining.singleton.proteins <- Hawkey.singleton.proteins %>%
     filter(!str_detect(.$product,antibiotic.keywords)) %>%
-    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,MGE.keywords)) %>%
     filter(!str_detect(.$product,unknown.protein.keywords))
 
 #####################################
@@ -2300,13 +2312,13 @@ all.joined.duplications <- read.csv("../results/joined-duplicate-proteins.csv") 
 
 make.ARG.MGE.region.contingency.table <- function(joined.duplications,
                                                   antibiotic.keywords,
-                                                  IS.keywords) {
+                                                  MGE.keywords) {
 
     ARG.joined.duplications <- joined.duplications %>%
         filter(str_detect(.$product,antibiotic.keywords))
 
     MGE.joined.duplications <- joined.duplications %>%
-        filter(str_detect(.$product, IS.keywords))
+        filter(str_detect(.$product, MGE.keywords))
         
     ## get the regions-- drop the sequence information.
     ## There are 756,165 regions in total.
@@ -2357,7 +2369,7 @@ make.ARG.MGE.region.contingency.table <- function(joined.duplications,
     return(joined.regions.contingency.table)
 }
 
-joined.regions.contingency.table <- make.ARG.MGE.region.contingency.table(all.joined.duplications, antibiotic.keywords, IS.keywords)
+joined.regions.contingency.table <- make.ARG.MGE.region.contingency.table(all.joined.duplications, antibiotic.keywords, MGE.keywords)
 
 fisher.test(joined.regions.contingency.table)
 
@@ -2432,7 +2444,7 @@ length(unique(segmental.ARG.duplications$dupARG_region_index))
 
 ## 7,822 genes with MGE-associated functions here.
 MGEs.in.joined.duplications.containing.ARGs <- joined.duplications.containing.ARGs %>%
-    filter(str_detect(.$product,IS.keywords))
+    filter(str_detect(.$product,MGE.keywords))
 ## write to file.
 write.csv(x=MGEs.in.joined.duplications.containing.ARGs,
           file="../results/joined-regions-MGE-functions-associated-with-dupARGs.csv")
