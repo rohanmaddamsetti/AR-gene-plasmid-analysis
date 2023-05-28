@@ -5,6 +5,12 @@
 This script uses DIAMOND (https://github.com/bbuchfink/diamond)
 to find ARGs (by comparison to the CARD database)
 and MGE-associated proteins (by comparison to the mobileOG-db database).
+
+The search parameters are >80% identity over >85% of the target sequence, following
+the protocol in the paper "Improved annotation of antibiotic resistance
+determinants reveals microbial resistomes cluster by ecology" by Gibson, Forsberg, Dantas
+in ISME (2015).
+
 """
 
 import subprocess
@@ -20,7 +26,7 @@ def makeDIAMONDsearchDB(fastapath, db_outfile):
 
 def runDIAMONDblastp(referenceDB, queryfile, outputfile):
     if not os.path.exists(outputfile):
-        DIAMOND_blastp_args = ["diamond", "blastp", "--fast", "--id", "99", "--salltitles", "--max-target-seqs", "1", "--outfmt", "6", "qseqid", "pident", "evalue", "bitscore", "-d", referenceDB, "-q", queryfile, "-o", outputfile]
+        DIAMOND_blastp_args = ["diamond", "blastp", "--fast", "--id", "80", "--subject-cover", "85", "--salltitles", "--max-target-seqs", "1", "--outfmt", "6", "qseqid", "pident", "evalue", "bitscore", "-d", referenceDB, "-q", queryfile, "-o", outputfile]
         subprocess.run(DIAMOND_blastp_args)
     return
 
@@ -33,14 +39,14 @@ def main():
     DIAMONDmobileOGdb = "../results/mobileOG-db"
     makeDIAMONDsearchDB("../data/mobileOG-db_beatrix-1-6_v1_all/mobileOG-db_beatrix-1.6.All.faa", DIAMONDmobileOGdb)
 
-    ## search duplicate-proteins.faa against CARD (99% identity required).
+    ## search duplicate-proteins.faa against CARD
     runDIAMONDblastp(DIAMOND_CARD_db, "../results/duplicate-proteins.faa", "../results/duplicate-proteins-in-CARD.tsv")
-    ## search duplicate-proteins.faa against mobileOG-db (99% identity required).
+    ## search duplicate-proteins.faa against mobileOG-db
     runDIAMONDblastp(DIAMONDmobileOGdb, "../results/duplicate-proteins.faa", "../results/duplicate-proteins-in-mobileOG-db.tsv")
 
-        ## search all-proteins.faa against CARD (99% identity required).
+        ## search all-proteins.faa against CARD 
     runDIAMONDblastp(DIAMOND_CARD_db, "../results/all-proteins.faa", "../results/all-proteins-in-CARD.tsv")
-    ## search duplicate-proteins.faa against mobileOG-db (99% identity required).
+    ## search duplicate-proteins.faa against mobileOG-db
     runDIAMONDblastp(DIAMONDmobileOGdb, "../results/all-proteins.faa", "../results/all-proteins-in-mobileOG-db.tsv")
 
 

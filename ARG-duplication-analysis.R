@@ -18,6 +18,14 @@ fancy_scientific <- function(x) {
 ################################################################################
 ## Regular expressions used in this analysis.
 
+## The regular expressions used by Zeevi et al. (2019).
+## Transposon: ‘transpos\S*|insertion|Tra[A-Z]|Tra[0-9]|IS[0-9]|conjugate transposon’
+## plasmid: ‘relax\S*|conjug\S*|mob\S*|plasmid|type IV|chromosome partitioning|chromosome segregation’
+## phage: ‘capsid|phage|tail|head|tape measure|antiterminatio’
+## other HGT mechanisms: ‘integrase|excision\S*|exo- nuclease|recomb|toxin|restrict\S*|resolv\S*|topoisomerase|reverse transcrip’
+## antibiotic resistance: ‘azole resistance|antibiotic resistance|TetR|tetracycline resistance|VanZ|betalactam\S*|beta-lactam|antimicrob\S*|lantibio\S*’.
+
+
 ## unknown protein keywords.
 unknown.protein.keywords <- "unknown|Unknown|hypothetical|Hypothetical|Uncharacterized|Uncharacterised|uncharacterized|uncharacterised|DUF|unknow|putative protein in bacteria|Unassigned|unassigned"
 
@@ -38,26 +46,23 @@ EFTu.keywords <- "\\bTu | Tu\\b|-Tu\\b"
 chloramphenicol.keywords <- "chloramphenicol|Chloramphenicol"
 tetracycline.keywords <- "tetracycline|Tetracycline"
 MLS.keywords <- "macrolide|lincosamide|streptogramin"
-multidrug.keywords <- "multidrug"
-beta.lactam.keywords <- "lactamase"
-glycopeptide.keywords <- "glycopeptide resistance|VanZ"
-polypeptide.keywords <- "bacitracin|polymyxin B"
+multidrug.keywords <- "Multidrug|multidrug|antibiotic resistance|MDR efflux|drug resistance"
+beta.lactam.keywords <- "lactamase|LACTAMASE|beta-lactam|oxacillinase|carbenicillinase"
+glycopeptide.keywords <- "glycopeptide resistance|VanZ|bleomycin|vancomycin resistance|VanA|VanY|VanX|VanH|streptothricin N-acetyltransferase"
+polypeptide.keywords <- "bacitracin|polymyxin B|phosphoethanolamine transferase|phosphoethanolamine--lipid A transferase"
 diaminopyrimidine.keywords <- "trimethoprim-resistant"
-sulfonamide.keywords <- "sulfonamide-resistant"
-quinolone.keywords <- "quinolone|Quinolone|oxacin"
-aminoglycoside.keywords <- "aminoglycoside|streptomycin|Streptomycin|kanamycin|Kanamycin|tobramycin|Tobramycin|gentamicin|Gentamicin|neomycin|Neomycin"
-macrolide.keywords <- "macrolide|ketolide|Azithromycin|azithromycin|Clarithromycin|clarithromycin|Erythromycin|erythomycin"
+sulfonamide.keywords <- "sulfonamide-resistant|Sul1|sul1|sulphonamide resistance"
+quinolone.keywords <- "quinolone|Quinolone|oxacin|qnr|Qnr"
+aminoglycoside.keywords <- "Aminoglycoside|aminoglycoside|streptomycin|Streptomycin|kanamycin|Kanamycin|tobramycin|Tobramycin|gentamicin|Gentamicin|neomycin|Neomycin|16S rRNA (guanine(1405)-N(7))-methyltransferase|23S rRNA (adenine(2058)-N(6))-methyltransferase|spectinomycin 9-O-adenylyltransferase|Spectinomycin 9-O-adenylyltransferase|Rmt"
+macrolide.keywords <- "macrolide|ketolide|Azithromycin|azithromycin|Clarithromycin|clarithromycin|Erythromycin|erythromycin|Erm|EmtA"
+antimicrobial.keywords <- "QacE|Quaternary ammonium|quaternary ammonium|Quarternary ammonium|quartenary ammonium|fosfomycin|ribosomal protection|rifampin ADP-ribosyl"
 
-antibiotic.keywords <- "chloramphenicol|Chloramphenicol|tetracycline|Tetracycline|macrolide|lincosamide|streptogramin|multidrug|lactamase|glycopeptide resistance|VanZ|bacitracin|polymyxin B|trimethoprim-resistant|sulfonamide-resistant|quinolone|Quinolone|oxacin|aminoglycoside|streptomycin|Streptomycin|kanamycin|Kanamycin|tobramycin|Tobramycin|gentamicin|Gentamicin|neomycin|Neomycin|macrolide|ketolide|Azithromycin|azithromycin|Clarithromycin|clarithromycin|Erythromycin|erythomycin|antibiotic resistance"
+antibiotic.keywords <- paste(chloramphenicol.keywords, tetracycline.keywords, MLS.keywords, multidrug.keywords,
+    beta.lactam.keywords, glycopeptide.keywords, polypeptide.keywords, diaminopyrimidine.keywords,
+    sulfonamide.keywords, quinolone.keywords, aminoglycoside.keywords, macrolide.keywords, antimicrobial.keywords, sep="|")
 
 antibiotic.or.IS.keywords <- paste(IS.keywords,antibiotic.keywords,sep="|")
 
-## The regular expressions used by Zeevi et al. (2019).
-## Transposon: ‘transpos\S*|insertion|Tra[A-Z]|Tra[0-9]|IS[0-9]|conjugate transposon’
-## plasmid: ‘relax\S*|conjug\S*|mob\S*|plasmid|type IV|chromosome partitioning|chromosome segregation’
-## phage: ‘capsid|phage|tail|head|tape measure|antiterminatio’
-## other HGT mechanisms: ‘integrase|excision\S*|exo- nuclease|recomb|toxin|restrict\S*|resolv\S*|topoisomerase|reverse transcrip’
-## antibiotic resistance: ‘azole resistance|antibiotic resistance|TetR|tetracycline resistance|VanZ|betalactam\S*|beta-lactam|antimicrob\S*|lantibio\S*’.
 
 
 categorize.as.MGE.ARG.or.other <- function(product) {
@@ -216,7 +221,6 @@ if (COUNT.PLASMID.PROTEINS.AS.DUPLICATES) {
 rm(all.proteins)
 ## and running garbage collection.
 gc()
-
 
 ########################################################################
 cds.counts <- read.csv("../results/protein_db_CDS_counts.csv")
@@ -638,6 +642,139 @@ ggsave("../results/S3Fig.pdf", S3Fig, height = 8, width=7.5)
 ##rm(single.organism.duplicate.proteins)
 ##rm(single.organism.singleton.proteins)
 ##gc()
+
+########################################################################
+## Control analysis: score ARGs and MGEs using the CARD and mobileOG-db databases.
+
+all.proteins.in.CARD <- read.csv("../results/all-proteins-in-CARD.csv") %>%
+    as_tibble() %>%
+    ## now merge with gbk annotation.
+    inner_join(gbk.annotation)
+
+all.proteins.in.mobileOGdb <- read.csv("../results/all-proteins-in-mobileOG-db.csv") %>%
+    as_tibble() %>%
+    ## now merge with gbk annotation.
+    inner_join(gbk.annotation)
+
+duplicate.proteins.in.CARD <- all.proteins.in.CARD %>%
+    filter(count > 1)
+singleton.proteins.in.CARD <- all.proteins.in.CARD %>%
+    filter(count == 1)
+
+duplicate.proteins.in.mobileOGdb <- all.proteins.in.mobileOGdb %>%
+    filter(count > 1)
+singleton.proteins.in.mobileOGdb <- all.proteins.in.mobileOGdb %>%
+    filter(count == 1)
+
+
+## Measure precision and recall of my keyword search
+## using CARD and mobileOG-db.
+duplicate.ARGs <- duplicate.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords))
+
+singleton.ARGs <- singleton.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords))
+
+## have to remove the sequence column from duplicate.ARGs to merge.
+all.keyword.matched.ARGs <- rbind(
+    select(duplicate.ARGs,-sequence),
+    singleton.ARGs)
+
+## True positives
+duplicate.proteins.in.CARD.matched.by.keywords <- duplicate.proteins.in.CARD %>%
+    filter(str_detect(.$product,antibiotic.keywords))
+
+all.proteins.in.CARD.matched.by.keywords <- all.proteins.in.CARD %>%
+    filter(str_detect(.$product,antibiotic.keywords))
+
+## False negatives
+duplicate.proteins.in.CARD.not.matched.by.keywords <- duplicate.proteins.in.CARD %>%
+    filter(!str_detect(.$product,antibiotic.keywords))
+
+all.proteins.in.CARD.not.matched.by.keywords <- all.proteins.in.CARD %>%
+    filter(!str_detect(.$product,antibiotic.keywords))
+
+## POTENTIAL FALSE POSITIVES!
+duplicate.ARGs.not.in.CARD <- duplicate.ARGs %>%
+    filter(!(SeqID %in% duplicate.proteins.in.CARD$SeqID)) %>%
+    as_tibble()
+
+all.ARGs.not.in.CARD <- all.keyword.matched.ARGs %>%
+    filter(!(SeqID %in% duplicate.proteins.in.CARD$SeqID)) %>%
+    as_tibble()
+
+sort(unique(duplicate.ARGs.not.in.CARD$product))
+
+#sort(unique(duplicate.proteins.in.CARD.not.matched.by.keywords$product))
+sort(unique(all.proteins.in.CARD.not.matched.by.keywords$product))
+
+## duplicated ARG precision = 0.852
+length(duplicate.proteins.in.CARD.matched.by.keywords$SeqID)/(length(duplicate.ARGs.not.in.CARD$SeqID) + length(duplicate.proteins.in.CARD.matched.by.keywords$SeqID))
+
+## all ARG precision = 0.219
+length(all.proteins.in.CARD.matched.by.keywords$SeqID)/(length(all.ARGs.not.in.CARD$SeqID) + length(all.proteins.in.CARD.matched.by.keywords$SeqID))
+
+## duplicated ARG recall = 0.911
+length(duplicate.proteins.in.CARD.matched.by.keywords$SeqID)/(length(duplicate.proteins.in.CARD.not.matched.by.keywords$SeqID) + length(duplicate.proteins.in.CARD.matched.by.keywords$SeqID))
+
+## all ARG recall = 0.54
+length(all.proteins.in.CARD.matched.by.keywords$SeqID)/(length(all.proteins.in.CARD.not.matched.by.keywords$SeqID) + length(all.proteins.in.CARD.matched.by.keywords$SeqID))
+
+
+make.DIAMOND.ARG.Table <- function(gbk.annotation, DIAMOND.ARGs) {
+    ## count the number of isolates with duplicated or singleton ARGs in each category.
+    ARG.category.counts <- DIAMOND.ARGs %>%
+        ## next two lines is to count isolates rather than genes
+        select(Annotation_Accession, Annotation) %>%
+        distinct() %>%
+        count(Annotation, sort = TRUE) %>%
+        rename(isolates_with_ARGs = n)
+    
+    ## join columns to make the supplementary Table.
+    SupplementaryTable <- make.isolate.totals.col(gbk.annotation) %>%
+        left_join(ARG.category.counts) %>%
+        mutate(isolates_with_ARGs =
+                   replace_na(isolates_with_ARGs,0)) %>%
+        mutate(p = isolates_with_ARGs/total_isolates) %>%
+        calc.isolate.confints()
+    
+    return(SupplementaryTable)
+}
+
+
+make.DIAMOND.MGE.Table <- function(gbk.annotation, DIAMOND.MGE.proteins) {
+    ## count the number of isolates with duplicated or singleton genes of interest in each category.
+    category.counts <- DIAMOND.MGE.proteins %>%
+        ## next two lines is to count isolates rather than genes
+        select(Annotation_Accession, Annotation) %>%
+        distinct() %>%
+        count(Annotation, sort = TRUE) %>%
+        rename(isolates_with_MGE_genes = n)
+    
+    ## join columns to make the Table.
+    Table <- make.isolate.totals.col(gbk.annotation) %>%
+        left_join(category.counts) %>%
+        mutate(isolates_with_MGE_genes =
+                   replace_na(isolates_with_MGE_genes,0)) %>%
+        mutate(p = isolates_with_MGE_genes/total_isolates) %>%
+        calc.isolate.confints()
+    return(Table)
+}
+
+duplicate.CARD.table <- make.DIAMOND.ARG.Table(gbk.annotation, duplicate.proteins.in.CARD)
+singleton.CARD.table <- make.DIAMOND.ARG.Table(gbk.annotation, singleton.proteins.in.CARD)
+
+duplicate.mobileOGdb.table <- make.DIAMOND.MGE.Table(gbk.annotation, duplicate.proteins.in.mobileOGdb)
+singleton.mobileOGdb.table <- make.DIAMOND.MGE.Table(gbk.annotation, singleton.proteins.in.mobileOGdb)
+
+SXFigA <- make.confint.figure.panel(duplicate.CARD.table, order.by.total.isolates, "D-ARGs (CARD)")
+SXFigB <- make.confint.figure.panel(singleton.CARD.table, order.by.total.isolates, "S-ARGs (CARD)", no.category.label = TRUE)
+
+SXFigC <- make.confint.figure.panel(duplicate.mobileOGdb.table, order.by.total.isolates, "D-MGE-genes\n(mobileOG-db)")
+SXFigD <- make.confint.figure.panel(singleton.mobileOGdb.table, order.by.total.isolates, "S-MGE-genes\n(mobileOG-db)", no.category.label = TRUE)
+
+SXFig <- plot_grid(SXFigA,SXFigB,SXFigC,SXFigD,labels=c('A','B','C','D'),nrow=2)
+
 
 ##################################################################
 ## Figures S1 and S4. Proportion of isolates with duplicated or single-copy ARGs
@@ -2001,11 +2138,151 @@ ggsave("../results/S7FigB.pdf", S7FigB, height = 18, width = 8)
 S7Fig <- plot_grid(S7FigA, S7FigB, S7Figlegend, ncol = 1, rel_heights = c(2,2,0.25))
 ggsave("../results/S7Fig.pdf", S7Fig, height = 40, width = 8)
 
+#######################################################
+#######################################################
+## Supplementary Figure S8.
+## Let's analyze duplicated genes in 114 complete genomes that were sequenced with
+## long-read technology by Hawkey et al. in Genome Medicine (2022).
+## I downloaded the RefSeq accessions, since most of the Genbank sequences didn't
+## have any gene annotations.
+
+########## CRITICALLY IMPORTANT!!!!
+## IMPORTANT!! I need to carefully check that the genomes in the Hawkey dataset
+## are truly independent (can be thrown off by the difference in RefSeq and Genbank accessions).
+
+Hawkey.all.proteins <- data.table::fread("../results/Hawkey2022-all-proteins.csv",
+                                         drop="sequence")
+
+## assert that this is an independent dataset.
+stopifnot(nrow(filter(Hawkey.all.proteins, Annotation_Accession %in% gbk.annotation$Annotation_Accession)) == 0)
+
+Hawkey.singleton.proteins <- Hawkey.all.proteins %>%
+    filter(count == 1)
+
+Hawkey.duplicate.proteins <- read.csv(
+    "../results/Hawkey2022-duplicate-proteins.csv") %>%
+    select(-sequence)
+
+
+## 99 cases of duplicate ARGs.
+Hawkey.duplicate.ARGs <- Hawkey.duplicate.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords))
+sum(Hawkey.duplicate.ARGs$count) ## 128 duplicated ARGs in total.
+
+Hawkey.duplicate.MGE.proteins <- Hawkey.duplicate.proteins %>%
+   filter(str_detect(.$product,IS.keywords))
+sum(Hawkey.duplicate.MGE.proteins$count) ## 3718 duplicated MGE proteins in total.
+
+Hawkey.duplicate.unknown.proteins <- Hawkey.duplicate.proteins %>%
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(str_detect(.$product,unknown.protein.keywords))
+sum(Hawkey.duplicate.unknown.proteins$count) ## 763 duplicated unknown proteins in total.
+
+Hawkey.remaining.duplicate.proteins <- Hawkey.duplicate.proteins %>%
+    filter(!str_detect(.$product,antibiotic.keywords)) %>%
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,unknown.protein.keywords))
+sum(Hawkey.remaining.duplicate.proteins$count) ## 1017 other duplicate proteins in total.
+
+################################################
+###### Now, let's look at the singleton proteins.
+
+## 5411 singleton ARGs in the genomes.
+Hawkey.singleton.ARGs <- Hawkey.singleton.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords))
+
+## 20246 singleton MGE protein sequences in the genomes.
+Hawkey.singleton.MGE.proteins <- Hawkey.singleton.proteins %>%
+    filter(str_detect(.$product,IS.keywords))
+
+Hawkey.singleton.unknown.proteins <- Hawkey.singleton.proteins %>%
+    ## some hypothetical proteins are "ISXX family insertion sequence hypothetical protein"
+    ## so filter out those cases.
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(str_detect(.$product,unknown.protein.keywords))
+
+Hawkey.remaining.singleton.proteins <- Hawkey.singleton.proteins %>%
+    filter(!str_detect(.$product,antibiotic.keywords)) %>%
+    filter(!str_detect(.$product,IS.keywords)) %>%
+    filter(!str_detect(.$product,unknown.protein.keywords))
+
+#####################################
+## Now make Supplementary Figure S8.
+
+S8FigA.data <- Hawkey.duplicate.proteins %>%
+    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
+    group_by(Annotation_Accession, Category) %>%
+    summarize(Count = sum(count))
+
+S8FigB.data <- Hawkey.singleton.proteins %>%
+    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
+    group_by(Annotation_Accession, Category) %>%
+    summarize(Count = sum(count))
+
+S8FigA1 <- ggplot(S8FigA.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+    geom_bar(stat="identity") +
+    theme_classic() +
+    theme(legend.position="bottom") +
+    ylab("") ## remove the redundant "Annotation" label on the y-axis.
+
+S8Figlegend <- get_legend(S8FigA1)
+S8FigA1 <- S8FigA1 + guides(fill = "none")
+
+S8FigA2 <- ggplot(S8FigA.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+    geom_bar(stat="identity", position = "fill") +
+    theme_classic() +
+    ## remove genome name labels.
+    theme(axis.text.y=element_blank()) +
+    guides(fill = "none") +
+    xlab("Frequency") +
+    ylab("") ## remove the redundant "Annotation" label on the y-axis.
+
+S8FigA.title <- ggdraw() + draw_label("Distribution of duplicated genes in 114 genomes from Hawkey et al. (2022)", fontface='bold')
+
+S8FigA <- plot_grid(S8FigA.title,
+                   plot_grid(S8FigA1, S8FigA2, labels = c("A",""),
+                             nrow=1, rel_widths=c(2,1)),
+                   nrow=2, rel_heights=c(0.2,2))
+
+S8FigB1 <- ggplot(S8FigB.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+    geom_bar(stat="identity") +
+    theme_classic() +
+    guides(fill = "none") +
+    ylab("") ## remove the redundant "Annotation" label on the y-axis.
+
+S8FigB2 <- ggplot(S8FigB.data, aes(x = Count, y = Annotation_Accession, fill = Category)) +
+    geom_bar(stat="identity", position = "fill") +
+    theme_classic() +
+    ## remove genome name labels.
+    theme(axis.text.y=element_blank()) +
+    guides(fill = "none") +
+    xlab("Frequency") +
+    ylab("") ## remove the redundant "Annotation" label on the y-axis.
+
+
+S8FigB.title <- ggdraw() + draw_label("Distribution of single-copy genes in 114 genomes from Hawkey et al. (2022)", fontface='bold')
+
+S8FigB <- plot_grid(S8FigB.title,
+                 plot_grid(S8FigB1, S8FigB2, labels = c("B",""),
+                             nrow=1, rel_widths=c(2,1)),
+                   nrow=2, rel_heights=c(0.2,2))
+
+## now make the full Supplementary Figure S8. This is too big in dimensions... save
+## panels A and B separately as well.
+ggsave("../results/S8FigA.pdf", S8FigA, height = 18, width = 8)
+ggsave("../results/S8FigB.pdf", S8FigB, height = 18, width = 8)
+
+S8Fig <- plot_grid(S8FigA, S8FigB, S8Figlegend, ncol = 1, rel_heights = c(2,2,0.25))
+ggsave("../results/newS8Fig.pdf", S8Fig, height = 40, width = 8)
+
+
+#######################################################
+## Now do the analysis of enrichment across all these clinical datasets.
 
 
 ## clinical resistance genomes are even more enriched with ARGs than the baseline dataset.
 ## the null comes from Table S1 row for humans.
-binom.test(x=(6+22+35),n=(12+46+149),p=0.1407)
+binom.test(x=(6+22+35+19),n=(12+46+149+114),p=0.1407)
 
 #######################################################
 #######################################################
