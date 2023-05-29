@@ -203,8 +203,7 @@ all.proteins.in.mobileOGdb <- read.csv("../results/all-proteins-in-mobileOG-db.c
 ## but not for the singletons, to save memory.
 duplicate.proteins <- read.csv("../results/duplicate-proteins.csv") %>%
     ## now merge with gbk annotation.
-    inner_join(gbk.annotation) %>%
-    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other))
+    inner_join(gbk.annotation)
 
 ######## Lingchong asked for this control analysis.
 ## by default, don't count plasmid proteins as duplicates.
@@ -234,8 +233,7 @@ if (COUNT.PLASMID.PROTEINS.AS.DUPLICATES) {
 } else { ## just get the singleton protein by filtering.
     singleton.proteins <- all.proteins %>%
         filter(count == 1) %>%
-        inner_join(gbk.annotation) %>%
-        mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other))
+        inner_join(gbk.annotation)
 }
 
 ## free up memory by deallocating all.proteins,
@@ -325,19 +323,9 @@ length(duplicate.proteins.in.mobileOGdb.matched.by.keywords$SeqID)/(length(dupli
 ##########################################################################
 ## IMPORTANT: global data structures used THROUGHOUT the entire data analysis.
 
-duplicate.ARGs <- duplicate.ARGs.by.keyword
-duplicate.MGE.genes <- duplicate.MGE.genes.by.keyword
-
-singleton.ARGs <- singleton.proteins %>%
-    filter(str_detect(.$product,antibiotic.keywords))
-
-singleton.MGE.genes <- singleton.proteins %>%
-    filter(str_detect(.$product, MGE.keywords))
-
 USE.CARD.AND.MOBILE.OG.DB <- TRUE ##FALSE
 
 if (USE.CARD.AND.MOBILE.OG.DB) {
-
     duplicate.proteins <- duplicate.proteins %>%
         ## add columns to duplicate proteins,
         ## based on whether they are in CARD or mobileOG-db or not.
@@ -360,6 +348,22 @@ if (USE.CARD.AND.MOBILE.OG.DB) {
         
     singleton.MGE.genes <- all.proteins.in.mobileOGdb %>%
         filter(count == 1)
+} else {
+
+    duplicate.proteins <- duplicate.proteins %>%
+        mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other))
+    
+    singleton.proteins <- singleton.proteins %>%
+        mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other))
+    
+    duplicate.ARGs <- duplicate.ARGs.by.keyword
+    duplicate.MGE.genes <- duplicate.MGE.genes.by.keyword
+
+    singleton.ARGs <- singleton.proteins %>%
+        filter(str_detect(.$product, antibiotic.keywords))
+
+    singleton.MGE.genes <- singleton.proteins %>%
+        filter(str_detect(.$product, MGE.keywords))
 }
 
 
@@ -574,8 +578,7 @@ gc() ## free memory after dealing with singleton data.
 S2FigA <- make.confint.figure.panel(TableS1.chromosome.dups, order.by.total.isolates, "D-ARGs (only chromosome)")
 S2FigB <- make.confint.figure.panel(TableS1.plasmid.dups, order.by.total.isolates, "D-ARGs (only plasmid)",
                                         no.category.label = TRUE)
-S2FigC <- make.confint.figure.panel(TableS2.chromosome.only, order.by.total.isolates, "S-ARGs (only chromosome)") +
-    scale_x_continuous(breaks = c(0.85, 1), limits = c(0.85, 1))
+S2FigC <- make.confint.figure.panel(TableS2.chromosome.only, order.by.total.isolates, "S-ARGs (only chromosome)")
 S2FigD <- make.confint.figure.panel(TableS2.plasmid.only, order.by.total.isolates, "S-ARGs (only plasmid)",
                                     no.category.label = TRUE)
 
@@ -800,21 +803,6 @@ make.DIAMOND.MGE.Table <- function(gbk.annotation, DIAMOND.MGE.proteins) {
         calc.isolate.confints()
     return(Table)
 }
-
-duplicate.CARD.table <- make.DIAMOND.ARG.Table(gbk.annotation, duplicate.proteins.in.CARD)
-singleton.CARD.table <- make.DIAMOND.ARG.Table(gbk.annotation, singleton.proteins.in.CARD)
-
-duplicate.mobileOGdb.table <- make.DIAMOND.MGE.Table(gbk.annotation, duplicate.proteins.in.mobileOGdb)
-singleton.mobileOGdb.table <- make.DIAMOND.MGE.Table(gbk.annotation, singleton.proteins.in.mobileOGdb)
-
-SXFigA <- make.confint.figure.panel(duplicate.CARD.table, order.by.total.isolates, "D-ARGs (CARD)")
-SXFigB <- make.confint.figure.panel(singleton.CARD.table, order.by.total.isolates, "S-ARGs (CARD)", no.category.label = TRUE)
-
-SXFigC <- make.confint.figure.panel(duplicate.mobileOGdb.table, order.by.total.isolates, "D-MGE-genes\n(mobileOG-db)")
-SXFigD <- make.confint.figure.panel(singleton.mobileOGdb.table, order.by.total.isolates, "S-MGE-genes\n(mobileOG-db)", no.category.label = TRUE)
-
-SXFig <- plot_grid(SXFigA,SXFigB,SXFigC,SXFigD,labels=c('A','B','C','D'),nrow=2)
-
 
 ##################################################################
 ## Figures S1 and S4. Proportion of isolates with duplicated or single-copy ARGs
