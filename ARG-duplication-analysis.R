@@ -759,51 +759,6 @@ S3FigBCDE <- plot_grid(S3FigB, S3FigC, S3FigD, S3FigE,
 S3Fig <- plot_grid(S3FigA, S3FigBCDE, labels = c("A", ""), nrow = 2, rel_heights = c(2,2))
 ggsave("../results/S3Fig.pdf", S3Fig, height = 8, width=7.5)
 
-
-########################################################################
-## Control analysis: score ARGs and MGEs using the CARD and mobileOG-db databases.
-
-
-make.DIAMOND.ARG.Table <- function(gbk.annotation, DIAMOND.ARGs) {
-    ## count the number of isolates with duplicated or singleton ARGs in each category.
-    ARG.category.counts <- DIAMOND.ARGs %>%
-        ## next two lines is to count isolates rather than genes
-        select(Annotation_Accession, Annotation) %>%
-        distinct() %>%
-        count(Annotation, sort = TRUE) %>%
-        rename(isolates_with_ARGs = n)
-    
-    ## join columns to make the supplementary Table.
-    SupplementaryTable <- make.isolate.totals.col(gbk.annotation) %>%
-        left_join(ARG.category.counts) %>%
-        mutate(isolates_with_ARGs =
-                   replace_na(isolates_with_ARGs,0)) %>%
-        mutate(p = isolates_with_ARGs/total_isolates) %>%
-        calc.isolate.confints()
-    
-    return(SupplementaryTable)
-}
-
-
-make.DIAMOND.MGE.Table <- function(gbk.annotation, DIAMOND.MGE.proteins) {
-    ## count the number of isolates with duplicated or singleton genes of interest in each category.
-    category.counts <- DIAMOND.MGE.proteins %>%
-        ## next two lines is to count isolates rather than genes
-        select(Annotation_Accession, Annotation) %>%
-        distinct() %>%
-        count(Annotation, sort = TRUE) %>%
-        rename(isolates_with_MGE_genes = n)
-    
-    ## join columns to make the Table.
-    Table <- make.isolate.totals.col(gbk.annotation) %>%
-        left_join(category.counts) %>%
-        mutate(isolates_with_MGE_genes =
-                   replace_na(isolates_with_MGE_genes,0)) %>%
-        mutate(p = isolates_with_MGE_genes/total_isolates) %>%
-        calc.isolate.confints()
-    return(Table)
-}
-
 ##################################################################
 ## Figures S1 and S4. Proportion of isolates with duplicated or single-copy ARGs
 ## for 12 different antibiotic classes.
@@ -1170,9 +1125,11 @@ just.chromosome.test.vec <- c(
     filter(category.summed.just.chromosome,Category=='MGE')$summed_count)
 
 ## test 1: compare proportions between just.plasmid and just.chromosome.
+binom.test(just.plasmid.test.vec,p=just.chromosome.test.vec[1]/sum(just.chromosome.test.vec))
 binom.test(just.plasmid.test.vec,p=just.chromosome.test.vec[1]/sum(just.chromosome.test.vec))$p.value
 
 ## test 2: compare proportions between just.plasmid and both plasmid and chromosome.
+binom.test(just.plasmid.test.vec,p=both.chr.and.plasmid.test.vec[1]/sum(both.chr.and.plasmid.test.vec))
 binom.test(just.plasmid.test.vec,p=both.chr.and.plasmid.test.vec[1]/sum(both.chr.and.plasmid.test.vec))$p.value
 
 
@@ -1664,7 +1621,9 @@ make.selection.test.df <- function(duplicate.proteins, singleton.proteins,
         mutate(dup.singleton.ratio = p/q) %>%
         mutate(Annotation = factor(
                    Annotation,
-                   levels = rev(order.by.total.isolates)))
+                   levels = rev(order.by.total.isolates))) %>%
+        mutate(Category = category.string)
+    
     return(selection.test.df)
 }
 
@@ -1672,17 +1631,17 @@ make.selection.test.df <- function(duplicate.proteins, singleton.proteins,
 ARG.selection.test.df <- make.selection.test.df(
     duplicate.proteins, singleton.proteins,
     order.by.total.isolates, "ARG") %>%
-    select(Annotation, dup.singleton.ratio)
+    select(Annotation, Category, dup.singleton.ratio)
 
-    MGE.selection.test.df <- make.selection.test.df(
-        duplicate.proteins, singleton.proteins,
-        order.by.total.isolates, "MGE") %>%
-        select(Annotation, dup.singleton.ratio)
-    
-    other.selection.test.df <- make.selection.test.df(
-        duplicate.proteins, singleton.proteins,
-        order.by.total.isolates, "Other function") %>%
-        select(Annotation, dup.singleton.ratio)
+MGE.selection.test.df <- make.selection.test.df(
+    duplicate.proteins, singleton.proteins,
+    order.by.total.isolates, "MGE") %>%
+    select(Annotation, Category, dup.singleton.ratio)
+
+other.selection.test.df <- make.selection.test.df(
+    duplicate.proteins, singleton.proteins,
+    order.by.total.isolates, "Other function") %>%
+    select(Annotation, Category, dup.singleton.ratio)
 
 big.selection.test.df <- ARG.selection.test.df %>%
     full_join(MGE.selection.test.df) %>%
@@ -1698,6 +1657,14 @@ Fig5C <- big.selection.test.df %>%
     guides(color = "none") +
     theme(axis.text.y=element_blank()) +
     ylab("") ## remove the redundant "Annotation" label on the y-axis.
+
+################################################################################
+## Write Fig5 ABC to file. Fig 5D is a diagram of a workflow, and Figure 5E is produced at the end
+## of this script.
+Fig5.top.panels <- plot_grid(Fig5A, Fig5B, Fig5C, labels = c('A','B','C'), nrow = 1, rel_widths=c(1.4,1,1),
+              align = 'h', axis = 'tb')
+Fig5ABC <- plot_grid(Fig5.top.panels, Fig5legend, ncol = 1, rel_heights = c(1,0.2))
+ggsave("../results/Fig5ABC.pdf", Fig5ABC, width=8.75, height=4)
 
 ################################################################################
 ## compare linkage between D-ARGs and MGE-genes and S-ARGs and MGE-genes.
@@ -1725,14 +1692,6 @@ ARG.MGE.adjacency.statistic <- binom.test(
     n=filter(ARG.MGE.adjacency.df,ARG.class=="D-ARGs")$ARG.total, ## n = 8168
     p = filter(ARG.MGE.adjacency.df,ARG.class=="S-ARGs")$percent.next.to.MGE)
 
-
-################################################################################
-## Write Fig5 ABC to file. Fig 5D is a diagram of a workflow, and Figure 5E is produced at the end
-## of this script.
-Fig5.top.panels <- plot_grid(Fig5A, Fig5B, Fig5C, labels = c('A','B','C'), nrow = 1, rel_widths=c(1.4,1,1),
-              align = 'h', axis = 'tb')
-Fig5ABC <- plot_grid(Fig5.top.panels, Fig5legend, ncol = 1, rel_heights = c(1,0.2))
-ggsave("../results/Fig5ABC.pdf", Fig5ABC, width=8.75, height=4)
 
 ################################################################################
 ## Supplementary Figure S5.
