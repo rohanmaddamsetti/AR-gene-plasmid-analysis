@@ -33,10 +33,10 @@ unknown.protein.keywords <- "unknown|Unknown|hypothetical|Hypothetical|Uncharact
 ## so filter out those cases, when counting unknown proteins.
 
 ## match MGE genes using the following keywords in the "product" annotation
-transposon.keywords <- "IS|transpos\\S*|insertion|Tra[A-Z]|Tra[0-9]|IS[0-9]|conjugate transposon|Transpos\\S*|Tn[0-9]"
-plasmid.keywords <- "relax\\S*|conjug\\S*|mob\\S*|plasmid|type IV|chromosome partitioning|chromosome segregation|Mob\\S*|Plasmid"
-phage.keywords <- "capsid|phage|tail|head|tape measure|antiterminatio|Phage|virus|Baseplate|baseplate"
-other.HGT.keywords <- "Integrase|integrase|excision\\S*|exonuclease|recomb|toxin|restrict\\S*|resolv\\S*|topoisomerase|reverse transcrip|intron|antitoxin|toxin"
+transposon.keywords <- "IS|transpos\\S*|insertion|Tra[A-Z]|Tra[0-9]|tra[A-Z]|conjugate transposon|Transpos\\S*|Tn[0-9]|tranposase|Tnp|Ins|ins"
+plasmid.keywords <- "relax\\S*|conjug\\S*|mob\\S*|plasmid|type IV|chromosome partitioning|chromosome segregation|Mob\\S*|Plasmid|Rep|Conjug\\S*"
+phage.keywords <- "capsid|phage|Tail|tail|head|tape measure|antiterminatio|Phage|virus|Baseplate|baseplate|coat|entry exclusion"
+other.HGT.keywords <- "Integrase|integrase|excision\\S*|exonuclease|recomb|toxin|restrict\\S*|resolv\\S*|topoisomerase|reverse transcrip|intron|antitoxin|toxin|Toxin|Reverse transcriptase|hok|Hok|competence|addiction"
 
 
 MGE.keywords <- paste(transposon.keywords, plasmid.keywords, phage.keywords, other.HGT.keywords, sep="|")
@@ -49,18 +49,18 @@ EFTu.keywords <- "\\bTu | Tu\\b|-Tu\\b"
 
 ## antibiotic-specific keywords.
 chloramphenicol.keywords <- "chloramphenicol|Chloramphenicol"
-tetracycline.keywords <- "tetracycline resistance|Tetracycline resistance"
+tetracycline.keywords <- "tetracycline efflux|Tetracycline efflux|TetA|Tet(A)|tetA|tetracycline-inactivating"
 MLS.keywords <- "macrolide|lincosamide|streptogramin"
 multidrug.keywords <- "Multidrug resistance|multidrug resistance|antibiotic resistance"
 beta.lactam.keywords <- "lactamase|LACTAMASE|beta-lactam|oxacillinase|carbenicillinase|betalactam\\S*"
-glycopeptide.keywords <- "glycopeptide resistance|VanZ|bleomycin|vancomycin resistance|VanA|VanY|VanX|VanH|streptothricin N-acetyltransferase"
+glycopeptide.keywords <- "glycopeptide resistance|VanZ|vancomycin resistance|VanA|VanY|VanX|VanH|streptothricin N-acetyltransferase"
 polypeptide.keywords <- "bacitracin|polymyxin B|phosphoethanolamine transferase|phosphoethanolamine--lipid A transferase"
-diaminopyrimidine.keywords <- "trimethoprim-resistant"
-sulfonamide.keywords <- "sulfonamide-resistant|Sul1|sul1|sulphonamide resistance"
+diaminopyrimidine.keywords <- "trimethoprim|dihydrofolate reductase|dihydropteroate synthase"
+sulfonamide.keywords <- "sulfonamide|Sul1|sul1|sulphonamide"
 quinolone.keywords <- "quinolone|Quinolone|oxacin|qnr|Qnr"
 aminoglycoside.keywords <- "Aminoglycoside|aminoglycoside|streptomycin|Streptomycin|kanamycin|Kanamycin|tobramycin|Tobramycin|gentamicin|Gentamicin|neomycin|Neomycin|16S rRNA (guanine(1405)-N(7))-methyltransferase|23S rRNA (adenine(2058)-N(6))-methyltransferase|spectinomycin 9-O-adenylyltransferase|Spectinomycin 9-O-adenylyltransferase|Rmt"
 macrolide.keywords <- "macrolide|ketolide|Azithromycin|azithromycin|Clarithromycin|clarithromycin|Erythromycin|erythromycin|Erm|EmtA"
-antimicrobial.keywords <- "QacE|Quaternary ammonium|quaternary ammonium|Quarternary ammonium|quartenary ammonium|fosfomycin|ribosomal protection|rifampin ADP-ribosyl|azole resistance|antimicrob\\S*|lantibio\\S*"
+antimicrobial.keywords <- "QacE|Quaternary ammonium|quaternary ammonium|Quarternary ammonium|quartenary ammonium|fosfomycin|ribosomal protection|rifampin ADP-ribosyl|azole resistance|antimicrob\\S*"
 
 
 antibiotic.keywords <- paste(chloramphenicol.keywords, tetracycline.keywords, MLS.keywords, multidrug.keywords,
@@ -68,7 +68,6 @@ antibiotic.keywords <- paste(chloramphenicol.keywords, tetracycline.keywords, ML
     sulfonamide.keywords, quinolone.keywords, aminoglycoside.keywords, macrolide.keywords, antimicrobial.keywords, sep="|")
 
 antibiotic.or.MGE.keywords <- paste(MGE.keywords,antibiotic.keywords,sep="|")
-
 
 
 categorize.as.MGE.ARG.or.other <- function(product) {
@@ -186,12 +185,26 @@ order.by.total.isolates <- make.isolate.totals.col(gbk.annotation)$Annotation
 episome.database <- episome.database %>%
     filter(Annotation_Accession %in% gbk.annotation$Annotation_Accession)
 
+## score ARGs and MGE-associated genes
+## using the CARD and mobileOG-db databases (>80% ID over >85% length of best hit).
+all.proteins.in.CARD <- read.csv("../results/all-proteins-in-CARD.csv") %>%
+    as_tibble() %>%
+    ## now merge with gbk annotation.
+    inner_join(gbk.annotation)
+
+all.proteins.in.mobileOGdb <- read.csv("../results/all-proteins-in-mobileOG-db.csv") %>%
+    as_tibble() %>%
+    ## now merge with gbk annotation.
+    inner_join(gbk.annotation)
+
+
 ## read in duplicate proteins with sequences, using a separate file.
 ## I want the sequence column for the duplicate genes,
 ## but not for the singletons, to save memory.
 duplicate.proteins <- read.csv("../results/duplicate-proteins.csv") %>%
     ## now merge with gbk annotation.
-    inner_join(gbk.annotation)
+    inner_join(gbk.annotation) %>%
+    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other))
 
 ######## Lingchong asked for this control analysis.
 ## by default, don't count plasmid proteins as duplicates.
@@ -215,12 +228,14 @@ if (COUNT.PLASMID.PROTEINS.AS.DUPLICATES) {
         filter(count == 1) %>%
         ## proteins on plasmids do not count as singletons in this analysis.
         filter(plasmid_count == 0) %>%
-        inner_join(gbk.annotation)
+        inner_join(gbk.annotation) %>%
+        mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other))
 
 } else { ## just get the singleton protein by filtering.
     singleton.proteins <- all.proteins %>%
         filter(count == 1) %>%
-        inner_join(gbk.annotation)     
+        inner_join(gbk.annotation) %>%
+        mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other))
 }
 
 ## free up memory by deallocating all.proteins,
@@ -249,48 +264,13 @@ plasmid.annotation <- protein.db.metadata %>%
     arrange(desc(number))
 
 ##########################################################################
-## Supplementary Data Files 3 and 4.
-
-## Supplementary Data File 4:  Duplicated ARGs and their annotation.
-S4DataFile <- duplicate.proteins %>%
-    filter(str_detect(.$product,antibiotic.keywords)) %>%
-    as_tibble() %>%
-    arrange(Annotation_Accession)
-write.csv(x=S4DataFile, file="../results/FileS4-Duplicated-ARGs.csv",quote=F,row.names=F)
-
-## Supplementary Data File 3: All genomes, and whether or not they contain duplicated ARGs.
-S3DataFile <- gbk.annotation %>%
-    mutate(hasDuplicatedARGs = sapply(
-               Annotation_Accession,
-               function(x)
-                   ifelse(x %in% S4DataFile$Annotation_Accession,TRUE,FALSE)))
-write.csv(x=S3DataFile,
-          file="../results/FileS3-Complete-Genomes-with-Duplicated-ARG-annotation.csv",
-          quote=F, row.names=F)
-
-##########################################################################
-## As a control, we will redo the whole analysis, scoring ARGs and MGE-associated genes
-## using the CARD and mobileOG-db databases (>80% ID over >85% length of best hit).
-
-all.proteins.in.CARD <- read.csv("../results/all-proteins-in-CARD.csv") %>%
-    as_tibble() %>%
-    ## now merge with gbk annotation.
-    inner_join(gbk.annotation)
-
-all.proteins.in.mobileOGdb <- read.csv("../results/all-proteins-in-mobileOG-db.csv") %>%
-    as_tibble() %>%
-    ## now merge with gbk annotation.
-    inner_join(gbk.annotation)
+## Use CARD and MobileOG-db to check the precision and recall of keywords on
+## duplicated ARGs and duplicated MGE-associated genes.
 
 duplicate.proteins.in.CARD <- all.proteins.in.CARD %>%
     filter(count > 1)
-singleton.proteins.in.CARD <- all.proteins.in.CARD %>%
-    filter(count == 1)
-
 duplicate.proteins.in.mobileOGdb <- all.proteins.in.mobileOGdb %>%
     filter(count > 1)
-singleton.proteins.in.mobileOGdb <- all.proteins.in.mobileOGdb %>%
-    filter(count == 1)
 
 ## Measure precision and recall of keywords, treating CARD hits as ground truth.
 duplicate.ARGs.by.keyword <- duplicate.proteins %>%
@@ -307,15 +287,14 @@ duplicate.proteins.in.CARD.not.matched.by.keywords <- duplicate.proteins.in.CARD
 ## false positives (CARD)
 duplicate.ARGs.not.in.CARD <- duplicate.ARGs.by.keyword %>%
     filter(!(SeqID %in% duplicate.proteins.in.CARD$SeqID)) %>%
-    as_tibble()
+    arrange(product) %>% select(-sequence) %>% as_tibble()
 
 
-## duplicated ARG precision = 0.87
+## duplicated ARG precision = 0.908
 length(duplicate.proteins.in.CARD.matched.by.keywords$SeqID)/(length(duplicate.ARGs.not.in.CARD$SeqID) + length(duplicate.proteins.in.CARD.matched.by.keywords$SeqID))
 
-## duplicated ARG recall = 0.88
+## duplicated ARG recall = 0.922
 length(duplicate.proteins.in.CARD.matched.by.keywords$SeqID)/(length(duplicate.proteins.in.CARD.not.matched.by.keywords$SeqID) + length(duplicate.proteins.in.CARD.matched.by.keywords$SeqID))
-
 
 ##############
 ## Measure precision and recall of keywords, treating mobileOG-db hits as ground truth.
@@ -332,21 +311,76 @@ duplicate.proteins.in.mobileOGdb.not.matched.by.keywords <- duplicate.proteins.i
     filter(!str_detect(.$product,MGE.keywords))
 
 
-## potential false positives (mobileOG-db)
+## False positives (mobileOG-db)
 duplicate.MGE.genes.not.in.mobileOGdb <- duplicate.MGE.genes.by.keyword %>%
     filter(!(SeqID %in% duplicate.proteins.in.mobileOGdb$SeqID)) %>%
     as_tibble()
 
-sort(unique(duplicate.proteins.in.mobileOGdb.not.matched.by.keywords$product))
-
-
-## duplicated MGE genes precision = 0.794
+## duplicated MGE genes precision = 0.792
 length(duplicate.proteins.in.mobileOGdb.matched.by.keywords$SeqID)/(length(duplicate.MGE.genes.not.in.mobileOGdb$SeqID) + length(duplicate.proteins.in.mobileOGdb.matched.by.keywords$SeqID))
 
-## duplicated MGE genes recall = 0.829
+## duplicated MGE genes recall = 0.835
 length(duplicate.proteins.in.mobileOGdb.matched.by.keywords$SeqID)/(length(duplicate.proteins.in.mobileOGdb.not.matched.by.keywords$SeqID) + length(duplicate.proteins.in.mobileOGdb.matched.by.keywords$SeqID))
 
+##########################################################################
+## IMPORTANT: global data structures used THROUGHOUT the entire data analysis.
 
+duplicate.ARGs <- duplicate.ARGs.by.keyword
+duplicate.MGE.genes <- duplicate.MGE.genes.by.keyword
+
+singleton.ARGs <- singleton.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords))
+
+singleton.MGE.genes <- singleton.proteins %>%
+    filter(str_detect(.$product, MGE.keywords))
+
+USE.CARD.AND.MOBILE.OG.DB <- TRUE ##FALSE
+
+if (USE.CARD.AND.MOBILE.OG.DB) {
+
+    duplicate.proteins <- duplicate.proteins %>%
+        ## add columns to duplicate proteins,
+        ## based on whether they are in CARD or mobileOG-db or not.
+        mutate(in.CARD = ifelse(SeqID %in%all.proteins.in.CARD$SeqID, 1, 0)) %>%
+        mutate(in.mobileOGdb = ifelse(SeqID %in%all.proteins.in.mobileOGdb$SeqID, 1, 0)) %>%
+        mutate(Category = ifelse(in.CARD, "ARG", ifelse(in.mobileOGdb, "MGE", "Other function")))
+
+    singleton.proteins <- singleton.proteins %>%
+        ## add columns to singleton proteins,
+        ## based on whether they are in CARD or mobileOG-db or not.
+        mutate(in.CARD = ifelse(SeqID %in%all.proteins.in.CARD$SeqID, 1, 0)) %>%
+        mutate(in.mobileOGdb = ifelse(SeqID %in%all.proteins.in.mobileOGdb$SeqID, 1, 0)) %>%
+        mutate(Category = ifelse(in.CARD, "ARG", ifelse(in.mobileOGdb, "MGE", "Other function")))
+    
+    duplicate.ARGs <- duplicate.proteins.in.CARD
+    duplicate.MGE.genes <- duplicate.proteins.in.mobileOGdb 
+
+    singleton.ARGs <- all.proteins.in.CARD %>%
+        filter(count == 1)
+        
+    singleton.MGE.genes <- all.proteins.in.mobileOGdb %>%
+        filter(count == 1)
+}
+
+
+##########################################################################
+## Supplementary Data Files 3 and 4.
+
+## Supplementary Data File 4:  Duplicated ARGs and their annotation.
+S4DataFile <- duplicate.ARGs %>%
+    as_tibble() %>%
+    arrange(Annotation_Accession)
+write.csv(x=S4DataFile, file="../results/FileS4-Duplicated-ARGs.csv",quote=F,row.names=F)
+
+## Supplementary Data File 3: All genomes, and whether or not they contain duplicated ARGs.
+S3DataFile <- gbk.annotation %>%
+    mutate(hasDuplicatedARGs = sapply(
+               Annotation_Accession,
+               function(x)
+                   ifelse(x %in% S4DataFile$Annotation_Accession,TRUE,FALSE)))
+write.csv(x=S3DataFile,
+          file="../results/FileS3-Complete-Genomes-with-Duplicated-ARG-annotation.csv",
+          quote=F, row.names=F)
 
 ##########################################################################
 ## Figure 1ABCD. A deterministic ODE model demonstrates that selection can
@@ -390,11 +424,10 @@ calc.isolate.confints <- function(df) {
 }
 
 
-make.TableS1 <- function(gbk.annotation, duplicate.proteins) {
+make.TableS1 <- function(gbk.annotation, duplicate.ARGs) {
 
     ## count the number of isolates with duplicated ARGs in each category.
-    ARG.category.counts <- duplicate.proteins %>%
-        filter(str_detect(.$product,antibiotic.keywords)) %>%
+    ARG.category.counts <- duplicate.ARGs %>%
         ## next two lines is to count isolates rather than genes
         select(Annotation_Accession, Annotation) %>%
         distinct() %>%
@@ -482,16 +515,16 @@ make.confint.figure.panel <- function(Table, order.by.total.isolates, title,
 ## Data structure for Figure 4A:
 ## normal-approximation confidence intervals for the percentage
 ## of isolates with duplicated ARGs.
-TableS1 <- make.TableS1(gbk.annotation, duplicate.proteins)
+TableS1 <- make.TableS1(gbk.annotation, duplicate.ARGs)
 ## write Supplementary Table S1 to file.
 write.csv(x=TableS1, file="../results/TableS1.csv")
 
 ## Yi asked me to make these comparisons.
 TableS1.chromosome.dups <- make.TableS1(gbk.annotation,
-                                             filter(duplicate.proteins, chromosome_count > 1))
+                                             filter(duplicate.ARGs, chromosome_count > 1))
 
 TableS1.plasmid.dups <- make.TableS1(gbk.annotation,
-                                             filter(duplicate.proteins, plasmid_count > 1))
+                                             filter(duplicate.ARGs, plasmid_count > 1))
 
 ######################
 ## Table S2. Control: does the distribution of ARG singletons
@@ -502,11 +535,10 @@ TableS1.plasmid.dups <- make.TableS1(gbk.annotation,
 ## as most isolates have a gene that matches an antibiotic keyword.
 ## Animal-host isolates are depleted (perhaps due to aphid bacteria isolates?)
 
-make.TableS2 <- function(gbk.annotation, singleton.proteins) {
+make.TableS2 <- function(gbk.annotation, singleton.ARGs) {
 
 ## count the number of isolates with singleton AR genes in each category.
-    ARG.category.counts <- singleton.proteins %>%
-        filter(str_detect(.$product,antibiotic.keywords)) %>%
+    ARG.category.counts <- singleton.ARGs %>%
         ## next two lines is to count isolates rather than genes
         select(Annotation_Accession, Annotation) %>%
         distinct() %>%
@@ -527,16 +559,16 @@ make.TableS2 <- function(gbk.annotation, singleton.proteins) {
 }
 
 ## This data frame will be used for Figure 4B.
-TableS2 <- make.TableS2(gbk.annotation, singleton.proteins)
+TableS2 <- make.TableS2(gbk.annotation, singleton.ARGs)
 ## write TableS2 to file.
 write.csv(x=TableS2, file="../results/TableS2.csv")
 #########################################################################
 ## make Supplementary Figure S2.
 TableS2.chromosome.only <- make.TableS2(gbk.annotation,
-                                             filter(singleton.proteins, plasmid_count == 0))
+                                             filter(singleton.ARGs, plasmid_count == 0))
 
 TableS2.plasmid.only <- make.TableS2(gbk.annotation,
-                                             filter(singleton.proteins, chromosome_count == 0))
+                                             filter(singleton.ARGs, chromosome_count == 0))
 gc() ## free memory after dealing with singleton data.
 
 S2FigA <- make.confint.figure.panel(TableS1.chromosome.dups, order.by.total.isolates, "D-ARGs (only chromosome)")
@@ -588,8 +620,8 @@ write.csv(x=TableS3, file="../results/TableS3.csv")
 ## Supplementary Figure S3: Control for Taxonomy (simpler control than for phylogeny)
 
 ## let's look at the taxonomic distribution of strains with duplicated ARGs.
-duplicated.ARG.seq.genera.summary <- duplicate.proteins %>%
-    tibble() %>% filter(str_detect(product,antibiotic.keywords)) %>%
+duplicated.ARG.seq.genera.summary <- duplicate.ARGs %>%
+    as_tibble() %>%
     mutate(Genus = stringr::word(Organism, 1)) %>%
     group_by(Genus) %>%
     summarize(duplicated.ARG.count = n()) %>%
@@ -609,8 +641,7 @@ all.genera.isolate.summary <- gbk.annotation %>%
     summarize(genome.count = n()) %>%
     arrange(desc(genome.count))
 
-duplicated.genera.isolate.summary <- duplicate.proteins %>%
-    filter(str_detect(.$product,antibiotic.keywords)) %>%
+duplicated.genera.isolate.summary <- duplicate.ARGs %>%
     ## next two lines is to count isolates rather than genes
     select(Annotation_Accession, Organism, Strain, Annotation) %>%
     distinct() %>%
@@ -658,19 +689,19 @@ top.ARG.genera.isolates <- gbk.annotation %>%
 filtered.gbk.annotation <- gbk.annotation %>%
     filter(!(Genus %in% top.ARG.genera))
 
-filtered.duplicate.proteins <- duplicate.proteins %>%
+filtered.duplicate.ARGs <- duplicate.ARGs %>%
     filter(!(Genus %in% top.ARG.genera))
 
-filtered.TableS1 <- make.TableS1(filtered.gbk.annotation, filtered.duplicate.proteins)
+filtered.TableS1 <- make.TableS1(filtered.gbk.annotation, filtered.duplicate.ARGs)
 
 S3FigB <- make.confint.figure.panel(filtered.TableS1, order.by.total.isolates, "D-ARGs after\nfiltering top genera")
 
 ## let's check the results, just for the top ARG genera.
-top.ARG.genera.duplicate.proteins <- duplicate.proteins %>%
+top.ARG.genera.duplicate.ARGs <- duplicate.ARGs %>%
     filter(Genus %in% top.ARG.genera)
 
 top.ARG.genera.TableS1 <- make.TableS1(top.ARG.genera.isolates,
-                                       top.ARG.genera.duplicate.proteins)
+                                       top.ARG.genera.duplicate.ARGs)
 
 S3FigC <- make.confint.figure.panel(
     top.ARG.genera.TableS1, order.by.total.isolates,
@@ -686,11 +717,11 @@ dereplicated.genomes <- read.table("../results/dereplicated-genomes.txt",header=
 dereplicated.gbk.annotation <-  gbk.annotation %>%
     filter(Annotation_Accession %in% dereplicated.genomes$Annotation_Accession)
 
-dereplicated.duplicate.proteins <-  duplicate.proteins %>%
+dereplicated.duplicate.ARGs <-  duplicate.ARGs %>%
     filter(Annotation_Accession %in% dereplicated.genomes$Annotation_Accession)
 
 dereplicated.TableS1 <- make.TableS1(
-    dereplicated.gbk.annotation, dereplicated.duplicate.proteins)
+    dereplicated.gbk.annotation, dereplicated.duplicate.ARGs)
 
 S3FigD <- make.confint.figure.panel(
     dereplicated.TableS1, order.by.total.isolates,
@@ -705,14 +736,14 @@ single.organism.gbk.annotation <- gbk.annotation %>%
     filter(row_number() == 1) %>% ## take the first one in the group.
     ungroup()
 
-single.organism.duplicate.proteins <- duplicate.proteins %>%
+single.organism.duplicate.ARGs <- duplicate.ARGs %>%
     filter(Annotation_Accession %in% single.organism.gbk.annotation$Annotation_Accession)
 
-single.organism.singleton.proteins <- singleton.proteins %>%
-    filter(Annotation_Accession %in% single.organism.gbk.annotation$Annotation_Accession)
+##single.organism.singleton.ARGs <- singleton.ARGs %>%
+##    filter(Annotation_Accession %in% single.organism.gbk.annotation$Annotation_Accession)
 
 single.organism.TableS1 <- make.TableS1(
-    single.organism.gbk.annotation, single.organism.duplicate.proteins)
+    single.organism.gbk.annotation, single.organism.duplicate.ARGs)
 
 S3FigE <- make.confint.figure.panel(
     single.organism.TableS1, order.by.total.isolates,
@@ -725,9 +756,6 @@ S3FigBCDE <- plot_grid(S3FigB, S3FigC, S3FigD, S3FigE,
 S3Fig <- plot_grid(S3FigA, S3FigBCDE, labels = c("A", ""), nrow = 2, rel_heights = c(2,2))
 ggsave("../results/S3Fig.pdf", S3Fig, height = 8, width=7.5)
 
-##rm(single.organism.duplicate.proteins)
-##rm(single.organism.singleton.proteins)
-##gc()
 
 ########################################################################
 ## Control analysis: score ARGs and MGEs using the CARD and mobileOG-db databases.
@@ -1045,23 +1073,45 @@ ggsave("../results/S4Fig.pdf", S4Fig, height = 9, width = 8)
 ## on both chromosomes and plasmids.
 
 ## let's look at cases of identical sequences on chromosomes and plasmids.
-both.chr.and.plasmid.cases <- duplicate.proteins %>%
-    filter(chromosome_count >= 1 & plasmid_count >= 1) %>%
-    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
-    arrange(desc(count)) %>%
-    tibble()
+if (USE.CARD.AND.MOBILE.OG.DB) {
+    ## duplicate.proteins already has a Category column
+    ## defined by presence/absence in CARD and mobileOG-db.
+      both.chr.and.plasmid.cases <- duplicate.proteins %>%
+        filter(chromosome_count >= 1 & plasmid_count >= 1) %>%
+        arrange(desc(count)) %>%
+        tibble()
+    
+    just.chromosome.cases <- duplicate.proteins %>%
+        filter(chromosome_count >= 1 & plasmid_count == 0) %>%
+        arrange(desc(count)) %>%
+        tibble()
+    
+    just.plasmid.cases <- duplicate.proteins %>%
+        filter(chromosome_count == 0 & plasmid_count >= 1) %>%
+        arrange(desc(count)) %>%
+        tibble()
+    
+} else {
+    ## overwrite the existing definition of the Category column.
+    both.chr.and.plasmid.cases <- duplicate.proteins %>%
+        filter(chromosome_count >= 1 & plasmid_count >= 1) %>%
+        mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
+        arrange(desc(count)) %>%
+        tibble()
+    
+    just.chromosome.cases <- duplicate.proteins %>%
+        filter(chromosome_count >= 1 & plasmid_count == 0) %>%
+        arrange(desc(count)) %>%
+        mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
+        tibble()
+    
+    just.plasmid.cases <- duplicate.proteins %>%
+        filter(chromosome_count == 0 & plasmid_count >= 1) %>%
+        mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
+        arrange(desc(count)) %>%
+        tibble()
+}
 
-just.chromosome.cases <- duplicate.proteins %>%
-    filter(chromosome_count >= 1 & plasmid_count == 0) %>%
-    arrange(desc(count)) %>%
-    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
-    tibble()
-
-just.plasmid.cases <- duplicate.proteins %>%
-    filter(chromosome_count == 0 & plasmid_count >= 1) %>%
-    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
-    arrange(desc(count)) %>%
-    tibble()
 
 both.chr.and.plasmid.summary <- both.chr.and.plasmid.cases %>%
     group_by(Annotation, Category) %>%
@@ -1182,14 +1232,12 @@ make.TableS4 <- function(duplicate.proteins) {
         summarize(plasmid_duplicate_genes = sum(plasmid_count))
     
     ## Column 3
-    duplicate.chromosome.ARGs.count <- duplicate.proteins %>%
-        filter(str_detect(.$product,antibiotic.keywords)) %>%
+    duplicate.chromosome.ARGs.count <- duplicate.ARGs %>%
         group_by(Annotation) %>%
         summarize(chromosomal_duplicate_ARGs = sum(chromosome_count))
     
     ## Column 4
-    duplicate.plasmid.ARGs.count <- duplicate.proteins %>%
-        filter(str_detect(.$product,antibiotic.keywords)) %>%
+    duplicate.plasmid.ARGs.count <- duplicate.ARGs %>%
         group_by(Annotation) %>%
         summarize(plasmid_duplicate_ARGs = sum(plasmid_count))
     
@@ -1269,15 +1317,13 @@ make.TableS5 <- function(singleton.proteins) {
     gc() ## free memory when dealing with singleton.proteins.
 
     ## Column 3
-    singleton.chromosome.ARGs.count <- singleton.proteins %>%
-        filter(str_detect(.$product,antibiotic.keywords)) %>%
+    singleton.chromosome.ARGs.count <- singleton.ARGs %>%
         group_by(Annotation) %>%
         summarize(chromosomal_singleton_ARGs = sum(chromosome_count))
     gc() ## free memory when dealing with singleton.proteins.
     
     ## Column 4
-    singleton.plasmid.ARGs.count <- singleton.proteins %>%
-        filter(str_detect(.$product,antibiotic.keywords)) %>%
+    singleton.plasmid.ARGs.count <- singleton.ARGs %>%
         group_by(Annotation) %>%
         summarize(plasmid_singleton_ARGs = sum(plasmid_count))
     gc() ## free memory when dealing with singleton.proteins.
@@ -1547,7 +1593,6 @@ ggsave("../results/Fig4.pdf", Fig4, height=6.25, width=6.25)
 
 ## set up data structures for Figure 5AB.
 Fig5A.data <- duplicate.proteins %>%
-    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
     group_by(Annotation, Category) %>%
     summarize(Plasmid = sum(plasmid_count), Chromosome = sum(chromosome_count)) %>%
     pivot_longer(cols = c("Plasmid", "Chromosome"),
@@ -1558,7 +1603,6 @@ Fig5A.data <- duplicate.proteins %>%
                levels = rev(order.by.total.isolates)))
 
 Fig5B.data <- singleton.proteins %>%
-    mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
     group_by(Annotation, Category) %>%
     summarize(Plasmid = sum(plasmid_count), Chromosome = sum(chromosome_count)) %>%
     pivot_longer(cols = c("Plasmid", "Chromosome"),
