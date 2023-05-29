@@ -116,12 +116,27 @@ check.plasmid.accessions <- function(episome.database) {
 ## run the test.
 check.plasmid.accessions(episome.database)
 
+## I used the script cross-check-Hawkey2022-accessions.py
+## to find six genomes in the Hawkey et al. 2022 dataset that are present in the main dataset
+## in gbk.annotation. Let's omit these from the main analysis to preserve independence of the
+## clinical validation data.
+
+Hawkey.overlaps.in.gbk.annotation.vec <- c(
+    "GCA_016126855.1_ASM1612685v1",
+    "GCA_015476295.1_ASM1547629v1",
+    "GCA_015325925.1_ASM1532592v1",
+    "GCA_015999425.1_ASM1599942v1",
+    "GCA_015999405.1_ASM1599940v1",
+    "GCA_017584065.1_ASM1758406v1")
+
 
 gbk.annotation <- read.csv(
     "../results/computationally-annotated-gbk-annotation-table.csv") %>%
     as_tibble() %>%
     ## filter based on QCed.genomes.
     filter(Annotation_Accession %in% QCed.genomes$Annotation_Accession) %>%
+    ## remove the overlaps with the Hawkey et al. (2022) clinical validation data.
+    filter(!(Annotation_Accession %in% Hawkey.overlaps.in.gbk.annotation.vec)) %>%
     ## refer to NA annotations as "Unannotated".
     mutate(Annotation = replace_na(Annotation,"Unannotated")) %>%
     ## collapse Annotations into a smaller number of categories as follows:
@@ -166,6 +181,10 @@ gbk.annotation <- anti_join(gbk.annotation, missing.ones) %>%
     ## and remove any strains (although none should fall in this category)
     ## that were not annotated by annotate-ecological-category.py.
     filter(Annotation != "blank")
+
+## print gbk.annotation to file for cross-checking.
+write.csv(gbk.annotation, file="../results/gbk-annotation-of-analyzed-complete-genomes.csv",
+          row.names=FALSE,quote=F)
 
 ## return the first column for several tables.
 ## shows the number of isolates in each category.
@@ -1843,7 +1862,6 @@ BARNARDS.all.proteins <- data.table::fread("../results/BARNARDS-all-proteins.csv
 ## assert that this is an independent dataset.
 stopifnot(nrow(filter(BARNARDS.all.proteins, Annotation_Accession %in% gbk.annotation$Annotation_Accession)) == 0)
 
-
 BARNARDS.singleton.proteins <- BARNARDS.all.proteins %>%
     filter(count == 1)
 
@@ -2232,10 +2250,8 @@ ggsave("../results/S8FigB.pdf", S8FigB, height = 18, width = 8)
 S8Fig <- plot_grid(S8FigA, S8FigB, S8Figlegend, ncol = 1, rel_heights = c(2,2,0.25))
 ggsave("../results/newS8Fig.pdf", S8Fig, height = 40, width = 8)
 
-
 #######################################################
 ## Now do the analysis of enrichment across all these clinical datasets.
-
 
 ## clinical resistance genomes are even more enriched with ARGs than the baseline dataset.
 ## the null comes from Table S1 row for humans.

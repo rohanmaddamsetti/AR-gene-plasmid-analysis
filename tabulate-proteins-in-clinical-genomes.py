@@ -76,11 +76,6 @@ def main():
     tabulate_proteins("../data/BARNARDS-LongRead-Assemblies-NCBI-BioProject-PRJNA767644/",
                       "../results/BARNARDS-all-proteins.csv", ignore_singletons=False)
 
-    tabulate_proteins("../data/Moss2020-LongRead-Assemblies-NCBI-BioProject-PRJNA508395/",
-                      "../results/Bhatt-duplicate-proteins.csv", ignore_singletons=True)
-    tabulate_proteins("../data/Moss2020-LongRead-Assemblies-NCBI-BioProject-PRJNA508395/",
-                      "../results/Bhatt-all-proteins.csv", ignore_singletons=False)
-
     tabulate_proteins("../data/LongRead-Assemblies-NCBI-BioProject-PRJNA290784/",
                       "../results/Duke-ESBL-duplicate-proteins.csv", ignore_singletons=True)
     tabulate_proteins("../data/LongRead-Assemblies-NCBI-BioProject-PRJNA290784/",
