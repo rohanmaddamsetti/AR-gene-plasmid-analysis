@@ -1073,45 +1073,20 @@ ggsave("../results/S4Fig.pdf", S4Fig, height = 9, width = 8)
 ## on both chromosomes and plasmids.
 
 ## let's look at cases of identical sequences on chromosomes and plasmids.
-if (USE.CARD.AND.MOBILE.OG.DB) {
-    ## duplicate.proteins already has a Category column
-    ## defined by presence/absence in CARD and mobileOG-db.
-      both.chr.and.plasmid.cases <- duplicate.proteins %>%
-        filter(chromosome_count >= 1 & plasmid_count >= 1) %>%
-        arrange(desc(count)) %>%
-        tibble()
+both.chr.and.plasmid.cases <- duplicate.proteins %>%
+    filter(chromosome_count >= 1 & plasmid_count >= 1) %>%
+    arrange(desc(count)) %>%
+    tibble()
     
-    just.chromosome.cases <- duplicate.proteins %>%
-        filter(chromosome_count >= 1 & plasmid_count == 0) %>%
-        arrange(desc(count)) %>%
-        tibble()
-    
-    just.plasmid.cases <- duplicate.proteins %>%
-        filter(chromosome_count == 0 & plasmid_count >= 1) %>%
-        arrange(desc(count)) %>%
-        tibble()
-    
-} else {
-    ## overwrite the existing definition of the Category column.
-    both.chr.and.plasmid.cases <- duplicate.proteins %>%
-        filter(chromosome_count >= 1 & plasmid_count >= 1) %>%
-        mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
-        arrange(desc(count)) %>%
-        tibble()
-    
-    just.chromosome.cases <- duplicate.proteins %>%
-        filter(chromosome_count >= 1 & plasmid_count == 0) %>%
-        arrange(desc(count)) %>%
-        mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
-        tibble()
-    
-    just.plasmid.cases <- duplicate.proteins %>%
-        filter(chromosome_count == 0 & plasmid_count >= 1) %>%
-        mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other)) %>%
-        arrange(desc(count)) %>%
-        tibble()
-}
+just.chromosome.cases <- duplicate.proteins %>%
+    filter(chromosome_count >= 1 & plasmid_count == 0) %>%
+    arrange(desc(count)) %>%
+    tibble()
 
+just.plasmid.cases <- duplicate.proteins %>%
+    filter(chromosome_count == 0 & plasmid_count >= 1) %>%
+    arrange(desc(count)) %>%
+    tibble()
 
 both.chr.and.plasmid.summary <- both.chr.and.plasmid.cases %>%
     group_by(Annotation, Category) %>%
@@ -1670,30 +1645,17 @@ category.summed.S.genes <- Fig5B.data %>%
 ## Supplementary Figures.
 
 make.selection.test.df <- function(duplicate.proteins, singleton.proteins,
-                                   order.by.total.isolates,
-                                   keywords, negate = FALSE) {
+                                   order.by.total.isolates, category.string) {
 
-    if (negate) { ## then negate the str_detect for the keywords.
-        duplicated.function.per.category <- duplicate.proteins %>%
-            filter(!str_detect(.$product, keywords)) %>%
-            group_by(Annotation) %>%
-            summarize(function.duplicates = sum(count))
-        
-        singleton.function.per.category <- singleton.proteins %>%
-            filter(!str_detect(.$product, keywords)) %>%
-            group_by(Annotation) %>%
-            summarize(function.singletons = sum(count))
-    } else {
-        duplicated.function.per.category <- duplicate.proteins %>%
-            filter(str_detect(.$product, keywords)) %>%
-            group_by(Annotation) %>%
-            summarize(function.duplicates = sum(count))
-        
-        singleton.function.per.category <- singleton.proteins %>%
-            filter(str_detect(.$product, keywords)) %>%
-            group_by(Annotation) %>%
-            summarize(function.singletons = sum(count))
-    }
+    duplicated.function.per.category <- duplicate.proteins %>%
+        filter(Category == category.string) %>%
+        group_by(Annotation) %>%
+        summarize(function.duplicates = sum(count))
+    
+    singleton.function.per.category <- singleton.proteins %>%
+        filter(Category == category.string) %>%
+        group_by(Annotation) %>%
+        summarize(function.singletons = sum(count))
 
     duplicated.genes.per.category <- duplicate.proteins %>%
         group_by(Annotation) %>%
@@ -1720,32 +1682,24 @@ make.selection.test.df <- function(duplicate.proteins, singleton.proteins,
 
 
 ARG.selection.test.df <- make.selection.test.df(
-    duplicate.proteins,
-    singleton.proteins,
-    order.by.total.isolates,
-    antibiotic.keywords) %>%
-    select(Annotation, dup.singleton.ratio) %>%
-    mutate(Category = "ARG")
+    duplicate.proteins, singleton.proteins,
+    order.by.total.isolates, "ARG") %>%
+    select(Annotation, dup.singleton.ratio)
 
-MGE.selection.test.df <- make.selection.test.df(
-    duplicate.proteins,
-    singleton.proteins,
-    order.by.total.isolates,
-    MGE.keywords) %>%
-    select(Annotation, dup.singleton.ratio) %>%
-    mutate(Category = "MGE")
-
-other.selection.test.df <- make.selection.test.df(
-    duplicate.proteins,
-    singleton.proteins,
-    order.by.total.isolates,
-    antibiotic.or.MGE.keywords, negate = TRUE) %>%
-    select(Annotation, dup.singleton.ratio) %>%
-    mutate(Category = "Other function")
+    MGE.selection.test.df <- make.selection.test.df(
+        duplicate.proteins, singleton.proteins,
+        order.by.total.isolates, "MGE") %>%
+        select(Annotation, dup.singleton.ratio)
+    
+    other.selection.test.df <- make.selection.test.df(
+        duplicate.proteins, singleton.proteins,
+        order.by.total.isolates, "Other function") %>%
+        select(Annotation, dup.singleton.ratio)
 
 big.selection.test.df <- ARG.selection.test.df %>%
     full_join(MGE.selection.test.df) %>%
     full_join(other.selection.test.df)
+
 
 Fig5C <- big.selection.test.df %>%
     ggplot(aes(y = Annotation, x = log(dup.singleton.ratio), color = Category)) +
