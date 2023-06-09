@@ -3,8 +3,7 @@
 ## plasmid-copy-number-pipeline.py.
 
 ##     Make a scatterplot of plasmid copy numbers against plasmid length,
-##     and color dots by presence of ARGs.
-##    
+##     and color dots by presence of ARGs.    
 ##     based on these results, plasmids with ARGs do NOT have high copy number.
 
 ##    The Hawkey et al. 2022 paper specifically focuses on ESBL resistance,
@@ -55,8 +54,46 @@ chromosome.plasmid.copy.number.data <- read.csv("../results/Hawkey2022_chromosom
     ## 0 == no ARG, 1 == has ARG, 2 == has beta-lactamase.
     mutate(ARG.classification = has.ARG + has.beta.lactamase) %>%
     mutate(ARG.classification = as.factor(ARG.classification)) %>%
+    mutate(`Plasmid class` = recode(ARG.classification, `0` = "No ARGs",
+                                    `1` = "Non-beta-lactamase ARGs",
+                                    `2` = "Beta-lactamases")) %>%
     ## remove outlier points with very low coverage.
     filter(CopyNumber > 0.5)
+
+
+Hawkey.duplicate.proteins <- read.csv(
+    "../results/Hawkey2022-duplicate-proteins.csv")
+
+## 99 cases of duplicate ARGs.
+Hawkey.duplicate.ARGs <- Hawkey.duplicate.proteins %>%
+    filter(str_detect(.$product,antibiotic.keywords))
+
+sum(Hawkey.duplicate.ARGs$count) ## 128 duplicated ARGs in total.
+
+Hawkey.singleton.ARGs <- data.table::fread("../results/Hawkey2022-all-proteins.csv") %>%
+    filter(str_detect(.$product,antibiotic.keywords)) %>%
+    filter(count == 1)
+
+Hawkey.plasmid.singleton.ARGs <- Hawkey.singleton.ARGs %>%
+    filter(plasmid_count >=1)
+
+Hawkey.strains.with.plasmid.singleton.ARGs <- unique(Hawkey.plasmid.singleton.ARGs$Annotation_Accession)
+
+Hawkey.plasmid.duplicate.ARGs <- Hawkey.duplicate.ARGs %>%
+    filter(plasmid_count >=1)
+
+Hawkey.strains.with.plasmid.duplicate.ARGs <- unique(Hawkey.plasmid.duplicate.ARGs$Annotation_Accession)
+
+intersect(Hawkey.strains.with.plasmid.duplicate.ARGs,Hawkey.strains.with.plasmid.singleton.ARGs)
+
+duplicate.ARG.strain.chromosome.plasmid.copy.number.data <- chromosome.plasmid.copy.number.data %>%
+    filter(AnnotationAccession %in% Hawkey.strains.with.plasmid.duplicate.ARGs)
+
+non.duplicate.ARG.strain.chromosome.plasmid.copy.number.data <- chromosome.plasmid.copy.number.data %>%
+    filter(!(AnnotationAccession %in% Hawkey.strains.with.plasmid.duplicate.ARGs))
+
+wilcox.test(duplicate.ARG.strain.chromosome.plasmid.copy.number.data$CopyNumber,
+            non.duplicate.ARG.strain.chromosome.plasmid.copy.number.data$CopyNumber)
 
 
 ## beta-lactamases have higher copy number compared to other ARGs in these strains.
@@ -100,15 +137,15 @@ median(ARG.plasmid.data$CopyNumber)
 median(no.ARG.plasmid.data$CopyNumber)
 
 
-
-
 ## This will go into the Supplement after polishing.
 plasmid.copy.number.plot <- ggplot(plasmid.copy.number.data,
-                                   aes(x=log10(replicon_length),y=log10(CopyNumber),
-                                       color=ARG.classification)) +
-    geom_point() +
+                                   aes(x=log10(CopyNumber),
+                                       fill=`Plasmid class`)) +
+    geom_histogram(bins=50) +
     theme_classic() +
-    geom_hline(yintercept=0,linetype="dashed",color="gray")
+    xlab("log10(Plasmid copy number)")  +
+    theme(legend.position="top")
 
-plasmid.copy.number.plot
+ggsave("../results/S11Fig-Hawkey2022-plasmid-copy-number.pdf",
+       plasmid.copy.number.plot,height=5.75,width=5.75)
 
