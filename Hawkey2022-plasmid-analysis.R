@@ -9,12 +9,10 @@
 ##    The Hawkey et al. 2022 paper specifically focuses on ESBL resistance,
 ##    so let's focus on beta-lactamases, and can compare to other kinds of resistances in these data.
 
-
 library(tidyverse)
 library(cowplot)
 library(ggrepel)
 library(data.table)
-
 
 ## antibiotic-specific keywords.
 chloramphenicol.keywords <- "chloramphenicol|Chloramphenicol"
@@ -31,15 +29,11 @@ aminoglycoside.keywords <- "Aminoglycoside|aminoglycoside|streptomycin|Streptomy
 macrolide.keywords <- "macrolide|ketolide|Azithromycin|azithromycin|Clarithromycin|clarithromycin|Erythromycin|erythromycin|Erm|EmtA"
 antimicrobial.keywords <- "QacE|Quaternary ammonium|quaternary ammonium|Quarternary ammonium|quartenary ammonium|fosfomycin|ribosomal protection|rifampin ADP-ribosyl|azole resistance|antimicrob\\S*"
 
-
 antibiotic.keywords <- paste(chloramphenicol.keywords, tetracycline.keywords, MLS.keywords, multidrug.keywords,
     beta.lactam.keywords, glycopeptide.keywords, polypeptide.keywords, diaminopyrimidine.keywords,
     sulfonamide.keywords, quinolone.keywords, aminoglycoside.keywords, macrolide.keywords, antimicrobial.keywords, sep="|")
 
 ################################################################################
-## get lengths of all the replicons.
-replicon.length.data <- read.csv("../results/Hawkey2022_replicon_lengths.csv")
-
 ## get ARG copy number data.
 ARG.copy.number.data <- read.csv("../results/Hawkey2022_ARG_copy_numbers.csv") %>%
     mutate(beta.lactam.resistance = ifelse(str_detect(product,beta.lactam.keywords), TRUE, FALSE))
@@ -48,7 +42,6 @@ beta.lactam.ARGs <- filter(ARG.copy.number.data, beta.lactam.resistance==TRUE)
 non.beta.lactam.ARGs <- filter(ARG.copy.number.data, beta.lactam.resistance==FALSE)
 
 chromosome.plasmid.copy.number.data <- read.csv("../results/Hawkey2022_chromosome_plasmid_copy_numbers.csv") %>%
-    full_join(replicon.length.data) %>%
     mutate(has.ARG = ifelse(SeqID %in% ARG.copy.number.data$SeqID, TRUE, FALSE)) %>%
     mutate(has.beta.lactamase = ifelse(SeqID %in% beta.lactam.ARGs$SeqID, TRUE, FALSE)) %>%
     ## 0 == no ARG, 1 == has ARG, 2 == has beta-lactamase.
@@ -61,62 +54,14 @@ chromosome.plasmid.copy.number.data <- read.csv("../results/Hawkey2022_chromosom
     filter(CopyNumber > 0.5)
 
 
-Hawkey.duplicate.proteins <- read.csv(
-    "../results/Hawkey2022-duplicate-proteins.csv")
-
-## 99 cases of duplicate ARGs.
-Hawkey.duplicate.ARGs <- Hawkey.duplicate.proteins %>%
-    filter(str_detect(.$product,antibiotic.keywords))
-
-sum(Hawkey.duplicate.ARGs$count) ## 128 duplicated ARGs in total.
-
-Hawkey.singleton.ARGs <- data.table::fread("../results/Hawkey2022-all-proteins.csv") %>%
-    filter(str_detect(.$product,antibiotic.keywords)) %>%
-    filter(count == 1)
-
-Hawkey.plasmid.singleton.ARGs <- Hawkey.singleton.ARGs %>%
-    filter(plasmid_count >=1)
-
-Hawkey.strains.with.plasmid.singleton.ARGs <- unique(Hawkey.plasmid.singleton.ARGs$Annotation_Accession)
-
-Hawkey.plasmid.duplicate.ARGs <- Hawkey.duplicate.ARGs %>%
-    filter(plasmid_count >=1)
-
-Hawkey.strains.with.plasmid.duplicate.ARGs <- unique(Hawkey.plasmid.duplicate.ARGs$Annotation_Accession)
-
-intersect(Hawkey.strains.with.plasmid.duplicate.ARGs,Hawkey.strains.with.plasmid.singleton.ARGs)
-
-duplicate.ARG.strain.chromosome.plasmid.copy.number.data <- chromosome.plasmid.copy.number.data %>%
-    filter(AnnotationAccession %in% Hawkey.strains.with.plasmid.duplicate.ARGs)
-
-non.duplicate.ARG.strain.chromosome.plasmid.copy.number.data <- chromosome.plasmid.copy.number.data %>%
-    filter(!(AnnotationAccession %in% Hawkey.strains.with.plasmid.duplicate.ARGs))
-
-wilcox.test(duplicate.ARG.strain.chromosome.plasmid.copy.number.data$CopyNumber,
-            non.duplicate.ARG.strain.chromosome.plasmid.copy.number.data$CopyNumber)
-
-
 ## beta-lactamases have higher copy number compared to other ARGs in these strains.
-wilcox.test(beta.lactam.ARGs$CopyNumber, non.beta.lactam.ARGs$CopyNumber,alternative="greater")$p.value
-
-mean(beta.lactam.ARGs$CopyNumber)
-mean(non.beta.lactam.ARGs$CopyNumber)
-
-median(beta.lactam.ARGs$CopyNumber)
-median(non.beta.lactam.ARGs$CopyNumber)
+wilcox.test(beta.lactam.ARGs$CopyNumber, non.beta.lactam.ARGs$CopyNumber)$p.value
 
 ## Plasmids with ARGs actually have lower copy numbers than
 ## plasmids without ARGs.
-
 plasmid.copy.number.data <- chromosome.plasmid.copy.number.data %>%
     filter(SeqType == "plasmid") %>%
     arrange(CopyNumber)
-
-beta.lactamase.plasmid.data <- plasmid.copy.number.data %>%
-    filter(has.beta.lactamase==TRUE)
-
-no.beta.lactamase.plasmid.data <- plasmid.copy.number.data %>%
-    filter(has.beta.lactamase == FALSE)
 
 ARG.plasmid.data <- plasmid.copy.number.data %>%
     filter(has.ARG==TRUE)
@@ -124,20 +69,9 @@ ARG.plasmid.data <- plasmid.copy.number.data %>%
 no.ARG.plasmid.data <- plasmid.copy.number.data %>%
     filter(has.ARG == FALSE)
 
-mean(beta.lactamase.plasmid.data$CopyNumber)
-mean(no.beta.lactamase.plasmid.data$CopyNumber)
+wilcox.test(ARG.plasmid.data$CopyNumber, no.ARG.plasmid.data$CopyNumber)$p.value
 
-mean(ARG.plasmid.data$CopyNumber)
-mean(no.ARG.plasmid.data$CopyNumber)
-
-median(beta.lactamase.plasmid.data$CopyNumber)
-median(no.beta.lactamase.plasmid.data$CopyNumber)
-
-median(ARG.plasmid.data$CopyNumber)
-median(no.ARG.plasmid.data$CopyNumber)
-
-
-## This will go into the Supplement after polishing.
+## Supplementary Figure S11.
 plasmid.copy.number.plot <- ggplot(plasmid.copy.number.data,
                                    aes(x=log10(CopyNumber),
                                        fill=`Plasmid class`)) +
