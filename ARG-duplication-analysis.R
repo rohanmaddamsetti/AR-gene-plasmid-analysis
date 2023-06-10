@@ -1740,7 +1740,6 @@ ARG.MGE.adjacency.statistic <- binom.test(
 
 
 ################################################################################
-################################################################################
 ## Analysis of clinical antibiotic resistant isolates.
 
 make.clinical.genomes.D.ARG.Figure <- function(clinical.duplicate.proteins, clinical.singleton.proteins, panelA.title) {
@@ -1831,67 +1830,25 @@ Duke.ESBL.duplicate.proteins <- read.csv(
     "../results/Duke-ESBL-duplicate-proteins.csv") %>%
     select(-sequence)
 
-## 6 of the 12 strains have duplicated ARGs.
-## 10 ARG sequences have duplicates.
 Duke.ESBL.duplicate.ARGs <- Duke.ESBL.duplicate.proteins %>%
     filter(str_detect(.$product,antibiotic.keywords))
-sum(Duke.ESBL.duplicate.ARGs$count) ## 23 duplicated ARGs in total.
+sum(Duke.ESBL.duplicate.ARGs$count)
 
-## 215 MGE protein sequences are duplicated.
-Duke.ESBL.duplicate.MGE.proteins <- Duke.ESBL.duplicate.proteins %>%
-    filter(str_detect(.$product,MGE.keywords))
-sum(Duke.ESBL.duplicate.MGE.proteins$count) ## 547 duplicated MGE proteins in total.
-
-## 208 unknown protein sequences are duplicated.
-Duke.ESBL.duplicate.unknown.proteins <- Duke.ESBL.duplicate.proteins %>%
-    ## some hypothetical proteins are "ISXX family insertion sequence hypothetical protein"
-    ## so filter out those cases.
-    filter(!str_detect(.$product,MGE.keywords)) %>%
-    filter(str_detect(.$product,unknown.protein.keywords))
-sum(Duke.ESBL.duplicate.unknown.proteins$count) ## 450 duplicated unknown proteins in total.
-
-## 396 remaining cases of duplicated proteins.
-Duke.ESBL.remaining.duplicate.proteins <- Duke.ESBL.duplicate.proteins %>%
-    filter(!str_detect(.$product,antibiotic.keywords)) %>%
-    filter(!str_detect(.$product,MGE.keywords)) %>%
-    filter(!str_detect(.$product,unknown.protein.keywords))
-sum(Duke.ESBL.remaining.duplicate.proteins$count) ## 821 other duplicate proteins in total.
-
-################################################
-###### Now, let's look at the singleton proteins.
-
-## 558 singleton ARGs in the genomes.
-Duke.ESBL.singleton.ARGs <- Duke.ESBL.singleton.proteins %>%
-    filter(str_detect(.$product,antibiotic.keywords))
-
-## 3181 singleton MGE protein sequences in the genomes.
-Duke.ESBL.singleton.MGE.proteins <- Duke.ESBL.singleton.proteins %>%
-    filter(str_detect(.$product,MGE.keywords))
-
-## 6475 unknown singleton protein sequences in the genomes.
-Duke.ESBL.singleton.unknown.proteins <- Duke.ESBL.singleton.proteins %>%
-    ## some hypothetical proteins are "ISXX family insertion sequence hypothetical protein"
-    ## so filter out those cases.
-    filter(!str_detect(.$product,MGE.keywords)) %>%
-    filter(str_detect(.$product,unknown.protein.keywords))
-
-## 47049 remaining cases of singleton proteins in the genomes.
-Duke.ESBL.remaining.singleton.proteins <- Duke.ESBL.singleton.proteins %>%
-    filter(!str_detect(.$product,antibiotic.keywords)) %>%
-    filter(!str_detect(.$product,MGE.keywords)) %>%
-    filter(!str_detect(.$product,unknown.protein.keywords))
+## 6/12 strains have duplicate ARGs.
+length(unique(Duke.ESBL.duplicate.ARGs$Annotation_Accession))
+length(unique(Duke.ESBL.singleton.proteins$Annotation_Accession))
 
 ## Now make Supplementary Figure S7.
 S7Fig <- make.clinical.genomes.D.ARG.Figure(Duke.ESBL.duplicate.proteins, Duke.ESBL.singleton.proteins,
                                             "Distribution of duplicated genes in 12 ESBL-resistant isolates\nfrom Duke Hospital")
-ggsave("../results/S7Fig.pdf", S7Fig, height = 7, width = 10)
+ggsave("../results/S7Fig.pdf", S7Fig, height = 9, width = 10)
 
 ################################################################################
 ## Supplementary Figure S8.
 ## Let's analyze duplicated genes in 46 genomes that were sequenced with
 ## long-read technology by BARNARDS group in Nature Microbiology (2022).
 
-BARNARDS.all.proteins <- data.table::fread("../results/BARNARDS-all-proteins.csv",
+ BARNARDS.all.proteins <- data.table::fread("../results/BARNARDS-all-proteins.csv",
                                   drop="sequence")
 
 ## assert that this is an independent dataset.
@@ -1904,50 +1861,13 @@ BARNARDS.duplicate.proteins <- read.csv(
     "../results/BARNARDS-duplicate-proteins.csv") %>%
     select(-sequence)
 
-## 56 cases of duplicate ARGs.
 BARNARDS.duplicate.ARGs <- BARNARDS.duplicate.proteins %>%
     filter(str_detect(.$product,antibiotic.keywords))
-sum(BARNARDS.duplicate.ARGs$count) ## 2 duplicated ARGs in total.
 
-BARNARDS.duplicate.MGE.proteins <- BARNARDS.duplicate.proteins %>%
-    filter(str_detect(.$product,MGE.keywords))
-sum(BARNARDS.duplicate.MGE.proteins$count) ## 75 duplicated MGE proteins in total.
+## 23/46 strains have duplicate ARGs.
+length(unique(BARNARDS.duplicate.ARGs$Annotation_Accession))
+length(unique(BARNARDS.singleton.proteins$Annotation_Accession))
 
-BARNARDS.duplicate.unknown.proteins <- BARNARDS.duplicate.proteins %>%
-    filter(!str_detect(.$product,MGE.keywords)) %>%
-    filter(str_detect(.$product,unknown.protein.keywords))
-sum(BARNARDS.duplicate.unknown.proteins$count) ## 167 duplicated unknown proteins in total.
-
-BARNARDS.remaining.duplicate.proteins <- BARNARDS.duplicate.proteins %>%
-    filter(!str_detect(.$product,antibiotic.keywords)) %>%
-    filter(!str_detect(.$product,MGE.keywords)) %>%
-    filter(!str_detect(.$product,unknown.protein.keywords))
-sum(BARNARDS.remaining.duplicate.proteins$count) ## 241 other duplicate proteins in total.
-
-################################################
-###### Now, let's look at the singleton proteins.
-
-## 2359 singleton ARGs in the genomes.
-BARNARDS.singleton.ARGs <- BARNARDS.singleton.proteins %>%
-    filter(str_detect(.$product,antibiotic.keywords))
-
-
-## 9602 singleton MGE protein sequences in the genomes.
-BARNARDS.singleton.MGE.proteins <- BARNARDS.singleton.proteins %>%
-    filter(str_detect(.$product,MGE.keywords))
-
-BARNARDS.singleton.unknown.proteins <- BARNARDS.singleton.proteins %>%
-    ## some hypothetical proteins are "ISXX family insertion sequence hypothetical protein"
-    ## so filter out those cases.
-    filter(!str_detect(.$product,MGE.keywords)) %>%
-    filter(str_detect(.$product,unknown.protein.keywords))
-
-BARNARDS.remaining.singleton.proteins <- BARNARDS.singleton.proteins %>%
-    filter(!str_detect(.$product,antibiotic.keywords)) %>%
-    filter(!str_detect(.$product,MGE.keywords)) %>%
-    filter(!str_detect(.$product,unknown.protein.keywords))
-
-#####################################
 ## Now make Supplementary Figure S8.
 S8Fig <- make.clinical.genomes.D.ARG.Figure(BARNARDS.duplicate.proteins, BARNARDS.singleton.proteins,
                                             "Distribution of duplicated genes in 46 genomes\nfrom the BARNARDS study")
@@ -1960,10 +1880,8 @@ ggsave("../results/S8Fig.pdf", S8Fig, height = 14, width = 8)
 
 Dantas.all.proteins <- data.table::fread("../results/Mahmud2022-all-proteins.csv",
                                   drop="sequence")
-
 ## assert that this is an independent dataset.
 stopifnot(nrow(filter(Dantas.all.proteins, Annotation_Accession %in% gbk.annotation$Annotation_Accession)) == 0)
-
 
 Dantas.singleton.proteins <- Dantas.all.proteins %>%
     filter(count == 1)
@@ -1972,49 +1890,13 @@ Dantas.duplicate.proteins <- read.csv(
     "../results/Mahmud2022-duplicate-proteins.csv") %>%
     select(-sequence)
 
-## 60 cases of duplicate ARGs.
 Dantas.duplicate.ARGs <- Dantas.duplicate.proteins %>%
     filter(str_detect(.$product,antibiotic.keywords))
-sum(Dantas.duplicate.ARGs$count) ## 128 duplicated ARGs in total.
 
-Dantas.duplicate.MGE.proteins <- Dantas.duplicate.proteins %>%
-    filter(str_detect(.$product,MGE.keywords))
-sum(Dantas.duplicate.MGE.proteins$count) ## 6290 duplicated MGE proteins in total.
+## 36/149 strains have duplicate ARGs.
+length(unique(Dantas.duplicate.ARGs$Annotation_Accession))
+length(unique(Dantas.singleton.proteins$Annotation_Accession))
 
-Dantas.duplicate.unknown.proteins <- Dantas.duplicate.proteins %>%
-    filter(!str_detect(.$product,MGE.keywords)) %>%
-    filter(str_detect(.$product,unknown.protein.keywords))
-sum(Dantas.duplicate.unknown.proteins$count) ## 1318 duplicated unknown proteins in total.
-
-Dantas.remaining.duplicate.proteins <- Dantas.duplicate.proteins %>%
-    filter(!str_detect(.$product,antibiotic.keywords)) %>%
-    filter(!str_detect(.$product,MGE.keywords)) %>%
-    filter(!str_detect(.$product,unknown.protein.keywords))
-sum(Dantas.remaining.duplicate.proteins$count) ## 1585 other duplicate proteins in total.
-
-################################################
-###### Now, let's look at the singleton proteins.
-
-## 7449 singleton ARGs in the genomes.
-Dantas.singleton.ARGs <- Dantas.singleton.proteins %>%
-    filter(str_detect(.$product,antibiotic.keywords))
-
-## 40361 singleton MGE protein sequences in the genomes.
-Dantas.singleton.MGE.proteins <- Dantas.singleton.proteins %>%
-    filter(str_detect(.$product,MGE.keywords))
-
-Dantas.singleton.unknown.proteins <- Dantas.singleton.proteins %>%
-    ## some hypothetical proteins are "ISXX family insertion sequence hypothetical protein"
-    ## so filter out those cases.
-    filter(!str_detect(.$product,MGE.keywords)) %>%
-    filter(str_detect(.$product,unknown.protein.keywords))
-
-Dantas.remaining.singleton.proteins <- Dantas.singleton.proteins %>%
-    filter(!str_detect(.$product,antibiotic.keywords)) %>%
-    filter(!str_detect(.$product,MGE.keywords)) %>%
-    filter(!str_detect(.$product,unknown.protein.keywords))
-
-#####################################
 ## Now make Supplementary Figure S9.
 S9Fig <- make.clinical.genomes.D.ARG.Figure(Dantas.duplicate.proteins, Dantas.singleton.proteins,
                                             "Distribution of duplicated genes in 149 genomes\nfrom Barnes-Jewish Hospital (Mahmud et al. 2022)")
@@ -2045,48 +1927,13 @@ Hawkey.duplicate.proteins <- read.csv(
     "../results/Hawkey2022-duplicate-proteins.csv") %>%
     select(-sequence)
 
-
-## 44 cases of duplicate ARGs.
 Hawkey.duplicate.ARGs <- Hawkey.duplicate.proteins %>%
     filter(str_detect(.$product,antibiotic.keywords))
-sum(Hawkey.duplicate.ARGs$count) ## 103 duplicated ARGs in total.
+sum(Hawkey.duplicate.ARGs$count)
 
-Hawkey.duplicate.MGE.proteins <- Hawkey.duplicate.proteins %>%
-   filter(str_detect(.$product,MGE.keywords))
-sum(Hawkey.duplicate.MGE.proteins$count) ## 3786 duplicated MGE proteins in total.
-
-Hawkey.duplicate.unknown.proteins <- Hawkey.duplicate.proteins %>%
-    filter(!str_detect(.$product,MGE.keywords)) %>%
-    filter(str_detect(.$product,unknown.protein.keywords))
-sum(Hawkey.duplicate.unknown.proteins$count) ## 763 duplicated unknown proteins in total.
-
-Hawkey.remaining.duplicate.proteins <- Hawkey.duplicate.proteins %>%
-    filter(!str_detect(.$product,antibiotic.keywords)) %>%
-    filter(!str_detect(.$product,MGE.keywords)) %>%
-    filter(!str_detect(.$product,unknown.protein.keywords))
-sum(Hawkey.remaining.duplicate.proteins$count) ## 945 other duplicate proteins in total.
-
-################################################
-###### Now, let's look at the singleton proteins.
-
-## 5411 singleton ARGs in the genomes.
-Hawkey.singleton.ARGs <- Hawkey.singleton.proteins %>%
-    filter(str_detect(.$product,antibiotic.keywords))
-
-## 20246 singleton MGE protein sequences in the genomes.
-Hawkey.singleton.MGE.proteins <- Hawkey.singleton.proteins %>%
-    filter(str_detect(.$product,MGE.keywords))
-
-Hawkey.singleton.unknown.proteins <- Hawkey.singleton.proteins %>%
-    ## some hypothetical proteins are "ISXX family insertion sequence hypothetical protein"
-    ## so filter out those cases.
-    filter(!str_detect(.$product,MGE.keywords)) %>%
-    filter(str_detect(.$product,unknown.protein.keywords))
-
-Hawkey.remaining.singleton.proteins <- Hawkey.singleton.proteins %>%
-    filter(!str_detect(.$product,antibiotic.keywords)) %>%
-    filter(!str_detect(.$product,MGE.keywords)) %>%
-    filter(!str_detect(.$product,unknown.protein.keywords))
+## 20/114 strains have duplicate ARGs.
+length(unique(Hawkey.duplicate.ARGs$Annotation_Accession))
+length(unique(Hawkey.singleton.proteins$Annotation_Accession))
 
 ## Now make Supplementary Figure S10.
 S10Fig <- make.clinical.genomes.D.ARG.Figure(Hawkey.duplicate.proteins, Hawkey.singleton.proteins,
@@ -2096,9 +1943,15 @@ ggsave("../results/S10Fig.pdf", S10Fig, height = 14, width = 11)
 ################################################################################
 ## Now do the analysis of enrichment across all these clinical datasets.
 
+## 6/12 strains have duplicate ARGs.
+## 23/46 strains have duplicate ARGs.
+## 36/149 strains have duplicate ARGs.
+## 20/114 strains have duplicate ARGs.
+
 ## clinical resistance genomes are even more enriched with ARGs than the baseline dataset.
 ## the null comes from Table S1 row for humans.
-    binom.test(x=(6+22+35+20),n=(12+46+149+114),p=0.1407)
+## IMPORTANT TODO: UPDATE THE NULL GIVEN THE NEW DATA PROCESSING!!!
+binom.test(x=(6+23+36+20),n=(12+46+149+114),p=0.1407)
 
 ################################################################################
 ## Supplementary Figure 11. Analysis of copy number in the genomes from Hawkey et al. (2022).
@@ -2122,7 +1975,6 @@ chromosome.plasmid.copy.number.data <- read.csv("../results/Hawkey2022_chromosom
                                     `2` = "Beta-lactamases")) %>%
     ## remove outlier points with very low coverage.
     filter(CopyNumber > 0.5)
-
 
 ## beta-lactamases have higher copy number compared to other ARGs in these strains.
 wilcox.test(beta.lactam.ARGs$CopyNumber, non.beta.lactam.ARGs$CopyNumber)$p.value
@@ -2153,8 +2005,7 @@ plasmid.copy.number.plot <- ggplot(plasmid.copy.number.data,
 ggsave("../results/S11Fig-Hawkey2022-plasmid-copy-number.pdf",
        plasmid.copy.number.plot,height=5.75,width=5.75)
 
-#######################################################
-#######################################################
+################################################################################
 ## Analysis of chains of duplications, produced by join-duplications.py.
 ## Look at basic statistics
 ## for duplicated ARGs and associations with MGE genes,
@@ -2314,7 +2165,7 @@ transposase.in.joined.duplications.containing.ARGs <- joined.duplications.contai
 integrase.in.joined.duplications.containing.ARGs <- joined.duplications.containing.ARGs %>%
     filter(str_detect(.$product,"integrase"))
 
-#####################################################
+################################################################################
 ## Examine the frequency of transposase sequences that are found with ARGs, and
 ## host range of these transposases.
 
