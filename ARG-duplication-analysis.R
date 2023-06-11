@@ -15,7 +15,7 @@ library(data.table)
 ## For control analysis to check robustness of results to method used to score ARGs
 ## and MGE-associated genes.
 ## By default set to false.
-USE.CARD.AND.MOBILE.OG.DB <- FALSE
+USE.CARD.AND.MOBILE.OG.DB <- TRUE
 
 ## by default, don't count plasmid proteins as duplicates.
 ## The results are robust to this assumption; nothing changes.
@@ -241,8 +241,6 @@ duplicate.proteins <- read.csv("../results/duplicate-proteins.csv") %>%
 ######## Lingchong asked for this control analysis.
 ## by default, don't count plasmid proteins as duplicates.
 ## The results are robust to this assumption; nothing changes.
-COUNT.PLASMID.PROTEINS.AS.DUPLICATES <- FALSE
-
 if (COUNT.PLASMID.PROTEINS.AS.DUPLICATES) {
 
     ## CRITICAL STEP: get plasmid proteins to count as duplicates.
@@ -336,11 +334,9 @@ duplicate.MGE.genes.by.keyword <- duplicate.proteins %>%
 duplicate.proteins.in.mobileOGdb.matched.by.keywords <- duplicate.proteins.in.mobileOGdb %>%
     filter(str_detect(.$product,MGE.keywords))
 
-
 ## False negatives (mobileOG-db)
 duplicate.proteins.in.mobileOGdb.not.matched.by.keywords <- duplicate.proteins.in.mobileOGdb %>%
     filter(!str_detect(.$product,MGE.keywords))
-
 
 ## False positives (mobileOG-db)
 duplicate.MGE.genes.not.in.mobileOGdb <- duplicate.MGE.genes.by.keyword %>%
@@ -402,6 +398,7 @@ if (USE.CARD.AND.MOBILE.OG.DB) {
 ## Supplementary Data Files 3 and 4.
 
 ## Supplementary Data File 4:  Duplicated ARGs and their annotation.
+## Need to run this code first, since S3DataFile construction depends on S4DataFile.
 S4DataFile <- duplicate.ARGs %>%
     as_tibble() %>%
     arrange(Annotation_Accession)
@@ -793,7 +790,7 @@ S5FigBCDE <- plot_grid(S5FigB, S5FigC, S5FigD, S5FigE,
                        labels = c("B","C",'D','E'), nrow = 2, rel_widths = c(1.5, 1, 1, 1, 1))
 
 S5Fig <- plot_grid(S5FigA, S5FigBCDE, labels = c("A", ""), nrow = 2, rel_heights = c(2,2))
-ggsave("../results/S5Fig.pdf", S3Fig, height = 8, width=7.5)
+ggsave("../results/S5Fig.pdf", S5Fig, height = 8, width=7.5)
 
 ##################################################################
 ## Figures S3 and S6. Proportion of isolates with duplicated or single-copy ARGs
@@ -921,7 +918,7 @@ S3Fig <- plot_grid(NULL, ## The nesting is to add a title.
                    ncol = 1,
                    rel_heights = c(0.025, 1))
 
-ggsave("../results/S3Fig.pdf", S3Fig, height = 9, width = 8)
+ggsave("../results/S3Fig.pdf", S3Fig, height = 9, width = 13)
 ########################################
 ## Figure S6: Single-copy ARGs.
 
@@ -1098,8 +1095,8 @@ S12FigA <- ggplot(both.chr.and.plasmid.summary,
     xlab("Frequency") +
     ylab("")
 
-S12Fig.legend <- get_legend(S8FigA)
-S12FigA <- S8FigA + guides(fill = "none")
+S12Fig.legend <- get_legend(S12FigA)
+S12FigA <- S12FigA + guides(fill = "none")
 
 S12FigB <- ggplot(just.chromosome.summary,
                   aes(x = Count,
@@ -1333,7 +1330,7 @@ plasmid.chromosome.singleton.ARG.contingency.test(TableS5)
 ## in the ecological categories.
 
 make.Fig4DEFGHI.df <- function(TableS1, TableS4, TableS5) {
-    order.by.total_isolates <- TableS 1$Annotation
+    order.by.total_isolates <- TableS1$Annotation
     
     df <- full_join(TableS4, TableS5) %>%
         mutate(Annotation = factor(
@@ -1477,17 +1474,28 @@ make.Fig4DEFGHI.panel <- function(Table, order.by.total.isolates, title,
     return(panel)
 }
 
+## Throughout, only add special scales for the main figure.
+
 ## Finally -- make Figure 4ABC.
-Fig4A <- make.confint.figure.panel(TableS1, order.by.total.isolates, "D-ARGs") +
+Fig4A <- make.confint.figure.panel(TableS1, order.by.total.isolates, "D-ARGs")
+if (! USE.CARD.AND.MOBILE.OG.DB) {
+    Fig4A <- Fig4A +
         scale_x_continuous(breaks = c(0, 0.15), limits = c(0,0.16))
+}
 
 Fig4B <- make.confint.figure.panel(TableS2, order.by.total.isolates,
-                                   "S-ARGs", no.category.label=TRUE) +
-    scale_x_continuous(breaks = c(0.85, 1.0), limits = c(0.85,1))
+                                   "S-ARGs", no.category.label=TRUE)
+if (! USE.CARD.AND.MOBILE.OG.DB) {
+    Fig4B <- Fig4B +
+        scale_x_continuous(breaks = c(0.85, 1.0), limits = c(0.85,1))
+}
 
 Fig4C <- make.confint.figure.panel(TableS3, order.by.total.isolates,
-                                   "All D-genes", no.category.label=TRUE) +
-    scale_x_continuous(breaks = c(0.75, 0.95), limits = c(0.75, 0.95))
+                                   "All D-genes", no.category.label=TRUE)
+if (! USE.CARD.AND.MOBILE.OG.DB) {
+    Fig4C <- Fig4C +
+        scale_x_continuous(breaks = c(0.75, 0.95), limits = c(0.75, 1.0))
+}
 
 Fig4ABC.title <- title_theme <- ggdraw() +
     draw_label("Isolate-level analysis",fontface="bold")
@@ -1501,32 +1509,55 @@ Fig4ABC.with.title <- plot_grid(Fig4ABC.title, Fig4ABC, ncol = 1, rel_heights = 
 ## I manually set axis labels so that they don't run into each other.
 Fig4D <- make.Fig4DEFGHI.panel(Fig4D.df, order.by.total.isolates,
                          "\nD-ARGs",
-                         "Proportion of\nall genes") +
-    scale_x_continuous(label=fancy_scientific, breaks = c(0, 2e-4), limits = c(0,2.2e-4))
+                         "Proportion of\nall genes")
+if (! USE.CARD.AND.MOBILE.OG.DB) {
+    Fig4D <- Fig4D +
+        scale_x_continuous(label=fancy_scientific, breaks = c(0, 2e-4), limits = c(0,2.5e-4))
+}
+
 Fig4E <- make.Fig4DEFGHI.panel(Fig4E.df, order.by.total.isolates,
                          "Chromosome:\nD-ARGs",
                          "Proportion of\nchromosomal genes",
-                         no.category.label = TRUE) +
-    scale_x_continuous(label=fancy_scientific, breaks = c(0, 8e-5), limits = c(0,9e-5))
+                         no.category.label = TRUE)
+if (! USE.CARD.AND.MOBILE.OG.DB) {
+    Fig4E <- Fig4E +
+        scale_x_continuous(label=fancy_scientific, breaks = c(0, 8e-5), limits = c(0,1.2e-4))
+}
+
 Fig4F <- make.Fig4DEFGHI.panel(Fig4F.df, order.by.total.isolates,
                          "Plasmids:\nD-ARGs",
                          "Proportion of\nplasmid genes",
-                         no.category.label = TRUE) +
-    scale_x_continuous(label=fancy_scientific, breaks = c(0, 5e-3), limits = c(0,5.4e-3))
+                         no.category.label = TRUE)
+if (! USE.CARD.AND.MOBILE.OG.DB) {
+    Fig4F <- Fig4F +
+        scale_x_continuous(label=fancy_scientific, breaks = c(0, 5e-3), limits = c(0,6e-3))
+}
+
 Fig4G <- make.Fig4DEFGHI.panel(Fig4G.df, order.by.total.isolates,
                          "\nS-ARGs",
-                         "Proportion of\nall genes") +
-    scale_x_continuous(label=fancy_scientific, breaks = c(3.5e-3, 7e-3), limits = c(3.5e-3,7.4e-3))
+                         "Proportion of\nall genes")
+if (! USE.CARD.AND.MOBILE.OG.DB) {
+    Fig4G <- Fig4G +
+        scale_x_continuous(label=fancy_scientific, breaks = c(3.5e-3, 7e-3), limits = c(3e-3,7.4e-3))
+}
+
 Fig4H <- make.Fig4DEFGHI.panel(Fig4H.df, order.by.total.isolates,
                          "Chromosome:\nS-ARGs",
                          "Proportion of\nchromosomal genes",
-                         no.category.label = TRUE) +
-    scale_x_continuous(label=fancy_scientific, breaks = c(4e-3, 6e-3), limits = c(4e-3, 6e-3))
+                         no.category.label = TRUE)
+if (! USE.CARD.AND.MOBILE.OG.DB) {
+    Fig4H <- Fig4H +
+        scale_x_continuous(label=fancy_scientific, breaks = c(4e-3, 6e-3), limits = c(3e-3, 6e-3))
+}
+
 Fig4I <- make.Fig4DEFGHI.panel(Fig4I.df, order.by.total.isolates,
                          "Plasmids:\nS-ARGs",
                          "Proportion of\nplasmid genes",
-                         no.category.label = TRUE) +
-    scale_x_continuous(label=fancy_scientific, breaks = c(3e-3, 2e-2))
+                         no.category.label = TRUE)
+if (! USE.CARD.AND.MOBILE.OG.DB) {
+    Fig4I <- Fig4I +
+        scale_x_continuous(label=fancy_scientific, breaks = c(3e-3, 2e-2))
+}
 
 Fig4DEFGHI.title <- title_theme <- ggdraw() +
     draw_label("Gene-level analysis",fontface="bold")
@@ -1542,10 +1573,10 @@ Fig4DEFGHI.with.title <- plot_grid(Fig4DEFGHI.title, Fig4DEFGHI,
 Fig4 <- plot_grid(Fig4ABC.with.title, Fig4DEFGHI.with.title,
                   ncol = 1, rel_heights = c(0.3,0.7))
 
-if (USE.CARD.AND.MOBILE.OG.DB) { ## Make supplementary Figure S15.
-    ggsave("../results/S15Fig.pdf", Fig4, height=6.25, width=6.25)
-} else { ## Make main figure 4.
+if (! USE.CARD.AND.MOBILE.OG.DB) { ## Make main figure 4.
     ggsave("../results/Fig4.pdf", Fig4, height=6.25, width=6.25)
+} else { ## Make supplementary Figure S15.
+    ggsave("../results/S15Fig.pdf", Fig4, height=6.25, width=6.25)
 }
 
 ##########################################################################
@@ -1914,7 +1945,7 @@ ggsave("../results/S9Fig.pdf", S9Fig, height = 18, width = 11)
 ## IMPORTANT!! I need to carefully check that the genomes in the Hawkey dataset
 ## are truly independent (can be thrown off by the difference in RefSeq and Genbank accessions).
 
-  Hawkey.all.proteins <- data.table::fread("../results/Hawkey2022-all-proteins.csv",
+Hawkey.all.proteins <- data.table::fread("../results/Hawkey2022-all-proteins.csv",
                                          drop="sequence")
 
 ## assert that this is an independent dataset.
