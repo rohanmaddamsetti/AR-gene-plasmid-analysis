@@ -258,8 +258,7 @@ if (COUNT.PLASMID.PROTEINS.AS.DUPLICATES) {
         filter(count == 1) %>%
         ## proteins on plasmids do not count as singletons in this analysis.
         filter(plasmid_count == 0) %>%
-        inner_join(gbk.annotation) %>%
-        mutate(Category = sapply(product, categorize.as.MGE.ARG.or.other))
+        inner_join(gbk.annotation)
 
 } else { ## just get the singleton protein by filtering.
     singleton.proteins <- all.proteins %>%
