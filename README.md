@@ -1,16 +1,14 @@
 # AR-gene-plasmid-analysis by Rohan Maddamsetti and Vincent Huang
 
-## Python requirements: Python 3.6, biopython, tqdm 
+## Python requirements: Python 3.6+, biopython, tqdm 
 
+First, download prokaryotes.txt into ../data/GENOME_REPORTS:
 
-First, download plasmids.txt and prokaryotes.txt into
-../data/GENOME_REPORTS:
-
-wget https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/plasmids.txt
 wget https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/prokaryotes.txt
 
-Then, filter the prokaryotes genome data for those that have either complete genomes or both
-plasmids and chromosomes:
+Then, filter the prokaryotes.txt genome data for those that have complete genomes,
+and replace "GCA" with "GCF" throughout this file, so that RefSeq data and not Genbank data
+is accessed in all downstream steps:
 
 python filter-genome-reports.py > ../results/best-prokaryotes.txt
 

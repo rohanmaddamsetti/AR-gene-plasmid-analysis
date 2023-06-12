@@ -3,8 +3,13 @@
 ''' 
 filter-genome-reports.py by Rohan Maddamsetti.
 
-This script goes through the genome report in data/prokaryotes.txt, and filters
-for lines with complete genomes.
+This script goes through the genome report in data/prokaryotes.txt,
+filters for lines with complete genomes, and IMPORTANTLY,
+replaces "GCA" with "GCF" throughout, so that only data deposted in NCBI RefSeq
+is analyzed.
+
+See the documentation here for details:
+https://www.ncbi.nlm.nih.gov/datasets/docs/v2/troubleshooting/faq/#what-is-the-difference-between-a-genbank-gca-and-refseq-gcf-genome-assembly
 
 Usage: python filter-genome-reports.py > ../results/best-prokaryotes.txt
 '''
@@ -16,4 +21,5 @@ with open("../data/GENOME_REPORTS/prokaryotes.txt","r") as g_report:
             print(line)
         else:
             if ("Complete Genome" in line):
-                print(line)
+                updated_line = line.replace("GCA", "GCF")
+                print(updated_line)
