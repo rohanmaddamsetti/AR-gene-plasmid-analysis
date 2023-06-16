@@ -71,5 +71,22 @@ the computational annotation against a subset of annotations that were conducted
 
 python annotate-ecological-category.py > ../results/computationally-annotated-gbk-annotation-table.csv  
 
-python check-ecological-annotation.py  
+python check-ecological-annotation.py
 
+### CARD and mobileOG-db analyses.
+
+After downloading duplicate-proteins.csv and all-proteins.csv, run the following locally:
+python protein_csv_to_fasta.py
+python protein_csv_to_fasta.py --ignore-singletons
+
+Then download the CARD database locally into a folder called "../data/card-data", relative to the directory
+containing this source code, and download the mobileOG-db database into a folder called
+"../data/mobileOG-db_beatrix-1-6_v1_all" relative to the directory containing this source code.
+
+Make sure all the paths in this next script make sense, and run the following:
+python search-CARD-and-mobileOG-db.py
+
+Then run:
+python parse-DIAMOND-results.py.
+
+## Now, all the data analysis in ARG-duplications.R should run.

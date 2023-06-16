@@ -10,7 +10,6 @@ The search parameters are >80% identity over >85% of the target sequence, follow
 the protocol in the paper "Improved annotation of antibiotic resistance
 determinants reveals microbial resistomes cluster by ecology" by Gibson, Forsberg, Dantas
 in ISME (2015).
-
 """
 
 import subprocess
@@ -31,7 +30,7 @@ def runDIAMONDblastp(referenceDB, queryfile, outputfile):
     return
 
 
-def main():
+ def main():
     ## make a DIAMOND database for CARD.
     DIAMOND_CARD_db = "../results/CARD"
     makeDIAMONDsearchDB("../data/card-data/protein_fasta_protein_homolog_model.fasta", DIAMOND_CARD_db)
