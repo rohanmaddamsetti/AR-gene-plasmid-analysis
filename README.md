@@ -13,22 +13,28 @@ is accessed in all downstream steps:
 python filter-genome-reports.py > ../results/best-prokaryotes.txt
 
 Then, fetch genome annotation for each row in best-prokaryotes.txt,
-and fetch the protein-coding genes for all chromosomes and plasmids for
-each row in best-prokaryotes.txt.
+fetch the protein-coding genes for all chromosomes and plasmids for
+each row in best-prokaryotes.txt,
+and fetch the assembly statistics for quality control.
+We want to analyze genomes with high-quality, complete genome assemblies.
 
-Both steps can be done at the same time on the Duke Compute Cluster (DCC).
+For downstream analysis,
+
+These steps can be done at the same time on the Duke Compute Cluster (DCC).
 And make sure these scripts are called from the src directory.
 fetch-gbk-annotation and fetch-genome-and-plasmid-cds.py run overnight..
 
-sbatch --mem=16G -t 24:00:00 --wrap="python fetch-gbk-annotation.py"  
-sbatch --mem=16G -t 24:00:00 --wrap="python fetch-genome-and-plasmid-cds.py"  
+sbatch --mem=16G -t 24:00:00 --wrap="python fetch-gbk-annotation.py" 
+sbatch --mem=16G -t 24:00:00 --wrap="python fetch-genome-and-plasmid-cds.py"
+sbatch --mem=16G -t 24:00:00 --wrap="python fetch-assembly-stats.py"	
 
 Once the data has downloaded, run the following scripts. Some run
 quite quickly, so no need to submit them to a partition on DCC--
 just run them in an interactive session on DCC.
 
 python make-chromosome-plasmid-table.py  
-python make-gbk-annotation-table.py ## this runs for ~35 min on DCC.  
+python make-gbk-annotation-table.py ## this runs for ~35 min on DCC.
+python run-QC-and-make-assembly-stats-table.py
 
 ## this runs for 20 min on DCC. 
 python count-cds.py > ../results/protein_db_CDS_counts.csv

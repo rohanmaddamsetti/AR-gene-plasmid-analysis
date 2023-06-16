@@ -30,7 +30,7 @@ def get_acc_list(FileS3):
     return(acc_list)
 
 
-def download_FASTA_genomes(genome_report_file, acc_list):
+def download_FASTA_genomes(genome_report_file, acc_list=None):
     ## open the genome report file, and parse line by line.
     with open(genome_report_file, "r") as genome_report_fh:
         for i, line in enumerate(tqdm(genome_report_fh)):
@@ -42,8 +42,9 @@ def download_FASTA_genomes(genome_report_file, acc_list):
             ftp_path = fields[20]
 
             annotation_accession = basename(ftp_path)
-            ## skip genomes that are not in the acc_list.
-            if annotation_accession not in acc_list: continue
+            ## If acc_list is not None, then skip genomes that are not in the acc_list.
+            if ((acc_list is not None) and (annotation_accession not in acc_list)):
+                continue
             ## Now download the fasta files  if it doesn't exist on disk.
             fasta_ftp_path = ftp_path + '/' + annotation_accession + "_genomic.fna.gz"
             fasta_fname = "../results/genome-fasta-files/" + annotation_accession + "_genomic.fna.gz"
@@ -60,7 +61,7 @@ def download_FASTA_genomes(genome_report_file, acc_list):
     return None
 
 
-FileS3="../results/FileS3-Complete-Genomes-in-with-Duplicated-ARG-annotation.csv"
-acc_list = get_acc_list(FileS3)
+##FileS3="../results/FileS3-Complete-Genomes-in-with-Duplicated-ARG-annotation.csv"
+##acc_list = get_acc_list(FileS3)
 genome_report_file = "../results/best-prokaryotes.txt"
-download_FASTA_genomes(genome_report_file, acc_list)
+download_FASTA_genomes(genome_report_file, acc_list=None)

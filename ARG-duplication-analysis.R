@@ -135,6 +135,7 @@ check.plasmid.accessions(episome.database)
 ## in gbk.annotation. Let's omit these from the main analysis to preserve independence of the
 ## clinical validation data.
 
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! IMPORTANT!!!! REDO AND CHECK THIS!!!!
 Hawkey.overlaps.in.gbk.annotation.vec <- c(
     "GCA_016126855.1_ASM1612685v1",
     "GCA_015476295.1_ASM1547629v1",
