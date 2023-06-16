@@ -2,7 +2,6 @@
 
 ## fetch-and-dereplicate-seqs.sh by Rohan Maddamsetti
 
-
 mkdir results/genome-fasta-files
 mkdir results/dereplicated-genome-fasta-files
 ## fetch FASTA sequences for the genomes

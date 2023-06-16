@@ -1,6 +1,12 @@
 # AR-gene-plasmid-analysis by Rohan Maddamsetti and Vincent Huang
 
-## Python requirements: Python 3.6+, biopython, tqdm 
+## Python requirements: Python 3.6+, biopython, tqdm
+
+## External software requirements:
+Mash 2.3: https://github.com/marbl/Mash  
+kallisto 0.46: https://pachterlab.github.io/kallisto/about
+DIAMOND 2.1.6: http://www.diamondsearch.org  
+Assembly Dereplicator 0.3.1: https://github.com/rrwick/Assembly-Dereplicator  
 
 First, download prokaryotes.txt into ../data/GENOME_REPORTS:
 
@@ -22,11 +28,15 @@ For downstream analysis,
 
 These steps can be done at the same time on the Duke Compute Cluster (DCC).
 And make sure these scripts are called from the src directory.
-fetch-gbk-annotation and fetch-genome-and-plasmid-cds.py run overnight..
+fetch-gbk-annotation and fetch-genome-and-plasmid-cds.py run overnight...
 
 sbatch --mem=16G -t 24:00:00 --wrap="python fetch-gbk-annotation.py" 
 sbatch --mem=16G -t 24:00:00 --wrap="python fetch-genome-and-plasmid-cds.py"
-sbatch --mem=16G -t 24:00:00 --wrap="python fetch-assembly-stats.py"	
+sbatch --mem=16G -t 24:00:00 --wrap="python fetch-assembly-stats.py"
+
+Locally, download fasta sequences for all genomes, and make a list of dereplicated
+sequences as follows:
+bash ./fetch-and-dereplicate-stats.py
 
 Once the data has downloaded, run the following scripts. Some run
 quite quickly, so no need to submit them to a partition on DCC--

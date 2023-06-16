@@ -14,8 +14,8 @@ library(data.table)
 
 ## For control analysis to check robustness of results to method used to score ARGs
 ## and MGE-associated genes.
-## By default set to false.
-USE.CARD.AND.MOBILE.OG.DB <- TRUE
+## By default set to FALSE.
+USE.CARD.AND.MOBILE.OG.DB <- FALSE
 
 ## by default, don't count plasmid proteins as duplicates.
 ## The results are robust to this assumption; nothing changes.
