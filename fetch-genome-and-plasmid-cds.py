@@ -36,14 +36,17 @@ with open("../results/protein_db.faa", "w") as protein_db_fh:
             while proteins_not_fetched and protein_fetch_attempts: 
                 try:
                     urllib.request.urlretrieve(tr_cds_ftp_path,filename="../results/temp_tr_cds.faa.gz")
-                    proteins_not_fetched = False ## assume success if the previous line worked,
+                    ## if the previous line completed successfully, then unzip,
+                    ## concatenate to the protein database file, and delete the temporary file.
+                    with gzip.open("../results/temp_tr_cds.faa.gz", "rt") as temp_tr_cds_infile:
+                        protein_db_fh.write(temp_tr_cds_infile.read())
+                    proteins_not_fetched = False ## assume success if the previous lines worked,
                     protein_fetch_attempts = 0 ## and don't try again.
-                except urllib.error.URLError: ## if some problem happens, try again.
+                except urllib.error.URLError: ## if some problem occurs during the download, try again.
                     protein_fetch_attempts -= 1
-            if not os.path.exists("../results/temp_tr_cds.faa.gz"): ## then skip this genome.
-                continue
-            ## unzip, concatenate to the protein database file, and delete the temporary file.
-            with gzip.open("../results/temp_tr_cds.faa.gz", "rt") as temp_tr_cds_infile:
-                protein_db_fh.write(temp_tr_cds_infile.read())
-                os.remove("../results/temp_tr_cds.faa.gz")
+                except zlib.error: ## if some problem occurs during decompression, try again.
+                    protein_fetch_attempts -= 1
+                ## if the temporary file exists, clean up before trying again or moving on.
+                if os.path.exists("../results/temp_tr_cds.faa.gz"):
+                    os.remove("../results/temp_tr_cds.faa.gz")
                 
