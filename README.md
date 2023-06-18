@@ -26,10 +26,9 @@ We want to analyze genomes with high-quality, complete genome assemblies.
 
 These steps can be done at the same time on the Duke Compute Cluster (DCC).
 And make sure these scripts are called from the src directory.
-fetch-gbk-annotation and fetch-genome-and-plasmid-cds.py run overnight...  
+fetch-gbk-annotation runs for several hours.  
 
 sbatch --mem=16G -t 24:00:00 --wrap="python fetch-gbk-annotation.py"  
-sbatch --mem=16G -t 24:00:00 --wrap="python fetch-genome-and-plasmid-cds.py"  
 sbatch --mem=16G -t 24:00:00 --wrap="python fetch-assembly-stats.py"  
 
 Now run the following scripts on DCC. Some run
@@ -39,8 +38,8 @@ just run them in an interactive session on DCC.
 python make-chromosome-plasmid-table.py  
 python make-gbk-annotation-table.py ## this runs for ~35 min on DCC.
 
-## this runs for 20 min on DCC. 
-python count-cds.py > ../results/protein_db_CDS_counts.csv  
+## this runs for ~6h on DCC.  
+python count-cds.py  
 
 ## this runs for ~36h on DCC.
 sbatch --mem=16G -t 48:00:00 --wrap="python tabulate-proteins.py"  
@@ -60,6 +59,7 @@ protein_db_CDS_counts.csv
 gbk-annotation-table.csv  
 chromosome-plasmid-table.csv  
 prokaryotes-with-plasmids.txt  
+genome-assembly-metadata.csv  
 
 
 Locally, download fasta sequences for all genomes, and make a list of dereplicated

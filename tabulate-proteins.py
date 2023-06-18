@@ -12,7 +12,6 @@ Usage: python tabulate-proteins.py --ignore-singletons ## for tabulating multi-c
 '''
 
 import os
-import gzip
 from Bio import SeqIO
 from tqdm import tqdm
 import argparse
@@ -53,15 +52,15 @@ seq_id = 1
 with open(outf, 'w') as outfh:
     header = "SeqID,Annotation_Accession,count,chromosome_count,plasmid_count,unassembled_count,product,sequence\n"
     outfh.write(header)
-    for gbk_gz in tqdm(os.listdir("../results/gbk-annotation")):
-        if not gbk_gz.endswith(".gbff.gz"): continue
-        annotation_accession = gbk_gz.split("_genomic.gbff.gz")[0]
+    for gbk in tqdm(os.listdir("../results/gbk-annotation")):
+        if not gbk.endswith(".gbff"): continue
+        annotation_accession = gbk.split("_genomic.gbff")[0]
         ## IMPORTANT TODO: make sure chromosome-plasmid-table.csv
         ## and the data in ../results/gbk-annotation are consistent.
         ## The next line is a temporary consistency check.
         if annotation_accession not in replicon_type_lookup_table: continue
-        infile = "../results/gbk-annotation/" + gbk_gz
-        with gzip.open(infile, "rt") as genome_fh:
+        infile = os.path.join("../results/gbk-annotation/", gbk)
+        with open(infile, "rt") as genome_fh:
             protein_dict = {}
             for replicon in SeqIO.parse(genome_fh, "gb"):
                 replicon_id = replicon.id

@@ -12,7 +12,7 @@ and are complete genomes (no spanned or unspanned gaps, and no unplaced scaffold
 import os
 from tqdm import tqdm
 
-assembly_stats_dir = "../results/genbank-assembly-statistics/"
+assembly_stats_dir = "../results/refseq-assembly-statistics/"
 
 with open("../results/genome-assembly-metadata.csv","w") as out_fh:
     header = "Annotation_Accession,Organism_name,Assembly_level,Assembly_method,Genome_coverage,Sequencing_technology,Genbank_assembly_accession,Refseq_assembly_accession,total_length,spanned_gaps,unspanned_gaps,total_gap_length,scaffold_count\n"
