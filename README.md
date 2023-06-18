@@ -4,47 +4,40 @@
 
 ## External software requirements:
 Mash 2.3: https://github.com/marbl/Mash  
-kallisto 0.46: https://pachterlab.github.io/kallisto/about
+kallisto 0.46: https://pachterlab.github.io/kallisto/about  
 DIAMOND 2.1.6: http://www.diamondsearch.org  
 Assembly Dereplicator 0.3.1: https://github.com/rrwick/Assembly-Dereplicator  
 
-First, download prokaryotes.txt into ../data/GENOME_REPORTS:
+First, download prokaryotes.txt into ../data/GENOME_REPORTS:  
 
-wget https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/prokaryotes.txt
+wget https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/prokaryotes.txt  
 
 Then, filter the prokaryotes.txt genome data for those that have complete genomes,
 and replace "GCA" with "GCF" throughout this file, so that RefSeq data and not Genbank data
-is accessed in all downstream steps:
+is accessed in all downstream steps:  
 
-python filter-genome-reports.py > ../results/best-prokaryotes.txt
+python filter-genome-reports.py > ../results/best-prokaryotes.txt  
 
 Then, fetch genome annotation for each row in best-prokaryotes.txt,
 fetch the protein-coding genes for all chromosomes and plasmids for
 each row in best-prokaryotes.txt,
 and fetch the assembly statistics for quality control.
-We want to analyze genomes with high-quality, complete genome assemblies.
-
-For downstream analysis,
+We want to analyze genomes with high-quality, complete genome assemblies.  
 
 These steps can be done at the same time on the Duke Compute Cluster (DCC).
 And make sure these scripts are called from the src directory.
-fetch-gbk-annotation and fetch-genome-and-plasmid-cds.py run overnight...
+fetch-gbk-annotation and fetch-genome-and-plasmid-cds.py run overnight...  
 
 sbatch --mem=16G -t 24:00:00 --wrap="python fetch-gbk-annotation.py"  
 sbatch --mem=16G -t 24:00:00 --wrap="python fetch-genome-and-plasmid-cds.py"  
 sbatch --mem=16G -t 24:00:00 --wrap="python fetch-assembly-stats.py"  
 
-Locally, download fasta sequences for all genomes, and make a list of dereplicated
-sequences as follows:
-bash ./fetch-and-dereplicate-stats.py  
-
-Once the data has downloaded, run the following scripts. Some run
+Now run the following scripts on DCC. Some run
 quite quickly, so no need to submit them to a partition on DCC--
 just run them in an interactive session on DCC.
 
 python make-chromosome-plasmid-table.py  
 python make-gbk-annotation-table.py ## this runs for ~35 min on DCC.
-python run-QC-and-make-assembly-stats-table.py  
 
 ## this runs for 20 min on DCC. 
 python count-cds.py > ../results/protein_db_CDS_counts.csv  
@@ -55,6 +48,9 @@ sbatch --mem=16G -t 48:00:00 --wrap="python tabulate-proteins.py"
 ## this runs for ~36h on DCC.
 sbatch --mem=16G -t 48:00:00 --wrap="python tabulate-proteins.py --ignore-singletons"  
 
+## double-check assembly quality.
+python run-QC-and-make-assembly-stats-table.py  
+
 Then, copy the following files from the results/
 directory onto my local machine (same directory name and file structure).
 
@@ -63,8 +59,13 @@ all-proteins.csv
 protein_db_CDS_counts.csv  
 gbk-annotation-table.csv  
 chromosome-plasmid-table.csv  
-protein_db.faa  
 prokaryotes-with-plasmids.txt  
+
+
+Locally, download fasta sequences for all genomes, and make a list of dereplicated
+sequences:
+python fetch-and-dereplicate-seqs.py
+
 
 Then, run the follow scripts to annotate the genomes, and to cross-check
 the computational annotation against a subset of annotations that were conducted manually.  
