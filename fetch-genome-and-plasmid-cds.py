@@ -42,9 +42,7 @@ with open("../results/protein_db.faa", "w") as protein_db_fh:
                         protein_db_fh.write(temp_tr_cds_infile.read())
                     proteins_not_fetched = False ## assume success if the previous lines worked,
                     protein_fetch_attempts = 0 ## and don't try again.
-                except urllib.error.URLError: ## if some problem occurs during the download, try again.
-                    protein_fetch_attempts -= 1
-                except zlib.error: ## if some problem occurs during decompression, try again.
+                except: ## if some problem occurs during the download or decompression, try again.
                     protein_fetch_attempts -= 1
                 ## if the temporary file exists, clean up before trying again or moving on.
                 if os.path.exists("../results/temp_tr_cds.faa.gz"):
