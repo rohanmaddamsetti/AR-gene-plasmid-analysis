@@ -27,7 +27,7 @@ with open("../results/best-prokaryotes.txt", "r") as genome_report_fh:
 
         ## Now download the assembly stats file  if it doesn't exist on disk.
         QCstats_ftp_path = ftp_path + '/' + basename(ftp_path) + "_assembly_stats.txt"
-        QCstats_fname = "../results/genbank-assembly-statistics/" + basename(ftp_path) + "_assembly_stats.txt"
+        QCstats_fname = "../results/refseq-assembly-statistics/" + basename(ftp_path) + "_assembly_stats.txt"
         if exists(QCstats_fname): continue ## no need to get it if we already have it.
         fetch_attempts = 5
         not_fetched = True
