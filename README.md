@@ -31,8 +31,8 @@ These steps can be done at the same time on the Duke Compute Cluster (DCC).
 And make sure these scripts are called from the src directory.
 fetch-gbk-annotation runs for several hours.  
 
-sbatch --mem=16G -t 24:00:00 --wrap="python fetch-gbk-annotation.py"  
-sbatch --mem=16G -t 24:00:00 --wrap="python fetch-assembly-stats.py"  
+sbatch --mem=16G -t 36:00:00 --wrap="python fetch-gbk-annotation.py"  
+sbatch --mem=16G -t 36:00:00 --wrap="python fetch-assembly-stats.py"  
 
 Now run the following scripts on DCC. Some run
 quite quickly, so no need to submit them to a partition on DCC--
