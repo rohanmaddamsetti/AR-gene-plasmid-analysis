@@ -3,7 +3,7 @@
 '''
 count-cds.py by Rohan Maddamsetti.
 
-This script goes through the headers in ../results/protein_db.faa,
+This script goes through the gbk annotation files,
 makes a dictionary of NCBI_Nucleotide_Accessions to number of sequences
 in the database with that accession.
 
@@ -12,7 +12,6 @@ Usage: python count-cds.py
 '''
 
 import os
-import gzip
 from tqdm import tqdm
 from Bio import SeqIO
 
@@ -32,7 +31,7 @@ for x in tqdm(gbk_files):
     gbk_path = os.path.join(gbk_annotation_dir, x)
     annotation_accession = x.split("_genomic.gbff")[0]
     genome_CDS_count = 0
-    with gzip.open(gbk_path,'rt') as gbk_fh:
+    with open(gbk_path,'rt') as gbk_fh:
         for replicon in SeqIO.parse(gbk_fh, "gb"):
             ## check for artifactual duplicates
             ## (same location, found multiple times).

@@ -5,7 +5,6 @@ make-gbk-annotation-table.py by Rohan Maddamsetti
 '''
 
 import os
-import gzip
 from tqdm import tqdm
 
 gbk_annotation_dir = "../results/gbk-annotation/"
@@ -14,12 +13,12 @@ with open("../results/gbk-annotation-table.csv","w") as out_fh:
     header = "Annotation_Accession,host,isolation_source\n"
     out_fh.write(header)
 
-    gbk_files = [x for x in os.listdir(gbk_annotation_dir) if x.endswith("_genomic.gbff.gz")]
+    gbk_files = [x for x in os.listdir(gbk_annotation_dir) if x.endswith("_genomic.gbff")]
     
     for x in tqdm(gbk_files):
         gbk_path = gbk_annotation_dir + x
-        annotation_accession = x.split("_genomic.gbff.gz")[0]
-        with gzip.open(gbk_path,'rt') as gbk_fh:
+        annotation_accession = x.split("_genomic.gbff")[0]
+        with open(gbk_path,'rt') as gbk_fh:
             host = "NA"
             isolation_source = "NA"
             ## use a buffer to store the line, to handle cases where

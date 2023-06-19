@@ -41,14 +41,14 @@ python make-gbk-annotation-table.py ## this runs for ~35 min on DCC.
 ## this runs for ~6h on DCC.  
 python count-cds.py  
 
+## double-check assembly quality on DCC.  
+python run-QC-and-make-assembly-stats-table.py  
+
 ## this runs for ~36h on DCC.
 sbatch --mem=16G -t 48:00:00 --wrap="python tabulate-proteins.py"  
 
 ## this runs for ~36h on DCC.
 sbatch --mem=16G -t 48:00:00 --wrap="python tabulate-proteins.py --ignore-singletons"  
-
-## double-check assembly quality.
-python run-QC-and-make-assembly-stats-table.py  
 
 Then, copy the following files from the results/
 directory onto my local machine (same directory name and file structure).

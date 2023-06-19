@@ -23,7 +23,7 @@ with open("../results/chromosome-plasmid-table.csv",'w') as out_fh:
             replicons = fields[8]
             ftp_path = fields[20]
             GBAnnotation = os.path.basename(ftp_path)
-            my_annotation_file = "../results/gbk-annotation/" + GBAnnotation + "_genomic.gbff.gz"
+            my_annotation_file = "../results/gbk-annotation/" + GBAnnotation + "_genomic.gbff"
             ''' make sure that this file exists in the annotation directory--
             skip if this was not the case.
             this is important; we don't want to include genomes that were
