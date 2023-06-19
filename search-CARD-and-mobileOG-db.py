@@ -30,23 +30,24 @@ def runDIAMONDblastp(referenceDB, queryfile, outputfile):
     return
 
 
- def main():
+def main():
     ## make a DIAMOND database for CARD.
     DIAMOND_CARD_db = "../results/CARD"
     makeDIAMONDsearchDB("../data/card-data/protein_fasta_protein_homolog_model.fasta", DIAMOND_CARD_db)
     ## make a DIAMOND database for mobileOG-db.
     DIAMONDmobileOGdb = "../results/mobileOG-db"
     makeDIAMONDsearchDB("../data/mobileOG-db_beatrix-1-6_v1_all/mobileOG-db_beatrix-1.6.All.faa", DIAMONDmobileOGdb)
-
+    
     ## search duplicate-proteins.faa against CARD
     runDIAMONDblastp(DIAMOND_CARD_db, "../results/duplicate-proteins.faa", "../results/duplicate-proteins-in-CARD.tsv")
     ## search duplicate-proteins.faa against mobileOG-db
     runDIAMONDblastp(DIAMONDmobileOGdb, "../results/duplicate-proteins.faa", "../results/duplicate-proteins-in-mobileOG-db.tsv")
-
-        ## search all-proteins.faa against CARD 
+    
+    ## search all-proteins.faa against CARD 
     runDIAMONDblastp(DIAMOND_CARD_db, "../results/all-proteins.faa", "../results/all-proteins-in-CARD.tsv")
     ## search duplicate-proteins.faa against mobileOG-db
     runDIAMONDblastp(DIAMONDmobileOGdb, "../results/all-proteins.faa", "../results/all-proteins-in-mobileOG-db.tsv")
+    return
 
 
 main()
