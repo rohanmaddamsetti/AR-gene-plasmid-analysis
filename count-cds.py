@@ -15,7 +15,6 @@ import os
 from tqdm import tqdm
 from Bio import SeqIO
 
-
 ## some genomes have artifactual duplicate CDS in their annotation
 ## (at least 10 Xanthomonas strains as of 12/24/2021).
 ## To handle these cases, make sure that the location of each cds per accession

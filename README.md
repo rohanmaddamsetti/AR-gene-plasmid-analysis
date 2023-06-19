@@ -8,7 +8,10 @@ kallisto 0.46: https://pachterlab.github.io/kallisto/about
 DIAMOND 2.1.6: http://www.diamondsearch.org  
 Assembly Dereplicator 0.3.1: https://github.com/rrwick/Assembly-Dereplicator  
 
-First, download prokaryotes.txt into ../data/GENOME_REPORTS:  
+Make a top-level directory with three directories inside, named "data", "results", and "src".  
+Now copy all source code files in this repository into "src".  
+
+Now, download prokaryotes.txt into ../data/GENOME_REPORTS:  
 
 wget https://ftp.ncbi.nlm.nih.gov/genomes/GENOME_REPORTS/prokaryotes.txt  
 
@@ -38,11 +41,11 @@ just run them in an interactive session on DCC.
 python make-chromosome-plasmid-table.py  
 python make-gbk-annotation-table.py ## this runs for ~35 min on DCC.
 
-## this runs for ~6h on DCC.  
-python count-cds.py  
-
 ## double-check assembly quality on DCC.  
 python run-QC-and-make-assembly-stats-table.py  
+
+## this runs for ~8h on DCC.
+sbatch --mem=16G -t 24:00:00 --wrap="python count-cds.py"  
 
 ## this runs for ~36h on DCC.
 sbatch --mem=16G -t 48:00:00 --wrap="python tabulate-proteins.py"  
@@ -63,9 +66,8 @@ genome-assembly-metadata.csv
 
 
 Locally, download fasta sequences for all genomes, and make a list of dereplicated
-sequences:
+sequences. This runs overnight, and uses a lot of memory (100Gb!):
 python fetch-and-dereplicate-seqs.py
-
 
 Then, run the follow scripts to annotate the genomes, and to cross-check
 the computational annotation against a subset of annotations that were conducted manually.  
