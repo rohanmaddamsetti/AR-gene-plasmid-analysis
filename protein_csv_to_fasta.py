@@ -38,5 +38,5 @@ with open(outf, "w") as outfh:
             product = fields[6]
             seq = fields[7]
             fasta_header = ">" + "|".join(["SeqID="+seq_id, "annotation_accession="+annotation_accession, "count="+count, "chromosome_count="+chromosome_count, "plasmid_count="+plasmid_count, "unassembled_count="+unassembled_count, "product="+product]).replace(" ","_")
-            outf.write(fasta_header + "\n")
-            outf.write(seq + "\n")
+            outfh.write(fasta_header + "\n")
+            outfh.write(seq + "\n")
