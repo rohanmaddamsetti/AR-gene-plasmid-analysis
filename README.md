@@ -61,7 +61,6 @@ all-proteins.csv
 protein_db_CDS_counts.csv  
 gbk-annotation-table.csv  
 chromosome-plasmid-table.csv  
-prokaryotes-with-plasmids.txt  
 genome-assembly-metadata.csv  
 
 
