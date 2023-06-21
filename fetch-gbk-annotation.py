@@ -25,6 +25,8 @@ with open("../results/best-prokaryotes.txt", "r") as genome_report_fh:
             continue ## don't process the header further.
         fields = line.split('\t')
         ftp_path = fields[20]
+        if ftp_path == "-":
+            continue ## skip rows that don't have an FTP URL.
 
         ## Now download the Genbank annotation if it doesn't exist on disk.
         gbk_ftp_path = ftp_path + '/' + basename(ftp_path) + "_genomic.gbff.gz"
