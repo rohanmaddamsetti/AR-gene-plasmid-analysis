@@ -22,4 +22,7 @@ with open("../data/GENOME_REPORTS/prokaryotes.txt","r") as g_report:
         else:
             if ("Complete Genome" in line):
                 updated_line = line.replace("GCA", "GCF")
+                fields = line.split('\t')
+                ftp_path = fields[20]
+                if ftp_path == "-": continue ## skip rows that don't have an FTP URL.
                 print(updated_line)
