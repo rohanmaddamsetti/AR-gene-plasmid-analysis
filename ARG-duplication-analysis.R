@@ -176,26 +176,14 @@ gbk.annotation <- read.csv(
     ## when we add this annotation to duplicate.proteins and singleton.proteins.
     select(-NCBI_Nucleotide_Accession, -SequenceType) %>%
     ## and we have to explicitly remove redundant rows now.
-    distinct()
-
-## Some strains in chromosome-and-plasmid-table.csv and
-## gbk-annotation-table.csv are missing from
-## all-proteins.csv
-## These should be the genomes that do not have
-## CDS annotated in their GFF annotation.
-## list the 2,848 strains missing from the singletons data.
-missing.ones <- gbk.annotation %>%
-    filter(!(Annotation_Accession %in% all.proteins$Annotation_Accession))
-write.csv(missing.ones, file= "../results/strains-without-proteins.csv")
-
-## CRITICAL STEP: remove all genomes that do not have proteins annotated.
-gbk.annotation <- anti_join(gbk.annotation, missing.ones) %>%
+    distinct() %>%
     ## And now remove all Unannotated genomes, since these are not analyzed
     ## at all in this first paper.
     filter(Annotation != "Unannotated") %>%
     ## and remove any strains (although none should fall in this category)
     ## that were not annotated by annotate-ecological-category.py.
     filter(Annotation != "blank")
+
 
 ## print gbk.annotation to file for cross-checking.
 write.csv(gbk.annotation, file="../results/gbk-annotation-of-analyzed-complete-genomes.csv",
