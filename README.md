@@ -31,8 +31,9 @@ These steps can be done at the same time on the Duke Compute Cluster (DCC).
 And make sure these scripts are called from the src directory.
 fetch-gbk-annotation runs for several hours.  
 
-First, make the output directory for fetch-gbk-annotation.py.
+First, make some output directories.  
 mkdir ../results/gbk-annotation/  
+mkdir ../results/refseq-assembly-statistics/  
 
 Then:  
 
