@@ -11,7 +11,9 @@ hawkey_ids = []
 with open("../data/Hawkey2022-Hybrid-Assemblies-NCBI-BioProject-PRJNA646837/PRJNA646837_AssemblyDetails.txt", "r") as hawkey_accessions_fh:
     for line in hawkey_accessions_fh:
         if line.startswith("#"): continue
-        hawkey_ids.append(line.split()[0])
+        my_id = line.split()[0].replace("GCA", "GCF")
+        hawkey_ids.append(my_id)
+        
 
 genome_id_to_accession = dict()
 genome_ids = []

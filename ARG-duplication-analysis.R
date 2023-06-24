@@ -100,7 +100,7 @@ categorize.as.MGE.ARG.or.other <- function(product) {
 ## Set up the key data structures for the analysis:
 ## gbk.annotation, in particular.
 
-## import the 35GB file containing all proteins, including singletons.
+## import the 37GB file containing all proteins, including singletons.
 ## I can save a ton of memory if I don't import the sequence column,
 ## and by using the data.table package for import.
 all.proteins <- data.table::fread("../results/all-proteins.csv",
@@ -131,19 +131,19 @@ check.plasmid.accessions <- function(episome.database) {
 check.plasmid.accessions(episome.database)
 
 ## I used the script cross-check-Hawkey2022-accessions.py
-## to find six genomes in the Hawkey et al. 2022 dataset that are present in the main dataset
+## to find 8 genomes in the Hawkey et al. 2022 dataset that are present in the main dataset
 ## in gbk.annotation. Let's omit these from the main analysis to preserve independence of the
 ## clinical validation data.
 
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! IMPORTANT!!!! REDO AND CHECK THIS!!!!
 Hawkey.overlaps.in.gbk.annotation.vec <- c(
-    "GCA_016126855.1_ASM1612685v1",
-    "GCA_015476295.1_ASM1547629v1",
-    "GCA_015325925.1_ASM1532592v1",
-    "GCA_015999425.1_ASM1599942v1",
-    "GCA_015999405.1_ASM1599940v1",
-    "GCA_017584065.1_ASM1758406v1")
-
+    "GCF_016126855.1_ASM1612685v1",
+    "GCF_015476295.1_ASM1547629v1",
+    "GCF_015325925.1_ASM1532592v1",
+    "GCF_015999425.1_ASM1599942v1",
+    "GCF_015999405.1_ASM1599940v1",
+    "GCF_017584065.1_ASM1758406v1",
+    "GCF_904864465.1_INF298",
+    "GCF_904864595.1_INF333")
 
 gbk.annotation <- read.csv(
     "../results/computationally-annotated-gbk-annotation-table.csv") %>%
@@ -307,10 +307,10 @@ duplicate.ARGs.not.in.CARD <- duplicate.ARGs.by.keyword %>%
     arrange(product) %>% select(-sequence) %>% as_tibble()
 
 
-## duplicated ARG precision = 0.908
+## duplicated ARG precision = 0.931
 length(duplicate.proteins.in.CARD.matched.by.keywords$SeqID)/(length(duplicate.ARGs.not.in.CARD$SeqID) + length(duplicate.proteins.in.CARD.matched.by.keywords$SeqID))
 
-## duplicated ARG recall = 0.922
+## duplicated ARG recall = 0.972
 length(duplicate.proteins.in.CARD.matched.by.keywords$SeqID)/(length(duplicate.proteins.in.CARD.not.matched.by.keywords$SeqID) + length(duplicate.proteins.in.CARD.matched.by.keywords$SeqID))
 
 ##############
@@ -331,10 +331,10 @@ duplicate.MGE.genes.not.in.mobileOGdb <- duplicate.MGE.genes.by.keyword %>%
     filter(!(SeqID %in% duplicate.proteins.in.mobileOGdb$SeqID)) %>%
     as_tibble()
 
-## duplicated MGE genes precision = 0.792
+## duplicated MGE genes precision = 0.786
 length(duplicate.proteins.in.mobileOGdb.matched.by.keywords$SeqID)/(length(duplicate.MGE.genes.not.in.mobileOGdb$SeqID) + length(duplicate.proteins.in.mobileOGdb.matched.by.keywords$SeqID))
 
-## duplicated MGE genes recall = 0.835
+## duplicated MGE genes recall = 0.872
 length(duplicate.proteins.in.mobileOGdb.matched.by.keywords$SeqID)/(length(duplicate.proteins.in.mobileOGdb.not.matched.by.keywords$SeqID) + length(duplicate.proteins.in.mobileOGdb.matched.by.keywords$SeqID))
 
 ##########################################################################
@@ -1462,9 +1462,9 @@ make.Fig4DEFGHI.panel <- function(Table, order.by.total.isolates, title,
     return(panel)
 }
 
-## Throughout, only add special scales for the main figure.
 
 ## Finally -- make Figure 4ABC.
+## Throughout, add special scales for Figure 4 but not for Supplementary Figure S15.
 Fig4A <- make.confint.figure.panel(TableS1, order.by.total.isolates, "D-ARGs")
 if (! USE.CARD.AND.MOBILE.OG.DB) {
     Fig4A <- Fig4A +
@@ -1569,7 +1569,6 @@ if (! USE.CARD.AND.MOBILE.OG.DB) { ## Make main figure 4.
 
 ##########################################################################
 ## Figure 5: Visualization of ARGs on plasmids and chromosomes, and evidence for selection.
-
 ## set up data structures for Figure 5AB.
 Fig5A.data <- duplicate.proteins %>%
     group_by(Annotation, Category) %>%
@@ -1625,10 +1624,6 @@ category.summed.S.genes <- Fig5B.data %>%
     group_by(Category, Episome) %>%
     summarize(summed_count = sum(Count))
 
-## remove the dataframes to save memory.
-##rm(Fig5A.data)
-##rm(Fig5B.data)
-##gc()
 
 ## Figure 5C: 
 ## The observed ecological distribution of duplicate genes is driven by either
@@ -1928,11 +1923,6 @@ ggsave("../results/S9Fig.pdf", S9Fig, height = 18, width = 11)
 ## long-read technology by Hawkey et al. in Genome Medicine (2022).
 ## I downloaded the RefSeq accessions, since most of the Genbank sequences didn't
 ## have any gene annotations.
-
-########## CRITICALLY IMPORTANT!!!!
-## IMPORTANT!! I need to carefully check that the genomes in the Hawkey dataset
-## are truly independent (can be thrown off by the difference in RefSeq and Genbank accessions).
-
 Hawkey.all.proteins <- data.table::fread("../results/Hawkey2022-all-proteins.csv",
                                          drop="sequence")
 
@@ -2192,12 +2182,28 @@ annotated.ARG.associated.transposases <- transposase.in.joined.duplications.cont
     left_join(gbk.annotation) %>%
     ## Annotate the genera.
     mutate(Genus = stringr::word(Organism, 1))
+
 ## write relevant columns  to file, so that I can cluster these transposons,
 ## allowing k-mismatches from most common sequence within a cluster, using Julia.
 annotated.ARG.associated.transposases %>%
     select(product, Genus, sequence) %>%
     rename(product_annotation = product) %>%
 write.csv(file="../results/transposases-in-dup-regions-with-ARGs.csv", quote=FALSE,row.names=FALSE)
+
+## also make a file to cluster E. coli transposases.
+Ecoli.ARG.associated.transposases <- annotated.ARG.associated.transposases %>%
+    filter(str_detect(.$Organism, "Escherichia coli")) %>%
+    group_by(product, sequence) %>%
+    summarize(count = n()) %>%
+    arrange(desc(count))
+## and write it to file.
+write.csv(x=Ecoli.ARG.associated.transposases,
+          file="../results/Ecoli-transposases-in-dup-regions-with-ARGs.csv")
+
+## now cluster the transposases using the Julia script cluster-transposases.jl.
+print("Running: julia cluster-transposases.jl")
+system("julia cluster-transposases.jl")
+print("Completed: julia cluster-transposases.jl.")
 
 ## now read in the clustered transposons made by cluster-transposases.jl.
 clustered.ARG.associated.transposases <- read.csv(
@@ -2297,11 +2303,3 @@ ARG.associated.transposase.rank.plot2 <- top.ARG.associated.transposase.sequence
 ARG.associated.transposase.rank.plot2
 ggsave("../results/ARG-transposon-rank-plot2.pdf",ARG.associated.transposase.rank.plot2)
 
-Ecoli.ARG.associated.transposases <- annotated.ARG.associated.transposases %>%
-    filter(str_detect(.$Organism, "Escherichia coli")) %>%
-    group_by(product, sequence) %>%
-    summarize(count = n()) %>%
-    arrange(desc(count))
-## and write it to file.
-write.csv(x=Ecoli.ARG.associated.transposases,
-          file="../results/Ecoli-transposases-in-dup-regions-with-ARGs.csv")

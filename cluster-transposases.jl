@@ -31,7 +31,7 @@ function ClusterEcoliTransposases(transposase_df)
         gap_open=-1,
         gap_extend=-1
     )
-
+    
     clusters = Vector{EcoliTransposonCluster}()
     ## critical assumption: the sequences are read in sorted order
     ## by the number of transposase counts (most to least)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-''' count-ARG-MGE-adjacencies.py by Rohan Maddamsetti
+""" count-ARG-MGE-adjacencies.py by Rohan Maddamsetti
 
 This script counts the number of duplicated ARGs adjacent to MGE-associated genes,
 the number of duplicated ARGs not adjacent to MGE-associated genes,
@@ -19,7 +19,7 @@ There are two special cases to examine the left and right neighbors of the very 
 and the very last gene in each replicon.
 
 Usage on DCC: sbatch -p scavenger -t 24:00:00 --mem=4G --wrap="python count-ARG-MGE-adjacencies.py"
-'''
+"""
 
 import os
 from os.path import basename
@@ -109,9 +109,31 @@ def get_ARG_adjacency_type(left_prot, cur_prot, right_prot, dup_dict):
     return 4 if the protein is a singleton ARG not next to an MGE.
     '''
 
-    ARG_regex = "chloramphenicol|Chloramphenicol|tetracycline|Tetracycline|macrolide|lincosamide|streptogramin|multidrug|lactamase|glycopeptide resistance|VanZ|bacitracin|polymyxin B|trimethoprim-resistant|sulfonamide-resistant|quinolone|Quinolone|oxacin|aminoglycoside|streptomycin|Streptomycin|kanamycin|Kanamycin|tobramycin|Tobramycin|gentamicin|Gentamicin|neomycin|Neomycin|macrolide|ketolide|Azithromycin|azithromycin|Clarithromycin|clarithromycin|Erythromycin|erythomycin|antibiotic resistance"
+    chloramphenicol_keywords = "chloramphenicol|Chloramphenicol"
+    tetracycline_keywords = "tetracycline efflux|Tetracycline efflux|TetA|Tet(A)|tetA|tetracycline-inactivating"
+    MLS_keywords = "macrolide|lincosamide|streptogramin"
+    multidrug_keywords = "Multidrug resistance|multidrug resistance|antibiotic resistance"
+    beta_lactam_keywords = "lactamase|LACTAMASE|beta-lactam|oxacillinase|carbenicillinase|betalactam\S*"
+    glycopeptide_keywords = "glycopeptide resistance|VanZ|vancomycin resistance|VanA|VanY|VanX|VanH|streptothricin N-acetyltransferase"
+    polypeptide_keywords = "bacitracin|polymyxin B|phosphoethanolamine transferase|phosphoethanolamine--lipid A transferase"
+    diaminopyrimidine_keywords = "trimethoprim|dihydrofolate reductase|dihydropteroate synthase"
+    sulfonamide_keywords = "sulfonamide|Sul1|sul1|sulphonamide"
+    quinolone_keywords = "quinolone|Quinolone|oxacin|qnr|Qnr"
+    aminoglycoside_keywords = "Aminoglycoside|aminoglycoside|streptomycin|Streptomycin|kanamycin|Kanamycin|tobramycin|Tobramycin|gentamicin|Gentamicin|neomycin|Neomycin|16S rRNA (guanine(1405)-N(7))-methyltransferase|23S rRNA (adenine(2058)-N(6))-methyltransferase|spectinomycin 9-O-adenylyltransferase|Spectinomycin 9-O-adenylyltransferase|Rmt"
+    macrolide_keywords = "macrolide|ketolide|Azithromycin|azithromycin|Clarithromycin|clarithromycin|Erythromycin|erythromycin|Erm|EmtA"
+    antimicrobial_keywords = "QacE|Quaternary ammonium|quaternary ammonium|Quarternary ammonium|quartenary ammonium|fosfomycin|ribosomal protection|rifampin ADP-ribosyl|azole resistance|antimicrob\S*"
+    ARG_regex = "|".join([chloramphenicol_keywords, tetracycline_keywords,
+                          MLS_keywords, multidrug_keywords, beta_lactam_keywords,
+                          glycopeptide_keywords, polypeptide_keywords, diaminopyrimidine_keywords,
+                          sulfonamide_keywords, quinolone_keywords, aminoglycoside_keywords,
+                          macrolide_keywords, antimicrobial_keywords])
 
-    MGE_regex = "IS|transposon|Transposase|transposase|Transposable|transposable|virus|Phage|phage|integrase|Integrase|baseplate|tail|intron|Mobile|mobile|antitoxin|toxin|capsid|plasmid|Plasmid|conjug|Tra"
+    
+    transposon_keywords = "IS|transpos\S*|insertion|Tra[A-Z]|Tra[0-9]|tra[A-Z]|conjugate transposon|Transpos\S*|Tn[0-9]|tranposase|Tnp|Ins|ins"
+    plasmid_keywords = "relax\S*|conjug\S*|mob\S*|plasmid|type IV|chromosome partitioning|chromosome segregation|Mob\S*|Plasmid|Rep|Conjug\S*"
+    phage_keywords = "capsid|phage|Tail|tail|head|tape measure|antiterminatio|Phage|virus|Baseplate|baseplate|coat|entry exclusion"
+    other_HGT_keywords = "Integrase|integrase|excision\S*|exonuclease|recomb|toxin|restrict\S*|resolv\S*|topoisomerase|reverse transcrip|intron|antitoxin|toxin|Toxin|Reverse transcriptase|hok|Hok|competence|addiction"
+    MGE_regex = "|".join([transposon_keywords, plasmid_keywords, phage_keywords, other_HGT_keywords])
     
     ## check if the gene is an ARG.
     is_ARG = True if re.search(ARG_regex, cur_prot["product"]) else False
