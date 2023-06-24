@@ -3,10 +3,9 @@
 ## Python requirements: Python 3.6+, biopython, tqdm
 
 ## External software requirements:
-Mash 2.3: https://github.com/marbl/Mash  
-kallisto 0.46: https://pachterlab.github.io/kallisto/about  
-DIAMOND 2.1.6: http://www.diamondsearch.org  
+Mash 2.3: https://github.com/marbl/Mash
 Assembly Dereplicator 0.3.1: https://github.com/rrwick/Assembly-Dereplicator  
+DIAMOND 2.1.6: http://www.diamondsearch.org  
 
 Make a top-level directory with three directories inside, named "data", "results", and "src".  
 Now copy all source code files in this repository into "src".  
@@ -71,7 +70,7 @@ genome-assembly-metadata.csv
 
 
 Locally, download fasta sequences for all genomes, and make a list of dereplicated
-sequences. This runs overnight, and uses a lot of memory (100Gb!):
+sequences. This runs overnight, and uses a lot of memory (100Gb!):  
 python fetch-and-dereplicate-seqs.py
 
 Then, run the follow scripts to annotate the genomes, and to cross-check
