@@ -37,7 +37,6 @@ for each genome:
 import os
 from os.path import basename
 import re
-import gzip
 from Bio import SeqIO
 from tqdm import tqdm
 
@@ -69,7 +68,7 @@ with open(duplicated_proteins_tbl, 'r') as duplicated_proteins_fh:
         if i == 0: continue ## skip the header
         line = line.strip()
         fields = line.split(',')
-        my_annot_accession = fields[0]
+        my_annot_accession = fields[1]
         my_product_annot = fields[-2]
         my_sequence = fields[-1]
         if my_annot_accession in duplicated_proteins_lookup_table:
@@ -85,16 +84,16 @@ with open(outf, "w") as out_fh:
     header = "Annotation_Accession,Replicon_Accession,Replicon_type,region_index,region_length,num_proteins_in_region,region_start,region_end,protein_index,protein_id,protein_start,protein_end,protein_length,product,sequence\n"
     out_fh.write(header)
 
-    gbk_gz_files = [x for x in os.listdir(gbk_annotation_dir) if x.endswith("_genomic.gbff.gz")]
-    for gbk_gz in tqdm(gbk_gz_files):        
-        infile = gbk_annotation_dir + gbk_gz
-        annotation_accession = basename(infile).split("_genomic.gbff.gz")[0]
+    gbk_files = [x for x in os.listdir(gbk_annotation_dir) if x.endswith("_genomic.gbff")]
+    for gbk in tqdm(gbk_files):        
+        infile = os.path.join(gbk_annotation_dir, gbk)
+        annotation_accession = basename(infile).split("_genomic.gbff")[0]
         ## only examine genomes listed in chromosome-plasmid-table.csv
         ## for consistency in the data analysis.
         if annotation_accession not in replicon_type_lookup_table:
             continue
         
-        with gzip.open(infile,'rt') as genome_fh:
+        with open(infile,'r') as genome_fh:
             for replicon in SeqIO.parse(genome_fh, "gb"):
                 replicon_id = replicon.id
                 replicon_type = "NA"

@@ -70,7 +70,7 @@ def make_duplicated_proteins_lookup_tbl(infile="../results/duplicate-proteins.cs
             if i == 0: continue ## skip the header
             line = line.strip()
             fields = line.split(',')
-            my_annot_accession = fields[0]
+            my_annot_accession = fields[1]
             my_product_annot = fields[-2]
             my_sequence = fields[-1]
             if my_annot_accession in duplicated_proteins_lookup_table:
@@ -181,7 +181,7 @@ def count_ARG_MGE_adjacencies(gbk_annotation_dir, duplicated_proteins_lookup_tab
     
     gbk_files = [x for x in os.listdir(gbk_annotation_dir) if x.endswith("_genomic.gbff")]
     for gbk in tqdm(gbk_files):        
-        infile = gbk_annotation_dir + gbk
+        infile = os.path.join(gbk_annotation_dir, gbk)
         annotation_accession = basename(infile).split("_genomic.gbff")[0]
         ## skip if there are no duplications in this genome.
         if annotation_accession not in duplicated_proteins_lookup_table:
@@ -191,9 +191,8 @@ def count_ARG_MGE_adjacencies(gbk_annotation_dir, duplicated_proteins_lookup_tab
         if annotation_accession not in replicon_type_lookup_table:
             continue
         
-        with open(infile,'rt') as genome_fh:
+        with open(infile,'r') as genome_fh:
             for replicon in SeqIO.parse(genome_fh, "gb"):
-                
                 observed_locations = set() ## check for artifactual duplication due to duplicated annotation.
                 dup_dict = duplicated_proteins_lookup_table[annotation_accession]
                 

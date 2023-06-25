@@ -112,7 +112,7 @@ sbatch -p scavenger -t 24:00:00 --mem=4G --wrap="python count-ARG-MGE-adjacencie
 The count-ARG-MGE-adjacencies.py script makes the following file:  
 ../results/ARG-MGE-adjacency-counts.csv  
 
-Now run join-duplications.py to find larger regions of duplicated genes within each genome in the dataset.
+Now run join-duplications.py to find larger regions of duplicated genes within each genome in the dataset.  
 python join-duplications.py
 
 This makes the following file:  
