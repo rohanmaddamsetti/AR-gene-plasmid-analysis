@@ -92,6 +92,10 @@ Then download the CARD database locally into a folder called "../data/card-data"
 containing this source code, and download the mobileOG-db database into a folder called
 "../data/mobileOG-db_beatrix-1-6_v1_all" relative to the directory containing this source code.
 
+These databases can be downloaded from the following links:
+https://card.mcmaster.ca/download  
+https://mobileogdb.flsi.cloud.vt.edu/entries/database_download  
+
 Make sure all the paths in this next script make sense, and run the following:  
 python search-CARD-and-mobileOG-db.py  
 
