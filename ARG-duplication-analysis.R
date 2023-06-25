@@ -2249,7 +2249,10 @@ write.csv(x=top.clustered.ARG.associated.transposases, file="../results/top-clus
 
 ## by hand, I made a table of rank to IS Class for these top 10 transposase classes,
 ## by using blastp searches of the top sequence in the cluster against the ISFinder database:
-## https://www-is.biotoul.fr/blast.php
+## https://www-is.biotoul.fr/blast.php.
+## IMPORTANT: If this script is run on the newest NCBI RefSeq genomes, then the transposases in
+## ../results/top-clustered-ARG-associated-transposases.csv need to be manually cross-checked
+## against ISFinder to ensure that these annotations are correct and self-consistent!
 top.transposase.annotations <- read.csv("../data/Top10-ARG-associated-transposase-annotations.csv")
 ## now add these data as a column.
 annotated.top.clustered.ARG.associated.transposases <- full_join(
