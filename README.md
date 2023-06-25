@@ -1,11 +1,13 @@
 # AR-gene-plasmid-analysis by Rohan Maddamsetti and Vincent Huang
 
-## Python requirements: Python 3.6+, biopython, tqdm
-
-## External software requirements:
-Mash 2.3: https://github.com/marbl/Mash
-Assembly Dereplicator 0.3.1: https://github.com/rrwick/Assembly-Dereplicator  
-DIAMOND 2.1.6: http://www.diamondsearch.org  
+## Software requirements
+## Python 3.6+, biopython, tqdm  
+## R 4.0  
+## Julia 1.8.5  
+### Mash 2.3: https://github.com/marbl/Mash  
+### Assembly Dereplicator 0.3.1: https://github.com/rrwick/Assembly-Dereplicator  
+### DIAMOND 2.1.6: http://www.diamondsearch.org  
+### kallisto 0.48.0: https://pachterlab.github.io/kallisto/  
 
 Make a top-level directory with three directories inside, named "data", "results", and "src".  
 Now copy all source code files in this repository into "src".  
@@ -123,17 +125,26 @@ Run the following script:
 python tabulate-proteins-in-clinical-genomes.py  
 
 This script makes the following files:  
-../results/Duke-ESBL-all-proteins.csv
-../results/Duke-ESBL-duplicate-proteins.csv
-../results/BARNARDS-all-proteins.csv
-../results/BARNARDS-duplicate-proteins.csv
-../results/Mahmud2022-all-proteins.csv
-../results/Mahmud2022-duplicate-proteins.csv
-../results/Hawkey2022-all-proteins.csv
-../results/Hawkey2022-duplicate-proteins.csv
+../results/Duke-ESBL-all-proteins.csv  
+../results/Duke-ESBL-duplicate-proteins.csv  
+../results/BARNARDS-all-proteins.csv  
+../results/BARNARDS-duplicate-proteins.csv  
+../results/Mahmud2022-all-proteins.csv  
+../results/Mahmud2022-duplicate-proteins.csv  
+../results/Hawkey2022-all-proteins.csv  
+../results/Hawkey2022-duplicate-proteins.csv  
 
+Now run the following script to analyze plasmid copy number in the
+dataset from Hawkey et al. (2022).  
 
-### Now, all the data analysis in ARG-duplications.R should run.
+python plasmid-copy-number-pipeline.py  
+
+This script requires kallisto to be available from the command-line.  
+It generates the following files used by ARG-duplications.R:  
+../results/Hawkey2022_ARG_copy_numbers.csv  
+../results/Hawkey2022_chromosome_plasmid_copy_numbers.csv  
+
+### Finally -- now, all the data analysis in ARG-duplications.R should run.
 
 ### Analysis of transposases associated with duplicated ARGs.  
 

@@ -334,60 +334,25 @@ def measure_Hawkey2022_ARG_copy_numbers(kallisto_quant_results_dir, ARG_copy_num
     return
 
 
-def tabulate_Hawkey2022_replicon_lengths(refgenomes_dir, replicon_length_csv_file):
-    with open(replicon_length_csv_file, 'w') as outfh:
-        header = "AnnotationAccession,SeqID,replicon_length\n"
-        outfh.write(header)
-        for gbk_gz in os.listdir(refgenomes_dir):
-            if not gbk_gz.endswith(".gbff.gz"): continue
-            annotation_accession = gbk_gz.split("_genomic.gbff.gz")[0]
-            infile = os.path.join(refgenomes_dir, gbk_gz)
-            with gzip.open(infile, "rt") as genome_fh:
-                for replicon in SeqIO.parse(genome_fh, "gb"):
-                    SeqID = replicon.id
-                    replicon_length = str(len(replicon))
-                    ## now write out the data for the replicon.
-                    row = ','.join([annotation_accession, SeqID, replicon_length])
-                    outfh.write(row + "\n")
-    return
-
-
 def main():
-
-    RUN_STAGE = 7
 
     SRA_data_dir = "../data/Hawkey2022-SRA-data/"
     SRA_accession_list_file = os.path.join(SRA_data_dir, "Hawkey2022-SRA-accessions.txt")
-    
     refgenomes_dir = "../data/Hawkey2022-Hybrid-Assemblies-NCBI-BioProject-PRJNA646837/"
     kallisto_ref_dir = "../results/Hawkey2022_kallisto_references/"
     kallisto_index_dir = "../results/Hawkey2022_kallisto_indices/"
     kallisto_quant_results_dir = "../results/Hawkey2022_kallisto_quantification"
-
     Hawkey2022_metadata_csv = os.path.join(SRA_data_dir, "Hawkey2022-genome-metadata.csv")
     Hawkey2022_genomeID_to_SRA_ID_dict = make_genome_to_SRA_dict(Hawkey2022_metadata_csv)
-
     copy_number_csv_file = "../results/Hawkey2022_chromosome_plasmid_copy_numbers.csv"
     ARG_copy_number_csv_file = "../results/Hawkey2022_ARG_copy_numbers.csv"
-
-    replicon_length_csv_file = "../results/Hawkey2022_replicon_lengths.csv"
     
-    if RUN_STAGE == 0:
-        pass ## do nothing. this is for debugging.
-    elif RUN_STAGE == 1:
-        download_fastq_reads(SRA_data_dir, SRA_accession_list_file)
-    elif RUN_STAGE == 2:
-        make_Hawkey_fasta_refs_for_kallisto(refgenomes_dir, kallisto_ref_dir)
-    elif RUN_STAGE == 3:
-        make_Hawkey_kallisto_indices(kallisto_ref_dir, kallisto_index_dir)
-    elif RUN_STAGE == 4:
-        run_kallisto_quant(Hawkey2022_genomeID_to_SRA_ID_dict, kallisto_index_dir, SRA_data_dir, kallisto_quant_results_dir)
-    elif RUN_STAGE == 5:
-        measure_Hawkey2022_replicon_copy_numbers(kallisto_quant_results_dir, copy_number_csv_file)
-    elif RUN_STAGE == 6:
-        measure_Hawkey2022_ARG_copy_numbers(kallisto_quant_results_dir, ARG_copy_number_csv_file)
-    elif RUN_STAGE == 7:
-        tabulate_Hawkey2022_replicon_lengths(refgenomes_dir, replicon_length_csv_file)
+    download_fastq_reads(SRA_data_dir, SRA_accession_list_file)
+    make_Hawkey_fasta_refs_for_kallisto(refgenomes_dir, kallisto_ref_dir)
+    make_Hawkey_kallisto_indices(kallisto_ref_dir, kallisto_index_dir)
+    run_kallisto_quant(Hawkey2022_genomeID_to_SRA_ID_dict, kallisto_index_dir, SRA_data_dir, kallisto_quant_results_dir)
+    measure_Hawkey2022_replicon_copy_numbers(kallisto_quant_results_dir, copy_number_csv_file)
+    measure_Hawkey2022_ARG_copy_numbers(kallisto_quant_results_dir, ARG_copy_number_csv_file)
     return
 
 

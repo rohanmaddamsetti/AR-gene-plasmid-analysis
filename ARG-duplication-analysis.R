@@ -3,6 +3,10 @@
 ## on chromosomes versus plasmids in  fully-sequenced genomes and plasmids
 ## in the NCBI RefSeq database (dated March 26 2021).
 
+## IMPORTANT NOTE: Julia needs to be accessible from the shell as called by the R function system()
+## near the end of this script. This is for a relatively minor result; the big stuff doesn't depend on Julia
+## being accessible from R.
+
 library(tidyverse)
 library(cowplot)
 library(ggrepel)
@@ -2200,10 +2204,12 @@ Ecoli.ARG.associated.transposases <- annotated.ARG.associated.transposases %>%
 write.csv(x=Ecoli.ARG.associated.transposases,
           file="../results/Ecoli-transposases-in-dup-regions-with-ARGs.csv")
 
+####################################################################
 ## now cluster the transposases using the Julia script cluster-transposases.jl.
 print("Running: julia cluster-transposases.jl")
 system("julia cluster-transposases.jl")
 print("Completed: julia cluster-transposases.jl.")
+####################################################################
 
 ## now read in the clustered transposons made by cluster-transposases.jl.
 clustered.ARG.associated.transposases <- read.csv(

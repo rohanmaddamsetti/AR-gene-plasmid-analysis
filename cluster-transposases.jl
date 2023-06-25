@@ -156,7 +156,7 @@ function WriteGenusClustersToFile(genus_clusters, outfile)
     outfh = open(outfile, "w")
     header = "product, Genus, sequence,count"
     println(outfh, header)
-    for cluster in clusters
+    for cluster in genus_clusters
         for (genus, counts) in cluster.genus_to_counts
         line = string(cluster.product_annotation) * "," * string(genus) * "," * string(cluster.ref) * "," * string(counts)
         println(outfh, line)
@@ -178,14 +178,14 @@ function main()
     Ecoli_cluster_outfile = "../results/merged_Ecoli-transposases-in-dup-regions-with-ARGs.csv"
     WriteEcoliClustersToFile(ecoli_clusters, Ecoli_cluster_outfile)
 
-    ## there are 714 E. coli transposases associated with duplicated ARGs.
+    ## there are 685 E. coli transposases associated with duplicated ARGs.
     total_counts = 0
     for x in ecoli_clusters
         total_counts += x.counts
     end
-    print(total_counts)
-    ## IS26 (at 99% similarity threshold) accounts for 430 of these.
-    print(ecoli_clusters[1].counts)
+    println("E. coli transposases associated with duplicated ARGs:  " * string(total_counts))
+    ## IS26 (at 99% similarity threshold) accounts for 418 of these.
+    println("The top transposase (IS26) is associated with duplicated ARGs this many times: " * string(ecoli_clusters[1].counts))
 
     ## Now, let's cluster all transposases associated with duplicated ARGs, using a 99% similarity threshold.
     all_transposase_path = "../results/transposases-in-dup-regions-with-ARGs.csv"
