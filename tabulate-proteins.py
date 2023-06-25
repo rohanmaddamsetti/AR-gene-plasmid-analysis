@@ -55,18 +55,30 @@ with open(outf, 'w') as outfh:
     for gbk in tqdm(os.listdir("../results/gbk-annotation")):
         if not gbk.endswith(".gbff"): continue
         annotation_accession = gbk.split("_genomic.gbff")[0]
-        ## IMPORTANT TODO: make sure chromosome-plasmid-table.csv
-        ## and the data in ../results/gbk-annotation are consistent.
-        ## The next line is a temporary consistency check.
+        ## The next line is a consistency check to make sure that
+        ## chromosome-plasmid-table.csv and the data in ../results/gbk-annotation are consistent.
         if annotation_accession not in replicon_type_lookup_table: continue
         infile = os.path.join("../results/gbk-annotation/", gbk)
         with open(infile, "rt") as genome_fh:
             protein_dict = {}
             for replicon in SeqIO.parse(genome_fh, "gb"):
-                replicon_id = replicon.id
+                """ This is a bit tricky. The replicon ids in this file are RefSeq IDs,
+                but the replicon ids in best-prokaryotes.txt and chromosome-plasmid-table.csv
+                are Genbank IDs.
+                The corresponding Genbank IDs are found in the RefSeq annotation in a COMMENT field--
+                we have to parse the Genbank ID from the RefSeq annotation.
+
+                We assume that the Genbank ID is the second line of the comment field like so:
+
+                REFSEQ INFORMATION: The reference sequence is identical to
+                replicon_genbank_id.
+
+                and we strip the lagging period '.'
+                """
+                replicon_genbank_id = replicon.annotations['comment'].split("\n")[1].rstrip(".")
                 replicon_type = "NA"
-                if replicon_id in replicon_type_lookup_table[annotation_accession]:
-                    replicon_type = replicon_type_lookup_table[annotation_accession][replicon_id]
+                if replicon_genbank_id in replicon_type_lookup_table[annotation_accession]:
+                    replicon_type = replicon_type_lookup_table[annotation_accession][replicon_genbank_id]
                 else: ## replicon is not annotated as a plasmid or chromosome
                     ## in the NCBI Genome report, prokaryotes.txt.
                     ## assume that this is an unassembled contig or scaffold.
