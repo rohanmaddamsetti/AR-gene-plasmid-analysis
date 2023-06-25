@@ -24,7 +24,6 @@ Usage on DCC: sbatch -p scavenger -t 24:00:00 --mem=4G --wrap="python count-ARG-
 import os
 from os.path import basename
 import re
-import gzip
 from itertools import islice
 from Bio import SeqIO
 from tqdm import tqdm
@@ -180,10 +179,10 @@ def count_ARG_MGE_adjacencies(gbk_annotation_dir, duplicated_proteins_lookup_tab
     sARGs_next_to_MGEs = 0
     sARGs_not_next_to_MGEs = 0
     
-    gbk_gz_files = [x for x in os.listdir(gbk_annotation_dir) if x.endswith("_genomic.gbff.gz")]
-    for gbk_gz in tqdm(gbk_gz_files):        
-        infile = gbk_annotation_dir + gbk_gz
-        annotation_accession = basename(infile).split("_genomic.gbff.gz")[0]
+    gbk_files = [x for x in os.listdir(gbk_annotation_dir) if x.endswith("_genomic.gbff")]
+    for gbk in tqdm(gbk_files):        
+        infile = gbk_annotation_dir + gbk
+        annotation_accession = basename(infile).split("_genomic.gbff")[0]
         ## skip if there are no duplications in this genome.
         if annotation_accession not in duplicated_proteins_lookup_table:
             continue
@@ -192,7 +191,7 @@ def count_ARG_MGE_adjacencies(gbk_annotation_dir, duplicated_proteins_lookup_tab
         if annotation_accession not in replicon_type_lookup_table:
             continue
         
-        with gzip.open(infile,'rt') as genome_fh:
+        with open(infile,'rt') as genome_fh:
             for replicon in SeqIO.parse(genome_fh, "gb"):
                 
                 observed_locations = set() ## check for artifactual duplication due to duplicated annotation.
