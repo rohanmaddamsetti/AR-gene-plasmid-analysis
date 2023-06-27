@@ -136,10 +136,14 @@ check.plasmid.accessions(episome.database)
 
 ## I used the script cross-check-Hawkey2022-accessions.py
 ## to find 8 genomes in the Hawkey et al. 2022 dataset that are present in the main dataset
-## in gbk.annotation. Let's omit these from the main analysis to preserve independence of the
+## in gbk.annotation.
+## I then found another 5 based on an assertion statement  to make sure none of these
+## genomes are analyzed in the main dataset.
+##Let's omit these from the main analysis to preserve independence of the
 ## clinical validation data.
 
 Hawkey.overlaps.in.gbk.annotation.vec <- c(
+    ## These were found with cross-chrck-Hawkey2022-accessions.py.
     "GCF_016126855.1_ASM1612685v1",
     "GCF_015476295.1_ASM1547629v1",
     "GCF_015325925.1_ASM1532592v1",
@@ -147,7 +151,15 @@ Hawkey.overlaps.in.gbk.annotation.vec <- c(
     "GCF_015999405.1_ASM1599940v1",
     "GCF_017584065.1_ASM1758406v1",
     "GCF_904864465.1_INF298",
-    "GCF_904864595.1_INF333")
+    "GCF_904864595.1_INF333",
+    ## I caught these with an assertion.
+    "GCF_904866485.1_KSB1_1H",
+    "GCF_904863335.1_KSB1_5B",
+    "GCF_904866485.1_KSB1_1H",
+    "GCF_904863335.1_KSB1_5B",
+    "GCF_904863225.1_KSB1_6J",
+    "GCF_904866475.1_KSB2_9B",
+    "GCF_904863435.1_KSB1_1B")
 
 gbk.annotation <- read.csv(
     "../results/computationally-annotated-gbk-annotation-table.csv") %>%
@@ -1963,8 +1975,7 @@ ggsave("../results/S10Fig.pdf", S10Fig, height = 14, width = 11)
 
 ## clinical resistance genomes are even more enriched with ARGs than the baseline dataset.
 ## the null comes from Table S1 row for humans.
-## IMPORTANT TODO: UPDATE THE NULL GIVEN THE NEW DATA PROCESSING!!!
-binom.test(x=(6+23+36+20),n=(12+46+149+114),p=0.1407)
+binom.test(x=(6+23+36+20),n=(12+46+149+114),p=0.142)
 
 ################################################################################
 ## Supplementary Figure 11. Analysis of copy number in the genomes from Hawkey et al. (2022).
@@ -2098,7 +2109,7 @@ fisher.test(joined.regions.contingency.table)
 ## What is the relative contribution of segmental duplications to transpositions for duplicated ARGs in this dataset?
 ## This analysis shows that segmental duplications play a relatively small role compared to MGEs.
 
-## get all regions containing duplicated ARGs (5152 of these).
+## get all regions containing duplicated ARGs (6087 of these).
 joined.regions.containing.ARGs <- all.joined.duplications %>%
     filter(str_detect(.$product,antibiotic.keywords)) %>%
     select(Annotation_Accession, Replicon_Accession, Replicon_type,
@@ -2150,12 +2161,13 @@ dup.ARGs.within.regions.with.segmental.dup.data <- dup.ARG.regions.with.segmenta
 write.csv(x=dup.ARGs.within.regions.with.segmental.dup.data,
           file="../results/joined-regions-just-ARGs-and-dup-counts.csv")
 
-## 282 ARGs have multiple copies in the same region of duplicated genes.
+## 406 ARGs have multiple copies in the same region of duplicated genes.
 segmental.ARG.duplications <- dup.ARGs.within.regions.with.segmental.dup.data %>%
     filter(dup.count > 1)
-## These 282 ARGs are found in 196 unique regions of duplicated genes.
+## These 406 ARGs are found in 237 unique regions of duplicated genes.
 length(unique(segmental.ARG.duplications$dupARG_region_index))
 ## so 196 out of the 5,152 joined regions containing duplicated ARGs have multiple copies of some ARG.
+## TODO: UPDATE THESE NUMBERS!
 
 
 #################################################
@@ -2297,7 +2309,6 @@ ARG.associated.transposase.rank.plot1 <- ARG.associated.transposase.sequences.wi
     geom_bar(position="stack", stat="identity") +
     theme_classic()
 
-ARG.associated.transposase.rank.plot1
 ggsave("../results/ARG-transposon-rank-plot1.pdf",ARG.associated.transposase.rank.plot1)
 
 ## filter on just the top ranks.
@@ -2309,6 +2320,5 @@ ARG.associated.transposase.rank.plot2 <- top.ARG.associated.transposase.sequence
     geom_bar(position="stack", stat="identity") +
     theme_classic()
 
-ARG.associated.transposase.rank.plot2
 ggsave("../results/ARG-transposon-rank-plot2.pdf",ARG.associated.transposase.rank.plot2)
 
