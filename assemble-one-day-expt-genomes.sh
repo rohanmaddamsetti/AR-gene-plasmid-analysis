@@ -12,7 +12,7 @@
 ## first, assemble the ancestral genomes using the K12-MG1655-NC_000913.gb reference genome.
 
 ## assemble the B59 ancestral strain using the K12-MG1655-NC_000913.gb reference genome.
-#sbatch --mem=2G -c 1 --wrap="breseq -o ../results/one-day-expt-genome-analysis/RM7-87-1 -r ../data/one-day-expt-reference-genome/K12-MG1655-NC_000913.gb -r ../data/one-day-expt-reference-genome/B59-TetA.gb ../data/one-day-expt-genome-data/SeqCenter_RohanMaddamsetti220907/RM7_87_1/*.fastq.gz"
+sbatch --mem=2G -c 1 --wrap="breseq -o ../results/one-day-expt-genome-analysis/RM7-87-1 -r ../data/one-day-expt-reference-genome/K12-MG1655-NC_000913.gb -r ../data/one-day-expt-reference-genome/B59-TetA.gb ../data/one-day-expt-genome-data/SeqCenter_RohanMaddamsetti220907/RM7_87_1/*.fastq.gz"
 
 ## assemble the B59 + p15A ancestral strain using the K12-MG1655-NC_000913.gb reference genome.
 #sbatch --mem=2G -c 1 --wrap="breseq -o ../results/one-day-expt-genome-analysis/RM7-87-2 -r ../data/one-day-expt-reference-genome/K12-MG1655-NC_000913.gb -r ../data/one-day-expt-reference-genome/B59-TetA.gb -r ../data/one-day-expt-reference-genome/A31-p15A.gb ../data/one-day-expt-genome-data/SeqCenter_RohanMaddamsetti220907/RM7_87_2/*.fastq.gz"

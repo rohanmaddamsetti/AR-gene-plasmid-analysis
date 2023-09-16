@@ -53,6 +53,7 @@ python run-QC-and-make-assembly-stats-table.py
 
 ## this runs for ~8h on DCC.
 sbatch --mem=16G -t 24:00:00 --wrap="python count-cds.py"  
+sbatch --mem=16G -t 24:00:00 --wrap="python count-proteins-and-replicon-lengths.py"  
 
 ## this runs for ~36h on DCC.
 sbatch --mem=16G -t 48:00:00 --wrap="python tabulate-proteins.py"  

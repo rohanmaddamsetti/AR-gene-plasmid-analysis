@@ -243,6 +243,16 @@ duplicate.proteins <- read.csv("../results/duplicate-proteins.csv") %>%
     ## now merge with gbk annotation.
     inner_join(gbk.annotation)
 
+######## Control analysis for separate project:
+## print out a table of ARGs found on plasmids.
+plasmid.ARGs <- all.proteins %>%
+    filter(plasmid_count >= 1) %>%
+    inner_join(gbk.annotation) %>%
+    filter(str_detect(.$product,antibiotic.keywords))
+## and write out to file.
+write.csv(plasmid.ARGs, "../results/all-plasmid-ARGs.csv",
+          row.names=FALSE,quote=F)
+
 ######## Lingchong asked for this control analysis.
 ## by default, don't count plasmid proteins as duplicates.
 ## The results are robust to this assumption; nothing changes.
