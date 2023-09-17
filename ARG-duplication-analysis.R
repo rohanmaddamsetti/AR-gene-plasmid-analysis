@@ -110,9 +110,15 @@ categorize.as.MGE.ARG.or.other <- function(product) {
 all.proteins <- data.table::fread("../results/all-proteins.csv",
                                   drop="sequence")
 
-## get the genomes that passed assembly QC.
+## get the genomes with chromosomes smaller than some plasmid in the genome.
+## we will remove these 12 genomes from the analysis.
+bad.replicons <- read.csv("../results/bad-replicons.csv")
+
+## get the genomes that passed assembly quality control (QC),
+## and anti_join with bad.replicons to add an additional layer of QC.
 ## We will use this to filter episome.database and gbk.annotation.
 QCed.genomes <- read.csv("../results/genome-assembly-metadata.csv") %>%
+    anti_join(bad.replicons) %>%
     as_tibble()
 
 ## annotate source sequences as plasmid or chromosome.

@@ -51,7 +51,7 @@ python make-gbk-annotation-table.py ## this runs for ~35 min on DCC.
 ## double-check assembly quality on DCC.  
 python run-QC-and-make-assembly-stats-table.py  
 
-## this runs for ~8h on DCC.
+## this runs for ~12h on DCC.
 sbatch --mem=16G -t 24:00:00 --wrap="python count-cds.py"  
 sbatch --mem=16G -t 24:00:00 --wrap="python count-proteins-and-replicon-lengths.py"  
 
@@ -70,6 +70,7 @@ protein_db_CDS_counts.csv
 gbk-annotation-table.csv  
 chromosome-plasmid-table.csv  
 genome-assembly-metadata.csv  
+replicon-lengths-and-protein-counts.csv
 
 
 Locally, download fasta sequences for all genomes, and make a list of dereplicated
@@ -82,6 +83,12 @@ the computational annotation against a subset of annotations that were conducted
 python annotate-ecological-category.py > ../results/computationally-annotated-gbk-annotation-table.csv  
 
 python check-ecological-annotation.py  
+
+Finally, run the following script to find any genomes with chromosomes smaller than
+a plasmid in that genome:  
+
+python find-bad-replicons.py > ../results/bad-replicons.csv  
+
 
 ### CARD and mobileOG-db analyses.
 
