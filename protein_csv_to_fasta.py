@@ -28,6 +28,7 @@ with open(outf, "w") as outfh:
     with open(input_csv, "r") as csv_fh:
         for i, line in enumerate(csv_fh):
             if i == 0: continue ## skip the header
+            line = line.strip() ## remove leading and lagging whitespace.
             fields = line.split(",")
             seq_id = fields[0]
             annotation_accession = fields[1]
