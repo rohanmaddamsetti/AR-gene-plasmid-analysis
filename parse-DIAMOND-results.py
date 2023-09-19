@@ -28,10 +28,11 @@ def PrintCSV(results_file, output_file):
         output_fh.write("SeqID,Annotation_Accession,count,chromosome_count,plasmid_count,unassembled_count,product,percent_identity,evalue,bitscore\n")
         with open(results_file, "r") as results_fh:
             for line in results_fh:
+                line = line.strip() ## remove leading and lagging whitespace.
                 header, percent_identity, evalue, bitscore = line.split("\t")
                 seq_id, annotation_accession, count, chromosome_count, plasmid_count, unassembled_count, product = ParseHeader(header)
-                row = ",".join([seq_id, annotation_accession, count, chromosome_count, plasmid_count, unassembled_count, product, percent_identity, evalue, bitscore]) + "\n"
-                output_fh.write(row)
+                row = ",".join([seq_id, annotation_accession, count, chromosome_count, plasmid_count, unassembled_count, product, percent_identity, evalue, bitscore])
+                output_fh.write(row + "\n")
     return
 
 
