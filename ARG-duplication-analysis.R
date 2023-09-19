@@ -19,7 +19,7 @@ library(data.table)
 ## For control analysis to check robustness of results to method used to score ARGs
 ## and MGE-associated genes.
 ## By default set to FALSE.
-USE.CARD.AND.MOBILE.OG.DB <- TRUE ##FALSE
+USE.CARD.AND.MOBILE.OG.DB <- FALSE
 
 ## by default, don't count plasmid proteins as duplicates.
 ## The results are robust to this assumption; nothing changes.
@@ -737,11 +737,11 @@ S4FigA <- genera.isolate.comparison.df %>%
     xlab("sqrt(Number of isolates)") +
     ylab("sqrt(Number of isolates with D-ARGs)")
 
-## 7,195 isolates are in the top ARG genera.
+## 5,638 isolates are in the top ARG genera.
 top.ARG.genera.isolates <- gbk.annotation %>%
     filter(Genus %in% top.ARG.genera)
 
-## 11,509 isolates are in the remaining genera.
+## 13,300 isolates are in the remaining genera.
 filtered.gbk.annotation <- gbk.annotation %>%
     filter(!(Genus %in% top.ARG.genera))
 
@@ -794,9 +794,6 @@ single.organism.gbk.annotation <- gbk.annotation %>%
 
 single.organism.duplicate.ARGs <- duplicate.ARGs %>%
     filter(Annotation_Accession %in% single.organism.gbk.annotation$Annotation_Accession)
-
-##single.organism.singleton.ARGs <- singleton.ARGs %>%
-##    filter(Annotation_Accession %in% single.organism.gbk.annotation$Annotation_Accession)
 
 single.organism.TableS1 <- make.TableS1(
     single.organism.gbk.annotation, single.organism.duplicate.ARGs)
@@ -1073,7 +1070,7 @@ both.chr.and.plasmid.cases <- duplicate.proteins %>%
     filter(chromosome_count >= 1 & plasmid_count >= 1) %>%
     arrange(desc(count)) %>%
     tibble()
-    
+
 just.chromosome.cases <- duplicate.proteins %>%
     filter(chromosome_count >= 1 & plasmid_count == 0) %>%
     arrange(desc(count)) %>%
@@ -1529,11 +1526,10 @@ Fig4ABC.with.title <- plot_grid(Fig4ABC.title, Fig4ABC, ncol = 1, rel_heights = 
 ## I manually set axis labels so that they don't run into each other.
 Fig4D <- make.Fig4DEFGHI.panel(Fig4D.df, order.by.total.isolates,
                          "\nD-ARGs",
-                         "Proportion of\nall genes")
-if (! USE.CARD.AND.MOBILE.OG.DB) {
-    Fig4D <- Fig4D +
-        scale_x_continuous(label=fancy_scientific, breaks = c(0, 2e-4), limits = c(0,2.5e-4))
-}
+                         "Proportion of\nall genes") +
+    ## This scale is for both Figure 4D and S14DFig.
+    scale_x_continuous(label=fancy_scientific, breaks = c(0, 2e-4), limits = c(0,2.5e-4))
+
 
 Fig4E <- make.Fig4DEFGHI.panel(Fig4E.df, order.by.total.isolates,
                          "Chromosome:\nD-ARGs",
@@ -1550,7 +1546,7 @@ Fig4F <- make.Fig4DEFGHI.panel(Fig4F.df, order.by.total.isolates,
                          no.category.label = TRUE)
 if (! USE.CARD.AND.MOBILE.OG.DB) {
     Fig4F <- Fig4F +
-        scale_x_continuous(label=fancy_scientific, breaks = c(0, 5e-3), limits = c(0,6e-3))
+         scale_x_continuous(label=fancy_scientific, breaks = c(0, 5e-3), limits = c(0,6e-3))
 }
 
 Fig4G <- make.Fig4DEFGHI.panel(Fig4G.df, order.by.total.isolates,
@@ -1564,7 +1560,9 @@ if (! USE.CARD.AND.MOBILE.OG.DB) {
 Fig4H <- make.Fig4DEFGHI.panel(Fig4H.df, order.by.total.isolates,
                          "Chromosome:\nS-ARGs",
                          "Proportion of\nchromosomal genes",
-                         no.category.label = TRUE)
+                         no.category.label = TRUE) +
+    ## This scale is for S14DFig.
+    scale_x_continuous(label=fancy_scientific, breaks = c(2e-3, 4e-3, 6e-3), limits = c(0, 6.25e-3))
 if (! USE.CARD.AND.MOBILE.OG.DB) {
     Fig4H <- Fig4H +
         scale_x_continuous(label=fancy_scientific, breaks = c(2e-3, 3e-3), limits = c(1.5e-3, 3.5e-3))
@@ -1573,7 +1571,9 @@ if (! USE.CARD.AND.MOBILE.OG.DB) {
 Fig4I <- make.Fig4DEFGHI.panel(Fig4I.df, order.by.total.isolates,
                          "Plasmids:\nS-ARGs",
                          "Proportion of\nplasmid genes",
-                         no.category.label = TRUE)
+                         no.category.label = TRUE) +
+    ## This scale is for S14IFig.
+    scale_x_continuous(label=fancy_scientific, breaks = c(3e-3, 2e-2), limits = c(0,2.5e-2))
 if (! USE.CARD.AND.MOBILE.OG.DB) {
     Fig4I <- Fig4I +
         scale_x_continuous(label=fancy_scientific, breaks = c(3e-3, 2e-2))
@@ -1596,7 +1596,7 @@ Fig4 <- plot_grid(Fig4ABC.with.title, Fig4DEFGHI.with.title,
 if (! USE.CARD.AND.MOBILE.OG.DB) { ## Make main figure 4.
     ggsave("../results/Fig4.pdf", Fig4, height=6.25, width=6.25)
 } else { ## Make supplementary Figure S14.
-    ggsave("../results/S14Fig.pdf", Fig4, height=6.25, width=6.25)
+    ggsave("../results/S14Fig.pdf", Fig4, height=6.25, width=8)
 }
 
 ##########################################################################
@@ -1894,7 +1894,7 @@ ggsave("../results/S6Fig.pdf", S6Fig, height = 9, width = 10)
 ## Let's analyze duplicated genes in 46 genomes that were sequenced with
 ## long-read technology by BARNARDS group in Nature Microbiology (2022).
 
- BARNARDS.all.proteins <- data.table::fread("../results/BARNARDS-all-proteins.csv",
+BARNARDS.all.proteins <- data.table::fread("../results/BARNARDS-all-proteins.csv",
                                   drop="sequence")
 
 ## assert that this is an independent dataset.
