@@ -1369,6 +1369,9 @@ make.Fig4DEFGHI.df <- function(TableS1, TableS4, TableS5) {
 
 
 Fig4DEFGHI.df <- make.Fig4DEFGHI.df(TableS1, TableS4, TableS5)
+## Save Source Data for Fig4DEFGHI.
+write.csv(Fig4DEFGHI.df, "../results/Source-Data/Fig4DEFGHI-Source-Data.csv", row.names=FALSE, quote=FALSE)
+
 ## Figure 4DEFGHI.
 ## Plot point estimates for the fraction of chromosomal genes that are
 ## the fraction of genes that are duplicated ARGs (panel D),
@@ -1492,6 +1495,11 @@ make.Fig4DEFGHI.panel <- function(Table, order.by.total.isolates, title,
 }
 
 
+## Save Tables S1, S2, and S3 as Source Data for Fig4ABC.
+write.csv(TableS1, "../results/Source-Data/Fig4A-Source-Data.csv", row.names=FALSE, quote=FALSE)
+write.csv(TableS2, "../results/Source-Data/Fig4B-Source-Data.csv", row.names=FALSE, quote=FALSE)
+write.csv(TableS3, "../results/Source-Data/Fig4C-Source-Data.csv", row.names=FALSE, quote=FALSE)
+
 ## Finally -- make Figure 4ABC.
 ## Throughout, add special scales for Figure 4 but not for Supplementary Figure S14.
 Fig4A <- make.confint.figure.panel(TableS1, order.by.total.isolates, "D-ARGs")
@@ -1612,6 +1620,9 @@ Fig5A.data <- duplicate.proteins %>%
                Annotation,
                levels = rev(order.by.total.isolates)))
 
+## Save Source Data for Figure 5A.
+write.csv(Fig5A.data, "../results/Source-Data/Fig5A-Source-Data.csv", row.names=FALSE, quote=FALSE)
+
 Fig5B.data <- singleton.proteins %>%
     group_by(Annotation, Category) %>%
     summarize(Plasmid = sum(plasmid_count), Chromosome = sum(chromosome_count)) %>%
@@ -1621,6 +1632,9 @@ Fig5B.data <- singleton.proteins %>%
     mutate(Annotation = factor(
                Annotation,
                levels = rev(order.by.total.isolates)))
+
+## Save Source Data for Figure 5B.
+write.csv(Fig5B.data, "../results/Source-Data/Fig5B-Source-Data.csv", row.names=FALSE, quote=FALSE)
 
 Fig5A <- ggplot(Fig5A.data, aes(x = Count, y = Annotation, fill = Category)) +
     geom_bar(stat="identity", position = "fill", width = 0.95) +
@@ -1655,7 +1669,6 @@ category.summed.D.genes <- Fig5A.data %>%
 category.summed.S.genes <- Fig5B.data %>%
     group_by(Category, Episome) %>%
     summarize(summed_count = sum(Count))
-
 
 ## Figure 5C: 
 ## The observed ecological distribution of duplicate genes is driven by either
@@ -1733,6 +1746,8 @@ big.selection.test.df <- ARG.selection.test.df %>%
     full_join(MGE.selection.test.df) %>%
     full_join(other.selection.test.df)
 
+## Save Source Data for Figure 5C.
+write.csv(big.selection.test.df, "../results/Source-Data/Fig5C-Source-Data.csv", row.names=FALSE, quote=FALSE)
 
 Fig5C <- big.selection.test.df %>%
     ggplot(aes(y = Annotation, x = log(dup.singleton.ratio), color = Category)) +
@@ -1756,7 +1771,6 @@ if (USE.CARD.AND.MOBILE.OG.DB) { ## Then save as a Supplementary Figure S16.
 } else { ## save as a main Figure.
     ggsave("../results/Fig5ABC.pdf", Fig5ABC, width=8.75, height=4)
 }
-
 
 ################################################################################
 ## compare linkage between D-ARGs and MGE-genes and S-ARGs and MGE-genes.
@@ -1946,7 +1960,6 @@ length(unique(Dantas.singleton.proteins$Annotation_Accession))
 ## Now make Supplementary Figure S8.
 S8Fig <- make.clinical.genomes.D.ARG.Figure(Dantas.duplicate.proteins, Dantas.singleton.proteins,
                                             "Distribution of duplicated genes in 149 genomes\nfrom Barnes-Jewish Hospital (Mahmud et al. 2022)")
-
 ggsave("../results/S8Fig.pdf", S8Fig, height = 18, width = 11)
 
 #######################################################
@@ -2284,8 +2297,13 @@ annotated.top.clustered.ARG.associated.transposases <- full_join(
     top.transposase.annotations) %>%
     ## order the labels according to their rank.
     mutate(Transposase = factor(Transposase,levels=unique(Transposase), ordered=TRUE))
-    
 
+
+## Save Source Data for Figure 5E.
+write.csv(annotated.top.clustered.ARG.associated.transposases,
+          "../results/Source-Data/Fig5E-Source-Data.csv", row.names=FALSE, quote=FALSE)
+
+## Make Figure 5E.
 plot.of.top.clustered.ARG.associated.transposases <- annotated.top.clustered.ARG.associated.transposases %>%
     ggplot(aes(x=Transposase, fill=Genus, y=count)) +
     geom_bar(position="stack", stat="identity") +
@@ -2294,8 +2312,8 @@ plot.of.top.clustered.ARG.associated.transposases <- annotated.top.clustered.ARG
           legend.text = element_text(size = 8)) +
     theme(axis.text.x  = element_text(angle=45,vjust=0.5))
 
-## This will be Figure 5E.
-ggsave("../results/top-clustered-ARG-transposons.pdf",
+## Save Figure 5E.
+ggsave("../results/Fig5E.pdf",
        plot.of.top.clustered.ARG.associated.transposases, height = 5, width=6)
 
 # let's examine just the unique sequences in order to make a rank order list

@@ -24,6 +24,7 @@ begin
 	using StatsPlots
 	using DataFrames
 	using ColorSchemes
+	using CSV
 end
 
 # ╔═╡ 067221ad-e5d7-48fa-a6b1-6a89ffc33b87
@@ -260,11 +261,13 @@ antibiotic_sol = solve(antibiotic_prob);
 
 # ╔═╡ 46f89e44-2a2a-4b18-81d0-2f4c93db2fc2
 let
-	Fig4B = plot(antibiotic_sol,linewidth=2,xaxis="Time", size=(3.5*72,3*72),
+	Fig1B = plot(antibiotic_sol,linewidth=2,xaxis="Time", size=(3.5*72,3*72),
 					legend = false, fontfamily = "Helvetica", grid = false,
 					yaxis = "Biomass")
-	savefig(Fig4B, "../results/linear-ODE-model-figures/Fig1B-pop-dynamics.pdf")
-	Fig4B
+	savefig(Fig1B, "../results/linear-ODE-model-figures/Fig1B-pop-dynamics.pdf")
+	## save Source Data for Fig1B.
+	CSV.write("../results/Source-Data/Fig1B-Source-Data.csv", antibiotic_sol, header=["Time", "TypeI", "TypeII","TypeIII"])
+	Fig1B
 end
 
 # ╔═╡ 3ada8460-59d2-4650-8170-e1330be1182c
@@ -275,13 +278,13 @@ let
 	## IMPORTANT NOTE: THE TIME UNITS ARE MESSED UP! DON'T USE THIS FIGURE!
 	## This is *probably* because the timestep is not a fixed interval of time,
 	## but I haven't checked this to confirm.
-oldS4FigB = groupedbar(antibiotic_sol_array, bar_position = :stack, size=(3.5*72,3*72),
+oldFig1B = groupedbar(antibiotic_sol_array, bar_position = :stack, size=(3.5*72,3*72),
 					bar_width = 1, legend = false, fontfamily = "Helvetica", lw = 0,
 					grid = false,
 					ylabel = "Total biomass",
 					xlabel = "Time")
-savefig(oldS4FigB, "../results/linear-ODE-model-figures/old-Fig1B-pop-dynamics.pdf")
-oldS4FigB
+savefig(oldFig1B, "../results/linear-ODE-model-figures/old-Fig1B-pop-dynamics.pdf")
+oldFig1B
 end
 
 # ╔═╡ a5035e2d-b3d8-4f50-942f-ab6ec2aa91e6
@@ -330,11 +333,23 @@ end
 # ╔═╡ d4f12532-dd2b-4fb8-997b-d8b2740ac710
 let
 	fixed_parameters = [η, D, y]
-	
+
 	p = plot(size=(3.5*72,3*72))
+
+	## Create arrays to store the Source Data for this figure.
+	antibiotic_concs_data = Float64[]
+	dup_indices_data = Float64[]
+	cost_values_data = Float64[]
+	
 	for cost in 0.05:0.05:0.25
 		antibiotic_concs = [x for x in 0.25:0.001:1.2]
 		dup_indices = [ConcAndCostToFinalDuplicationIndex(x, cost, fixed_parameters) for x in antibiotic_concs]
+
+		## Append data to the arrays for Source Data.
+    	append!(antibiotic_concs_data, antibiotic_concs)
+    	append!(dup_indices_data, dup_indices)
+    	append!(cost_values_data, fill(cost, length(antibiotic_concs)))
+		
 		my_label = "cost = $cost"
 		plot!(antibiotic_concs, dup_indices, label=my_label,
 			legend = false,
@@ -344,6 +359,15 @@ let
 			fontfamily="Helvetica",
 			grid = false)
 	end
+
+	## Create a DataFrame to store the Source Data
+	Fig1C_source_data_df = DataFrame(
+    	Antibiotic_Concentration = antibiotic_concs_data,
+    	Duplication_Index = dup_indices_data,
+    	Cost = cost_values_data
+	)
+	## Save Fig1C Source Data to file.
+	CSV.write("../results/Source-Data/Fig1C-Source-Data.csv", Fig1C_source_data_df)
 	
 	savefig(p, "../results/linear-ODE-model-figures/Fig1C-DI-versus-selection.pdf")
 	p
@@ -379,9 +403,21 @@ end
 let
 	cost = 0.1
 	antibiotic_conc = 2.0
-	fig4D = plot(size=(3.5*72,3*72))
+	fig1D = plot(size=(3.5*72,3*72))
+
+	## Create arrays to store the Source Data for this figure.
+	time_data = Float64[]
+	duplication_index_data = Float64[]
+	duplication_rate_data = Float64[]
+	
 	for duplication_rate in [0, 2e-7, 2e-6, 2e-5, 2e-4]
 		DI_timeseries = TimeSeriesDuplicationIndex(antibiotic_conc, cost, duplication_rate, D, y)
+
+		## Append data to the arrays for Source Data.
+    	append!(time_data, DI_timeseries.t)
+    	append!(duplication_index_data, DI_timeseries.v)
+    	append!(duplication_rate_data, fill(duplication_rate,length(DI_timeseries.t)))
+		
 		my_label = "cost = $cost"
 		plot!(DI_timeseries.t, DI_timeseries.v, label=my_label,
 			legend = false,
@@ -391,9 +427,18 @@ let
 			fontfamily="Helvetica",
 			grid = false)
 	end
+
+	## Create a DataFrame to store the Source Data
+	Fig1D_source_data_df = DataFrame(
+    	Time = time_data,
+   		Duplication_Index = duplication_index_data,
+    	Duplication_Rate = duplication_rate_data
+	)
+	## Save Fig1D Source Data to file.
+	CSV.write("../results/Source-Data/Fig1D-Source-Data.csv", Fig1D_source_data_df)
 	
-	savefig(fig4D, "../results/linear-ODE-model-figures/Fig1D-DI-versus-TranspositionRate.pdf")
-	fig4D
+	savefig(fig1D, "../results/linear-ODE-model-figures/Fig1D-DI-versus-TranspositionRate.pdf")
+	fig1D
 end
 
 # ╔═╡ 36934771-b7a6-482e-b316-85ec429c5574
@@ -402,6 +447,7 @@ findcolorscheme("cvd")
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
@@ -412,6 +458,7 @@ PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 
 [compat]
+CSV = "~0.10.11"
 ColorSchemes = "~3.20.0"
 DataFrames = "~1.5.0"
 DifferentialEquations = "~7.7.0"
@@ -427,7 +474,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.5"
 manifest_format = "2.0"
-project_hash = "4a5758e5d7212ba70a5b931ea4dbefb2052443b0"
+project_hash = "9af07819404fe870252b549a3bd70cac7293ebe8"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -544,6 +591,12 @@ deps = ["CpuId", "IfElse", "Static"]
 git-tree-sha1 = "2c144ddb46b552f72d7eafe7cc2f50746e41ea21"
 uuid = "2a0fbf3d-bb9c-48f3-b0a9-814d99fd7ab9"
 version = "0.2.2"
+
+[[deps.CSV]]
+deps = ["CodecZlib", "Dates", "FilePathsBase", "InlineStrings", "Mmap", "Parsers", "PooledArrays", "PrecompileTools", "SentinelArrays", "Tables", "Unicode", "WeakRefStrings", "WorkerUtilities"]
+git-tree-sha1 = "44dbf560808d49041989b8a96cae4cffbeb7966a"
+uuid = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+version = "0.10.11"
 
 [[deps.Cairo_jll]]
 deps = ["Artifacts", "Bzip2_jll", "CompilerSupportLibraries_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "JLLWrappers", "LZO_jll", "Libdl", "Pixman_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Zlib_jll", "libpng_jll"]
@@ -799,6 +852,12 @@ git-tree-sha1 = "bdb1942cd4c45e3c678fd11569d5cccd80976237"
 uuid = "4e289a0a-7415-4d19-859d-a7e5c4648b56"
 version = "1.0.4"
 
+[[deps.EpollShim_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "8e9441ee83492030ace98f9789a654a6d0b1f643"
+uuid = "2702e6a9-849d-5ed8-8c21-79e8b8f9ee43"
+version = "0.0.20230411+0"
+
 [[deps.Expat_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "bad72f730e9e91c08d9427d5e8db95478a3c323d"
@@ -868,6 +927,12 @@ deps = ["Pkg", "Requires", "UUIDs"]
 git-tree-sha1 = "7be5f99f7d15578798f338f5433b6c432ea8037b"
 uuid = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
 version = "1.16.0"
+
+[[deps.FilePathsBase]]
+deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
+git-tree-sha1 = "e27c4ebe80e8699540f2d6c805cc12203b614f12"
+uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
+version = "0.9.20"
 
 [[deps.FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
@@ -1797,6 +1862,12 @@ git-tree-sha1 = "f739b1b3cc7b9949af3b35089931f2b58c289163"
 uuid = "d236fae5-4411-538c-8e31-a6e3d9e00b46"
 version = "0.4.12"
 
+[[deps.PrecompileTools]]
+deps = ["Preferences"]
+git-tree-sha1 = "03b4c25b43cb84cee5c90aa9b5ea0a78fd848d2f"
+uuid = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+version = "1.2.0"
+
 [[deps.Preferences]]
 deps = ["TOML"]
 git-tree-sha1 = "47e5f437cc0e7ef2ce8406ce1e7e24d44915f88d"
@@ -2320,16 +2391,22 @@ uuid = "19fa3120-7c27-5ec5-8db8-b0b0aa330d6f"
 version = "0.2.0"
 
 [[deps.Wayland_jll]]
-deps = ["Artifacts", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
-git-tree-sha1 = "ed8d92d9774b077c53e1da50fd81a36af3744c1c"
+deps = ["Artifacts", "EpollShim_jll", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
+git-tree-sha1 = "7558e29847e99bc3f04d6569e82d0f5c54460703"
 uuid = "a2964d1f-97da-50d4-b82a-358c7fce9d89"
-version = "1.21.0+0"
+version = "1.21.0+1"
 
 [[deps.Wayland_protocols_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "4528479aa01ee1b3b4cd0e6faef0e04cf16466da"
 uuid = "2381bf8a-dfd0-557d-9999-79630e7b1b91"
 version = "1.25.0+0"
+
+[[deps.WeakRefStrings]]
+deps = ["DataAPI", "InlineStrings", "Parsers"]
+git-tree-sha1 = "b1be2855ed9ed8eac54e5caff2afcdb442d52c23"
+uuid = "ea10d353-3f73-51f8-a26c-33c1cb351aa5"
+version = "1.4.2"
 
 [[deps.Widgets]]
 deps = ["Colors", "Dates", "Observables", "OrderedCollections"]
@@ -2342,6 +2419,11 @@ deps = ["LinearAlgebra", "SparseArrays"]
 git-tree-sha1 = "de67fa59e33ad156a590055375a30b23c40299d3"
 uuid = "efce3f68-66dc-5838-9240-27a6d6f5f9b6"
 version = "0.5.5"
+
+[[deps.WorkerUtilities]]
+git-tree-sha1 = "cd1659ba0d57b71a464a29e64dbc67cfe83d54e7"
+uuid = "76eceee3-57b5-4d4a-8e66-0e911cebbf60"
+version = "1.6.1"
 
 [[deps.XML2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "Zlib_jll"]
@@ -2569,20 +2651,20 @@ version = "3.5.0+0"
 
 [[deps.xkbcommon_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Wayland_jll", "Wayland_protocols_jll", "Xorg_libxcb_jll", "Xorg_xkeyboard_config_jll"]
-git-tree-sha1 = "9ebfc140cc56e8c2156a15ceac2f0302e327ac0a"
+git-tree-sha1 = "9c304562909ab2bab0262639bd4f444d7bc2be37"
 uuid = "d8fb68d0-12a3-5cfd-a85a-d49703b185fd"
-version = "1.4.1+0"
+version = "1.4.1+1"
 """
 
 # ╔═╡ Cell order:
 # ╠═9c4cf388-bacd-11ed-3a30-0f0349e5f60c
 # ╟─067221ad-e5d7-48fa-a6b1-6a89ffc33b87
 # ╟─8706c369-4696-4edb-bc80-199d3fd01af3
-# ╠═9e545059-b2c5-4134-b977-94984b01dc66
+# ╟─9e545059-b2c5-4134-b977-94984b01dc66
 # ╠═1cfeb2d1-e9f9-43cb-a700-cc758944cdc1
 # ╟─5943c034-659a-4ea7-8781-ac22d13d0baf
 # ╠═757af6dd-ed81-48d4-b703-bad3f5d77e71
-# ╠═31940f75-496f-4f5d-a027-f6bc82f9bea3
+# ╟─31940f75-496f-4f5d-a027-f6bc82f9bea3
 # ╠═d787a932-5cbe-459d-a193-a14261c46eb5
 # ╠═6ee60bf2-c926-47ba-a3b7-8f3b7fd9c3e6
 # ╠═e53719fe-5949-458e-94b8-ecca22ad05b9

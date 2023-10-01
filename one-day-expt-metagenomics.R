@@ -184,9 +184,11 @@ plot.mutation.summary.stackbar <- function(mutation.class.df, leg=FALSE, weight.
     return(fig)
 }
 
-## Now make Figure 2B.
-mutation.class.df <- make.mutation.class.df(evolved.mutations)
 
+## Write Figure 2B Source Data.
+mutation.class.df <- make.mutation.class.df(evolved.mutations)
+write.csv(mutation.class.df, "../results/Source-Data/Fig2B-Source-Data.csv", row.names=FALSE, quote=FALSE)
+## Now make Figure 2B.
 Fig2B <- plot.mutation.summary.stackbar(mutation.class.df, TRUE, FALSE)
 fig2B.output <- "../results/Fig2B.pdf"
 ggsave(Fig2B, file=fig2B.output,width=6,height=5)
@@ -460,7 +462,8 @@ MakeSummedAlleleFrequencyMatrixFigure <- function(evolved.muts,
     return(matrix.figure)
 }
 
-
+## Write Figure 2C Source Data.
+write.csv(Tet5.evolved.mutations, "../results/Source-Data/Fig2C-Source-Data.csv", row.names=FALSE, quote=FALSE)
 ## Figure 2C.
 Fig2C <- MakeMutCountMatrixFigure(Tet5.evolved.mutations, show.all=TRUE, use.treatment.hit.sort=TRUE)
 Fig2C.outf <- "../results/Fig2C.pdf"

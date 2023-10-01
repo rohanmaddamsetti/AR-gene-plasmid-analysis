@@ -1,7 +1,5 @@
 ##one-day-expt-copy-number-analysis.R by Rohan Maddamsetti.
 
-## TODO: the stuff related to Figure 5D is super slow.. speed up by preprocessing the slow bit in Python or Julia.
-
 ## 1) use xml2 to get negative binomial fit from
 ## breseq output summary.html. This is H0 null distribution of 1x coverage.
 
@@ -363,7 +361,6 @@ transposon.coverage.df <- read.csv(transposon.coverage.file) %>%
 ancestral.transposon.coverage.df <- ancestralclone.metadata %>%
     left_join(transposon.coverage.df)
 
-
 ancestral.replicon.coverage.df <- map_dfr(.x = ancestralclone.input.df$path, .f = coverage.nbinom.from.html) %>%
     ## fix the names of the samples.
     mutate(Sample = substring(Sample, remapped.prefix.len)) %>%
@@ -445,21 +442,24 @@ Tet0.ratio.plot <- evolved.replicon.coverage.ratio.df %>%
     ggtitle("0 ug/mL tetracycline, Day 1") +
     guides(color = "none", shape = "none")
 
-ratio.figure.Fig4 <- plot_grid(Tet5.ratio.plot, Tet0.ratio.plot, labels=c('A','B'),nrow=2)
-ggsave("../results/one-day-expt-coverage-ratios.pdf", ratio.figure.Fig4)
+ratio.figure <- plot_grid(Tet5.ratio.plot, Tet0.ratio.plot, labels=c('A','B'),nrow=2)
+ggsave("../results/one-day-expt-coverage-ratios.pdf", ratio.figure)
 
 ## let's write out the table too.
 write.csv(evolved.replicon.coverage.ratio.df, "../results/one-day-expt-plasmid-transposon-coverage-ratios.csv",
           quote=F, row.names=FALSE)
 
 ################################################################################
-## Figure 5A.
+## Figure 2A.
 
-## This is the big data frame for making Figure 5A.
+## This is the big data frame for making Figure 2A.
 ancestral.and.evolved.replicon.coverage.ratio.df <- full_join(
     ancestral.replicon.coverage.ratio.df, evolved.replicon.coverage.ratio.df)
 
-Fig5A.df <- ancestral.and.evolved.replicon.coverage.ratio.df %>%
+##test.df <- ancestral.and.evolved.replicon.coverage.ratio.df %>%
+##    filter(ratio_type == "transposons.per.chromosome")
+
+Fig2A.df <- ancestral.and.evolved.replicon.coverage.ratio.df %>%
     filter(ratio_type == "transposons.per.chromosome") %>%
     ## update the names of the Plasmid factor for a prettier plot.
     mutate(Plasmid = fct_recode(as.factor(Plasmid),
@@ -473,20 +473,19 @@ Fig5A.df <- ancestral.and.evolved.replicon.coverage.ratio.df %>%
     mutate(Tet = as.factor(Tet)) %>%
     mutate(Population = as.factor(Population)) %>%
     mutate(Day = as.factor(Day))
-  
-Fig5A <- ggplot(Fig5A.df,
-                       aes(x = Day,
-                           y = ratio,
-                           color = Transposon,
-                           shape = Tet)) +
+
+## Write Figure 2A Source Data.
+write.csv(Fig2A.df, "../results/Source-Data/Fig2A-Source-Data.csv", row.names=FALSE, quote=FALSE)
+
+## Make Figure 2A.
+Fig2A <- ggplot(Fig2A.df, aes(x = Day, y = ratio, color = Transposon, shape = Tet)) +
     facet_wrap(.~Plasmid, scales="free") +
     geom_point(size=3) +
     theme_classic() +
     theme(legend.position = "bottom") +
     theme(strip.background = element_blank()) +
     ylab("tetA-transposons per chromosome")
-
-ggsave("../results/Fig5A.pdf", Fig5A, width=4.5, height=3.25)
+ggsave("../results/Fig2A.pdf", Fig2A, width=4.5, height=3.25)
 
 ########################################################
 ## Heatmap figure for examining amplifications.
@@ -527,13 +526,12 @@ acrABR.amps <- annotated.amps %>%
     filter(str_detect(gene, "acr"))
 
 ################################################################################
-## Figure 5D.
+## Figure 2D.
 ## Make a figure of normalized chromosomal coverage per gene in E. coli K12+B59 samples.
 ## show K12+B30 samples too, as an additional control.
 ##These samples do not have an active transposase, and there is evidence of
 ##copy number variation in a very large region surround the native efflux pump operon
 ##acrAB.
-
 
 ## for each sample, calculate mean coverage per protein-coding gene.
 get.protein.coverage.per.sample <- function(row.df) { 
@@ -622,8 +620,8 @@ evolved.sample.protein.coverage.df <- evolved.protein.coverage.input.df %>%
 
 saved.protein.coverage.df <- sample.protein.coverage.df
 
-## make a Figure 4H.
-evolved.protein.coverage.df2 <- evolved.sample.protein.coverage.df %>%
+## Make data structure for Figure 2D.
+Fig2D.df <- evolved.sample.protein.coverage.df %>%
     mutate(is.B59.Tet5 = ifelse(Transposon == "B59", ifelse(Tet == 5, TRUE, FALSE), FALSE)) %>%
     relocate(Sample, Population, Transposon, Tet, Plasmid) %>%
     ## update the names of the Transposon factor for a prettier plot.
@@ -639,10 +637,11 @@ evolved.protein.coverage.df2 <- evolved.sample.protein.coverage.df %>%
                                        p15A = "p15A")) %>%
     ## unite the Transposon_factor, Tet_factor columns together.
     unite("Treatment", Transposon_factor:Tet_factor, sep="\n", remove = FALSE)
-    
-
-evolved.coverage.plot <- ggplot(evolved.protein.coverage.df2,
-                             aes(x=start, y=mean_coverage, color = is.B59.Tet5)) +
+## Write Figure 2D Source Data to file.
+write.csv(Fig2D.df, "../results/Source-Data/Fig2D-Source-Data.csv", row.names=FALSE, quote=FALSE)
+ 
+## make Figure 2D.
+Fig2D <- ggplot(Fig2D.df, aes(x=start, y=mean_coverage, color = is.B59.Tet5)) +
     facet_grid(Treatment~Plasmid_factor) +
     geom_point(size=0.01,alpha=0.05) +
     theme_classic() +
@@ -657,8 +656,7 @@ evolved.coverage.plot <- ggplot(evolved.protein.coverage.df2,
     theme(axis.text.y = element_text(size = 5)) +
     guides(color = "none") +
     scale_color_manual(values=c("gray", "blue"))
-
-ggsave("../results/Fig5D.pdf", evolved.coverage.plot, height=3,width=7)
+ggsave("../results/Fig2D.pdf", evolved.coverage.plot, height=3,width=7)
 
 ## ALSO: let's look at genes that have no unique coverage-- these are repeats!
 repeated.genes.by.coverage <- evolved.protein.coverage.df2 %>%

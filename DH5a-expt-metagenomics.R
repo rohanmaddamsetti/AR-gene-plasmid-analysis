@@ -87,8 +87,6 @@ evolved.mutations <- read.csv(
                                    `Tet 0` = "0",
                                    `Tet 50` = "50"))
 
-
-
 #################################################################################
 ### Figure 1E: make a matrix plot of genes with mutations in two or more clones.
 ################################################################################
@@ -282,6 +280,9 @@ Fig1E.data <- full_join(evolved.MOB,
 Fig1E <- MakeMutCountMatrixFigure(Fig1E.data,
                                  show.all=TRUE, ## This is needed to show the MOB insertions too.
                                  use.treatment.hit.sort=FALSE)
+
+## Write Figure 1E Source Data.
+write.csv(Fig1E.data, "../results/Source-Data/Fig1E-Source-Data.csv", row.names=FALSE, quote=FALSE)
 
 ## Figure 1E in the ARG duplications manuscript.
 Fig1E.outf <- "../results/Fig1E.pdf"
