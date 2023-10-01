@@ -613,9 +613,20 @@ Fig2D.df <- evolved.sample.protein.coverage.df %>%
                                        `No plasmid` = "None",
                                        p15A = "p15A")) %>%
     ## unite the Transposon_factor, Tet_factor columns together.
-    unite("Treatment", Transposon_factor:Tet_factor, sep="\n", remove = FALSE)
+    unite("Treatment", Transposon_factor:Tet_factor, sep="\n", remove = FALSE) %>%
+    ## the product and Alias columns are lists!!
+    ## turn these columns into character vectors,
+    ## and handle the cases for tetA, KanR, CmR, and Tn5 genes,
+    ## so that we can save this dataframe as Source Data.
+    mutate(product = as.character(product)) %>%
+    mutate(product = ifelse(Gene %in% c("tetA", "CmR", "KanR", "Tn5"), Gene, product)) %>%
+    mutate(Alias = as.character(Alias)) %>%
+    mutate(Alias = ifelse(Gene %in% c("tetA", "CmR", "KanR", "Tn5"), Gene, Alias)) %>%
+    mutate(ID = ifelse(Gene %in% c("tetA", "CmR", "KanR", "Tn5"), Gene, ID))
+
 ## Write Figure 2D Source Data to file.
-write.csv(Fig2D.df, "../results/Source-Data/Fig2D-Source-Data.csv", row.names=FALSE, quote=FALSE)
+## IMPORTANT: one column includes a newline character, so we need quote=TRUE.
+write.csv(Fig2D.df, "../results/Source-Data/Fig2D-Source-Data.csv", row.names = FALSE, quote=TRUE)
  
 ## make Figure 2D.
 Fig2D <- ggplot(Fig2D.df, aes(x=start, y=mean_coverage, color = is.B59.Tet5)) +
@@ -629,14 +640,16 @@ Fig2D <- ggplot(Fig2D.df, aes(x=start, y=mean_coverage, color = is.B59.Tet5)) +
                xintercept = c(480478, 484843, 484985)) +
     scale_x_continuous(name = "Genomic position (Mb)", breaks = c(0,1000000,2000000,3000000,4000000),
                        labels = c(0,1,2,3,4)) +
-    scale_y_continuous(name = "Illumina read coverage", breaks = c(0,250,500), limits=c(0,500)) +
+    scale_y_continuous(name = "Illumina read coverage", breaks = c(0,250,500), limits = c(0,575)) +
     theme(axis.text.y = element_text(size = 5)) +
     guides(color = "none") +
     scale_color_manual(values=c("gray", "blue"))
-ggsave("../results/Fig2D.pdf", evolved.coverage.plot, height=3,width=7)
+## 2 outlier points with very high coverage are removed from this plot
+## by setting max coverage to 575x in this figure.
+ggsave("../results/Fig2D.pdf", Fig2D, height=3,width=7)
 
 ## ALSO: let's look at genes that have no unique coverage-- these are repeats!
-repeated.genes.by.coverage <- evolved.protein.coverage.df2 %>%
+repeated.genes.by.coverage <- Fig2D.df %>%
     filter(mean_coverage < 50) %>%
     filter(Tet == 5) %>%
     filter(Transposon == "B59") %>%
@@ -644,4 +657,4 @@ repeated.genes.by.coverage <- evolved.protein.coverage.df2 %>%
     filter(end < 1000000) %>%
     select(Sample, Population, Treatment, start, end, gene_length, product, Gene, Alias, ID, mean_coverage) %>%
     arrange(start)
-
+ 
