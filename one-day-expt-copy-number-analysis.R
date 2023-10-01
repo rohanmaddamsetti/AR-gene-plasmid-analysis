@@ -28,7 +28,6 @@ library(IRanges)
 library(GenomicRanges)
 library(rtracklayer)
 
-
 #' parse the summary.html breseq output file, and return the mean and relative variance
 #' of the negative binomial fit to the read coverage distribution, returned as a
 #' data.frame with columns {mean, relative.variance}.
@@ -356,7 +355,6 @@ transposon.coverage.df <- read.csv(transposon.coverage.file) %>%
     dplyr::rename(mean = TransposonCoverage) %>%
     dplyr::mutate(replicon = "transposon")
 
-
 ## data for the ancestral samples.
 ancestral.transposon.coverage.df <- ancestralclone.metadata %>%
     left_join(transposon.coverage.df)
@@ -364,15 +362,12 @@ ancestral.transposon.coverage.df <- ancestralclone.metadata %>%
 ancestral.replicon.coverage.df <- map_dfr(.x = ancestralclone.input.df$path, .f = coverage.nbinom.from.html) %>%
     ## fix the names of the samples.
     mutate(Sample = substring(Sample, remapped.prefix.len)) %>%
-    ## add the Ancestor column.
-    mutate(Ancestor = Sample) %>%
+    ## add metadata.
     full_join(ancestralclone.metadata) %>%
-    ## I am not examining dispersion or variance at this point.
-    select(Sample, Ancestor, mean, replicon, Transposon, Plasmid) %>%
+    ## select the columns that matter in this analysis.
+    select(Sample, SampleType, Transposon, Plasmid, replicon, mean) %>%
     ## add rows for the transposon coverage data.
     full_join(ancestral.transposon.coverage.df) %>%
-        ## remove the pUC samples.
-    filter(Plasmid != "pUC") %>%
     ## set sensible default values for these columns
     ## for comparison to the evolved populations.
     mutate(Population = 1) %>%
@@ -389,26 +384,20 @@ ancestral.replicon.coverage.ratio.df <- ancestral.replicon.coverage.df %>%
     ## add a Day column to compare to evolved samples.
     mutate(Day = 0)
 
-
 ## data for the evolved samples.
 evolved.transposon.coverage.df <- metagenome.metadata %>%
     left_join(transposon.coverage.df) %>%
-    ## don't need this when joining to evolved.replicon.coverage.df
-    select(-SampleType) %>%
-    ## remove the pUC samples.
+    ## IMPORTANT: remove the pUC samples.
     filter(Plasmid != "pUC") %>%
-    ## remove the ancestral samples.
-    filter(!is.na(Population))
+    ## we don't need this when joining to evolved.replicon.coverage.df.
+    select(-SampleType)
 
 evolved.replicon.coverage.df <- map_dfr(.x = mixedpop.input.df$path, .f = coverage.nbinom.from.html) %>%
     inner_join(metagenome.metadata) %>%
     ## I am not examining dispersion or variance at this point.
     select(Sample, mean, replicon, Transposon, Plasmid, Population, Tet) %>%
     ## add rows for the transposon coverage data.
-    full_join(evolved.transposon.coverage.df) %>%
-    ## remove the pUC samples.
-    filter(Plasmid != "pUC")
-    
+    full_join(evolved.transposon.coverage.df)    
 
 evolved.replicon.coverage.ratio.df <- evolved.replicon.coverage.df %>%
     pivot_wider(names_from = replicon, values_from = mean, names_prefix = "mean_") %>%
@@ -416,11 +405,11 @@ evolved.replicon.coverage.ratio.df <- evolved.replicon.coverage.df %>%
     summarise(transposons.per.chromosome = (mean_transposon/mean_chromosome),
               plasmids.per.chromosome = (mean_plasmid/mean_chromosome),
               transposons.per.plasmid = (mean_transposon/mean_plasmid)) %>%
+    ungroup() %>%
     pivot_longer(cols = c(transposons.per.chromosome,plasmids.per.chromosome,transposons.per.plasmid),
                  names_to = "ratio_type", values_to = "ratio") %>%
     ## add a Day column to compare to ancestral samples.
     mutate(Day = 1)
-
 
 Tet5.ratio.plot <- evolved.replicon.coverage.ratio.df %>%
     filter(Tet == 5) %>%
@@ -443,6 +432,9 @@ Tet0.ratio.plot <- evolved.replicon.coverage.ratio.df %>%
     guides(color = "none", shape = "none")
 
 ratio.figure <- plot_grid(Tet5.ratio.plot, Tet0.ratio.plot, labels=c('A','B'),nrow=2)
+## The warning messages in saving the plot correspond to the missing ratios
+## for the 'No plasmid' strains for which transposon.per.plasmid
+## and plasmid.per.chromosome are undefined (NA).
 ggsave("../results/one-day-expt-coverage-ratios.pdf", ratio.figure)
 
 ## let's write out the table too.
@@ -454,10 +446,8 @@ write.csv(evolved.replicon.coverage.ratio.df, "../results/one-day-expt-plasmid-t
 
 ## This is the big data frame for making Figure 2A.
 ancestral.and.evolved.replicon.coverage.ratio.df <- full_join(
-    ancestral.replicon.coverage.ratio.df, evolved.replicon.coverage.ratio.df)
-
-##test.df <- ancestral.and.evolved.replicon.coverage.ratio.df %>%
-##    filter(ratio_type == "transposons.per.chromosome")
+    ancestral.replicon.coverage.ratio.df, evolved.replicon.coverage.ratio.df) %>%
+    ungroup()
 
 Fig2A.df <- ancestral.and.evolved.replicon.coverage.ratio.df %>%
     filter(ratio_type == "transposons.per.chromosome") %>%
@@ -467,8 +457,8 @@ Fig2A.df <- ancestral.and.evolved.replicon.coverage.ratio.df %>%
                                 p15A = "p15A")) %>%
     ## update the names of the Transposon factor for a prettier plot.
     mutate(Transposon = fct_recode(as.factor(Transposon),
-                                Active = "B30",
-                                Inactive = "B59")) %>%
+                                   Inactive = "B59",
+                                   Active = "B30")) %>%
     ## turn Tet, Population, Day into discrete factors for plotting.
     mutate(Tet = as.factor(Tet)) %>%
     mutate(Population = as.factor(Population)) %>%
@@ -511,7 +501,6 @@ amp.segment.plot <- plot.amp.segments(annotated.amps)
 ## show the plot.
 ggsave("../results/B59-amplification-heatmap.pdf", amp.segment.plot)
 
-
 parallel.amplified.genes <- annotated.amps %>%
     group_by(gene, locus_tag, start, end) %>%
     summarize(parallel.amplifications = n()) %>%
@@ -552,7 +541,7 @@ get.protein.coverage.per.sample <- function(row.df) {
         ## just reading the data into memory is a major bottleneck.
         as.data.frame()
 
-    get.coverage.per.protein <- function(my.protein) {
+    get.coverage.per.protein <- function(my.protein) {        
         relevant.coverage <- genome.coverage.df %>%
             dplyr::filter(position >= my.protein$start) %>%
             dplyr::filter(position <= my.protein$end)
@@ -578,11 +567,16 @@ get.protein.coverage.per.sample <- function(row.df) {
         dplyr::rename(gene_length = ref.width) %>%
         dplyr::rename(product = ref.Note) %>%
         ## this next line filters out the tetA and CmR genes on the transposon and plasmid.
-        dplyr::filter(!is.na(gene_length))
+        dplyr::filter(!is.na(gene_length)) %>%
+        ## IMPORTANT: some genes have multiple protein products.
+        ## However, each protein corresponds to unique row in ref.protein.df.
+        ## To address this issue, add a protein.index column, and
+        ## split by protein.index rather than Gene (which is non-unique).
+        mutate(protein.index = row_number())
 
-    ## now get the coverage for each protein in the reference genome.
+    ## now get the coverage for each annotated protein in the reference genome.
     protein.coverage.df <- ref.protein.df %>%
-        split(.$Gene) %>%
+        split(.$protein.index) %>%
         map_dfr(.f = get.coverage.per.protein) %>%
         ## this is a critical step: we need to label with the sample,
         mutate(Sample = gnome) %>%
@@ -593,32 +587,15 @@ get.protein.coverage.per.sample <- function(row.df) {
 }
 
 
-## CRITICAL TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-## double check the position comparison code, to make sure there is no bug there-- heed the warnings().
-
-
-ancestral.protein.coverage.input.df <- ancestralclone.input.df %>%
-    left_join(ancestralclone.metadata) %>%
-    select(-SampleType) %>%
-    left_join(ancestral.clones.df)
-
 evolved.protein.coverage.input.df <- mixedpop.input.df %>%
     left_join(metagenome.metadata) %>%
     select(-SampleType) %>%
     left_join(ancestral.clones.df)
 
-## get coverage per gene for all ancestral clones.
-ancestral.clone.protein.coverage.df <- ancestral.protein.coverage.input.df %>%
-    split(.$Sample) %>%
-    map_dfr(.f = get.protein.coverage.per.sample)
-
 ## get coverage per gene for all evolved samples.
 evolved.sample.protein.coverage.df <- evolved.protein.coverage.input.df %>%
     split(.$Sample) %>%
     map_dfr(.f = get.protein.coverage.per.sample)
-
-
-saved.protein.coverage.df <- sample.protein.coverage.df
 
 ## Make data structure for Figure 2D.
 Fig2D.df <- evolved.sample.protein.coverage.df %>%
