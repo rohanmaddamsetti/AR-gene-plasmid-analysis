@@ -166,6 +166,8 @@ plot.mutation.summary.stackbar <- function(mutation.class.df, leg=FALSE, weight.
         theme_classic(base_family='Helvetica') +
         theme(axis.text.x=element_text(size=12,angle=45,hjust=1),
               axis.text.y=element_text(size=12),
+              legend.text = element_text(size = 14),
+              strip.text = element_text(size = 12),
               panel.border=element_blank(),
               strip.background = element_blank(),
               panel.spacing.x=unit(1, "cm"),
