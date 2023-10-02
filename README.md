@@ -5,7 +5,8 @@
 ## R 4.0  
 ## Julia 1.8.5  
 ### Mash 2.3: https://github.com/marbl/Mash  
-### Assembly Dereplicator 0.3.1: https://github.com/rrwick/Assembly-Dereplicator  
+### Assembly Dereplicator 0.3.1: https://github.com/rrwick/Assembly-Dereplicator
+### NCBI sra-toolkit 3.0.5  
 ### DIAMOND 2.1.6: http://www.diamondsearch.org  
 ### kallisto 0.48.0: https://pachterlab.github.io/kallisto/  
 
