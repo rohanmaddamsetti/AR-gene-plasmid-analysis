@@ -72,7 +72,7 @@ $\frac{dx_3}{dt} = f_3x_3 (1 - \Sigma x_i) - Dx_3 + \eta x_1$
 
 **Growth functions**
 
-$f_i = (1-c)^x \frac{K_j^n}{K_j^n + A^n}$ where $A$ is antibiotic concentration and $K_i$ is the concentration of antibiotic that reduces growth by 50%, $n$ is a Hill coefficient, $(1-c)$ is the cost of expressing the ARG, and $x$ is the physical number of ARGs in the cell.
+$f_i = (1-c)^x \frac{K_j^n}{K_j^n + A^n}$ where $A$ is antibiotic concentration and $K_i$ is the concentration of antibiotic that reduces growth by 50%, $n$ is a Hill coefficient, $c$ is the cost of expressing the ARG, and $x$ is the physical number of ARGs in the cell.
 
 We assume that the plasmid has a copy number of y, with values ranging from 0 to 4. We assume a Hill cofficient $n = 3$. We also assume that $0 < c < 1$, and that $A > 0$. $K$ varies depending on the configuration of genes on chromosome or plasmid:
 
