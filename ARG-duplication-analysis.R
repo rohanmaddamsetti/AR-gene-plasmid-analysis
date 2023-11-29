@@ -435,13 +435,13 @@ write.csv(x=S3DataFile,
           quote=F, row.names=F)
 
 ##########################################################################
-## Figure 1ABCD. A deterministic ODE model demonstrates that selection can
+## Figure 1ABCDE. A deterministic ODE model demonstrates that selection can
 ## drive the evolution of duplicated ARGs on plasmids.
 
 ## The panels of this figure are generated in my Pluto notebook:
 ## duplication-linear-ODE-model.jl.
 ##########################################################################
-## Figure 1E is an analysis of the 9-day Tet50 evolution experiment.
+## Figure 1F is an analysis of the 9-day Tet50 evolution experiment.
 ##########################################################################
 ## Figure 2 is an analysis of the one-day Tet5 evolution experiment.
 ##########################################################################

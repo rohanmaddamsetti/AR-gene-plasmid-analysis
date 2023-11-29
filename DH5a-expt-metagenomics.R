@@ -274,19 +274,18 @@ parallel.genes.in.Tet50 <- parallel.genes %>%
 parallel.mutations.in.Tet50 <- evolved.mutations %>%
     filter(Gene %in% parallel.genes.in.Tet50$Gene)
 
-Fig1E.data <- full_join(evolved.MOB,
+Fig1F.data <- full_join(evolved.MOB,
                        filter(parallel.mutations.in.Tet50, Allele != "MOB"))
 
-Fig1E <- MakeMutCountMatrixFigure(Fig1E.data,
+Fig1F <- MakeMutCountMatrixFigure(Fig1F.data,
                                  show.all=TRUE, ## This is needed to show the MOB insertions too.
                                  use.treatment.hit.sort=FALSE)
 
-## Write Figure 1E Source Data.
-write.csv(Fig1E.data, "../results/Source-Data/Fig1E-Source-Data.csv", row.names=FALSE, quote=FALSE)
+## Write Figure 1F Source Data.
+write.csv(Fig1F.data, "../results/Source-Data/Fig1F-Source-Data.csv", row.names=FALSE, quote=FALSE)
 
-## Figure 1E in the ARG duplications manuscript.
-Fig1E.outf <- "../results/Fig1E.pdf"
-ggsave(Fig1E.outf, Fig1E, height=6, width=12)
-ggsave("../results/Fig1E.pdf", Fig1E, height=6, width=12)
-
+## Figure 1F in the ARG duplications manuscript.
+Fig1F.outf <- "../results/Fig1F.pdf"
+ggsave(Fig1F.outf, Fig1F, height=6, width=12)
+ggsave("../results/Fig1F.pdf", Fig1F, height=6, width=12)
 
